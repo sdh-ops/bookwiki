@@ -50,10 +50,13 @@ export default function PostDetailPage() {
                 return;
             }
 
-            // Increment view count
-            await supabase.rpc('increment_view_count', { post_id: id });
+            // Increment view count (direct update instead of RPC)
+            await supabase
+                .from("bw_posts")
+                .update({ view_count: (postData.view_count || 0) + 1 })
+                .eq("id", id);
 
-            setPost(postData);
+            setPost({ ...postData, view_count: (postData.view_count || 0) + 1 });
 
             // Fetch comments
             const { data: commentData, error: commentError } = await supabase

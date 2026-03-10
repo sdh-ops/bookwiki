@@ -70,12 +70,12 @@ export default function WritePage() {
     };
 
     // All boards for logged-in users, only free board for guests
+    // AI허브는 글쓰기 게시판이 아님 - AI 기능 제공 페이지
     const boardCategories = user
         ? [
             { name: "자유게시판", id: "free" },
             { name: "구인구직", id: "job" },
             { name: "지원사업", id: "support" },
-            { name: "AI허브", id: "ai" },
         ]
         : [
             { name: "자유게시판", id: "free" },
