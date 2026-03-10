@@ -234,6 +234,14 @@ function PostList() {
                   </button>
                 </li>
               ))}
+              <li className="border-b border-gray-100 last:border-0">
+                <Link
+                  href="/calendar"
+                  className="block w-full text-left px-3 py-2 hover:bg-gray-50 text-gray-700 flex items-center gap-1"
+                >
+                  <span>📅</span> 마감 캘린더
+                </Link>
+              </li>
             </ul>
           </div>
 

@@ -6,179 +6,200 @@ const iconv = require('iconv-lite');
 const { supabase } = require('./common');
 const qs = require('qs');
 
-// Configuration from environment or user provided
+const MAX_POSTS = 100;
+const START_DATE = new Date('2026-03-01');
 const BE_USER = process.env.BOOKEDITOR_ID || 'sdh0815';
 const BE_PASS = process.env.BOOKEDITOR_PW || 'Sk18061806!';
 
 async function scrapeBookEditor() {
-    console.log('Starting Advanced BookEditor scraping...');
+    console.log('Starting BookEditor scraping...');
     const baseUrl = 'http://bookeditor.org';
-    const loginUrl = `${baseUrl}/login/logincheck.php`;
-    const listUrl = `${baseUrl}/editorplaza/sub9/blist.php`;
+    const posts = [];
 
     try {
-        // 1. Session Login
-        console.log('Attempting login...');
-        const loginData = qs.stringify({
-            id: BE_USER,
-            passwd: BE_PASS
-        });
+        // Login
+        console.log('Logging in...');
+        let sessionCookie = '';
+        try {
+            const loginResponse = await axios.post(`${baseUrl}/login/logincheck.php`,
+                qs.stringify({ id: BE_USER, passwd: BE_PASS }), {
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': 'Mozilla/5.0' },
+                maxRedirects: 0,
+                validateStatus: (status) => status >= 200 && status < 400
+            });
+            const cookies = loginResponse.headers['set-cookie'];
+            sessionCookie = cookies ? cookies.join('; ') : '';
+        } catch (e) {}
+        console.log('Login done.');
 
-        const loginResponse = await axios.post(loginUrl, loginData, {
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-                'User-Agent': 'Mozilla/5.0'
-            },
-            maxRedirects: 0, // Catch the redirect cookie
-            validateStatus: (status) => status >= 200 && status < 400
-        });
+        let start = 0;
+        const pageSize = 25;
 
-        const cookies = loginResponse.headers['set-cookie'];
-        if (!cookies) {
-            console.error('Login failed: No cookies received.');
-            // return; // Continue anyway as some content might be public
-        }
-        const sessionCookie = cookies ? cookies.join('; ') : '';
-        console.log('Login successful (or proceeded without cookies).');
+        while (posts.length < MAX_POSTS) {
+            const listUrl = `${baseUrl}/editorplaza/sub9/blist.php?start=${start}`;
+            console.log(`Fetching list (start=${start})...`);
 
-        // 2. Fetch Listing
-        const listResponse = await axios.get(listUrl, {
-            responseType: 'arraybuffer',
-            headers: {
-                'Cookie': sessionCookie,
-                'User-Agent': 'Mozilla/5.0'
-            }
-        });
-        const listHtml = iconv.decode(Buffer.from(listResponse.data), 'euc-kr');
-        const $list = cheerio.load(listHtml);
-        const posts = [];
+            const listResponse = await axios.get(listUrl, {
+                responseType: 'arraybuffer',
+                headers: { 'Cookie': sessionCookie, 'User-Agent': 'Mozilla/5.0' }
+            });
+            const listHtml = iconv.decode(Buffer.from(listResponse.data), 'euc-kr');
+            const $list = cheerio.load(listHtml);
 
-        const rows = $list('tr[bgcolor]');
-        console.log(`Found ${rows.length} potential posts in listing.`);
+            const rows = $list('tr[bgcolor]');
+            if (rows.length === 0) break;
 
-        for (let i = 0; i < rows.length; i++) {
-            const el = rows[i];
-            const titleLink = $list(el).find('a.board');
-            const tds = $list(el).find('td');
+            for (let i = 0; i < rows.length && posts.length < MAX_POSTS; i++) {
+                const el = rows[i];
+                const titleLink = $list(el).find('a.board');
+                const tds = $list(el).find('td');
 
-            if (titleLink.length > 0 && tds.length >= 5) {
-                const titleText = titleLink.text().trim();
-                const postIdText = $list(tds[0]).text().trim();
-                const postId = parseInt(postIdText);
+                if (titleLink.length > 0 && tds.length >= 5) {
+                    const titleText = titleLink.text().trim();
+                    const postId = parseInt($list(tds[0]).text().trim());
 
-                if (!isNaN(postId) && !titleText.includes('공지')) {
-                    const detailUrl = `${baseUrl}/editorplaza/sub9/bread.php?id=${postId}&code=bepsub9&bookid=&start=0`;
-                    const author = $list(tds[4]).text().trim() || '익명업체';
+                    if (!isNaN(postId) && !titleText.includes('공지')) {
+                        const detailUrl = `${baseUrl}/editorplaza/sub9/bread.php?id=${postId}&code=bepsub9&start=0`;
+                        const author = $list(tds[4]).text().trim() || '익명';
 
-                    // 3. Fetch Detail for each post
-                    console.log(`Processing detail for: ${titleText} (${postId})`);
-                    try {
-                        const detailResponse = await axios.get(detailUrl, {
-                            responseType: 'arraybuffer',
-                            headers: {
-                                'Cookie': sessionCookie,
-                                'User-Agent': 'Mozilla/5.0'
+                        // Date filter
+                        const dateText = $list(tds[2]).text().trim() || $list(tds[3]).text().trim();
+                        const dateMatch = dateText.match(/(\d{2,4})[-/](\d{2})[-/](\d{2})/);
+                        if (dateMatch) {
+                            const year = dateMatch[1].length === 2 ? 2000 + parseInt(dateMatch[1]) : parseInt(dateMatch[1]);
+                            const postDate = new Date(year, parseInt(dateMatch[2]) - 1, parseInt(dateMatch[3]));
+                            if (postDate < START_DATE) {
+                                console.log(`  ⏭ Skipping old: ${titleText.substring(0, 25)}...`);
+                                continue;
                             }
-                        });
-                        const detailHtml = iconv.decode(Buffer.from(detailResponse.data), 'euc-kr');
-                        const $detail = cheerio.load(detailHtml);
+                        }
 
-                        // Extract content from detail page
-                        // Usually post body is in a table cell with specific valign or width
-                        let content = '';
-                        const contentCell = $detail('td[valign="top"]').first();
+                        if (posts.find(p => p.source_url === detailUrl)) continue;
 
-                        if (contentCell.length > 0) {
-                            // Convert relative images to absolute
-                            contentCell.find('img').each((j, img) => {
-                                const src = $detail(img).attr('src');
-                                if (src && !src.startsWith('http')) {
-                                    $detail(img).attr('src', `${baseUrl}/editorplaza/sub9/${src.replace(/^\.\//, '')}`);
+                        try {
+                            const detailResponse = await axios.get(detailUrl, {
+                                responseType: 'arraybuffer',
+                                headers: { 'Cookie': sessionCookie, 'User-Agent': 'Mozilla/5.0' }
+                            });
+                            const detailHtml = iconv.decode(Buffer.from(detailResponse.data), 'euc-kr');
+                            const $ = cheerio.load(detailHtml);
+
+                            $('script, style, link, meta, noscript').remove();
+
+                            // Find content in table with width=575 (the content table)
+                            let content = '';
+                            let authorEmail = '';
+
+                            // The structure: table width=575 contains author info and content
+                            $('table[width="575"]').each((_, table) => {
+                                const tableHtml = $(table).html() || '';
+                                const tableText = $(table).text().replace(/\s+/g, ' ').trim();
+
+                                // Skip the title row table
+                                if (tableText.length < 100) return;
+
+                                // This should be the content table
+                                // It has "작성자" and the actual post content
+
+                                // Extract author email
+                                const emailMatch = tableHtml.match(/mailto:([^"]+)/);
+                                if (emailMatch) {
+                                    authorEmail = emailMatch[1];
+                                }
+
+                                // Find the content paragraph
+                                const contentTd = $(table).find('td p.style1');
+                                if (contentTd.length > 0) {
+                                    contentTd.each((_, p) => {
+                                        const pStyle = $(p).attr('style') || '';
+                                        // The content p usually has margin-left:20px
+                                        if (pStyle.includes('margin-left') || pStyle.includes('margin-top')) {
+                                            const pHtml = $(p).html()?.trim();
+                                            if (pHtml && pHtml.length > content.length) {
+                                                content = pHtml;
+                                            }
+                                        }
+                                    });
+                                }
+
+                                // If not found, try getting all trs with content
+                                if (!content || content.length < 100) {
+                                    $(table).find('tr').each((_, tr) => {
+                                        const trText = $(tr).text().replace(/\s+/g, ' ').trim();
+                                        const trHtml = $(tr).html() || '';
+
+                                        // Look for the row with actual content (not author row)
+                                        if (trText.length > 200 && !trText.startsWith('작성자')) {
+                                            // Get the inner content
+                                            const innerContent = $(tr).find('td').html()?.trim();
+                                            if (innerContent && innerContent.length > content.length) {
+                                                content = innerContent;
+                                            }
+                                        }
+                                    });
                                 }
                             });
 
-                            // Extract text and images as HTML or enhanced Markdown
-                            content = contentCell.html().trim();
-                        } else {
-                            content = `내용을 가져올 수 없습니다. 원본 링크를 확인해 주세요.\n\n원본 출처: ${detailUrl}`;
-                        }
+                            // Clean up content
+                            content = content
+                                .replace(/<script[\s\S]*?<\/script>/gi, '')
+                                .replace(/<style[\s\S]*?<\/style>/gi, '')
+                                .replace(/<!--[\s\S]*?-->/g, '')
+                                // Convert <br> tags to proper line breaks for display
+                                .replace(/<br\s*\/?>/gi, '<br>')
+                                .trim();
 
-                        // Extract attachments
-                        const attachments = [];
-                        $detail('a[href*="download.php"], img[src*="file.gif"]').each((j, att) => {
-                            const link = $detail(att).is('a') ? $detail(att).attr('href') : $detail(att).closest('a').attr('href');
-                            if (link) {
-                                attachments.push(`${baseUrl}/editorplaza/sub9/${link.replace(/^\.\//, '')}`);
+                            // Fix image URLs
+                            content = content.replace(/src="(?!http)([^"]+)"/g, `src="${baseUrl}/editorplaza/sub9/$1"`);
+
+                            // Add author email if found
+                            if (authorEmail && content.length > 50) {
+                                content = `<div style="background:#f5f5f5;padding:10px 15px;margin-bottom:15px;border-radius:6px;font-size:13px;"><strong>✉️ 연락처:</strong> <a href="mailto:${authorEmail}">${authorEmail}</a></div>\n${content}`;
                             }
-                        });
 
-                        if (attachments.length > 0) {
-                            content += `\n\n### 첨부파일\n${attachments.map(a => `- [파일 다운로드](${a})`).join('\n')}`;
+                            // Style the content for better readability
+                            if (content.length > 50) {
+                                content = `<div style="line-height:1.8;font-size:14px;">${content}</div>`;
+                            }
+
+                            if (content.length > 100) {
+                                posts.push({
+                                    title: titleText,
+                                    source_url: detailUrl,
+                                    author: author,
+                                    board_type: 'job',
+                                    is_auto: true,
+                                    content: content
+                                });
+                                console.log(`[${posts.length}/${MAX_POSTS}] ✓ ${titleText.substring(0, 35)}... (${content.length} chars)`);
+                            } else {
+                                console.log(`  ⚠ No content: ${titleText.substring(0, 30)}...`);
+                            }
+
+                            await new Promise(r => setTimeout(r, 150));
+                        } catch (err) {
+                            console.error(`Failed: ${titleText.substring(0, 25)}... - ${err.message}`);
                         }
-
-                        posts.push({
-                            title: titleText,
-                            source_url: detailUrl,
-                            author: author,
-                            board_type: 'job',
-                            is_auto: true,
-                            content: content
-                        });
-                    } catch (detailErr) {
-                        console.error(`Failed to fetch detail for ${postId}:`, detailErr.message);
                     }
                 }
             }
-            // Limit to top 5 for testing to avoid overwhelming
-            if (posts.length >= 10) break;
+
+            start += pageSize;
+            if (start > 500) break;
         }
 
-        console.log(`Scraped ${posts.length} full posts. Syncing to database...`);
+        console.log(`\nTotal scraped: ${posts.length} posts.`);
 
+        let saved = 0;
         for (const post of posts) {
-            const { error } = await supabase
-                .from('bw_posts')
-                .upsert(post, { onConflict: 'source_url' });
-
-            if (error && error.code !== '23505') {
-                console.error(`Error inserting ${post.title}:`, error.message);
-            }
+            const { error } = await supabase.from('bw_posts').upsert(post, { onConflict: 'source_url' });
+            if (!error || error.code === '23505') saved++;
+            else console.error(`DB Error: ${error.message}`);
         }
 
-        await cleanupOldPosts();
-
-        console.log('Advanced BookEditor scraping finished.');
-
+        console.log(`Saved ${saved} posts.`);
     } catch (err) {
         console.error('BookEditor scraping failed:', err.message);
-    }
-}
-
-async function cleanupOldPosts() {
-    console.log('Cleaning up old automated posts (keeping latest 200)...');
-    try {
-        const { data: posts } = await supabase
-            .from('bw_posts')
-            .select('created_at')
-            .eq('board_type', 'job')
-            .eq('is_auto', true)
-            .order('created_at', { ascending: false })
-            .range(199, 199);
-
-        if (posts && posts.length > 0) {
-            const cutOffDate = posts[0].created_at;
-            const { error: deleteError } = await supabase
-                .from('bw_posts')
-                .delete()
-                .eq('board_type', 'job')
-                .eq('is_auto', true)
-                .lt('created_at', cutOffDate);
-
-            if (deleteError) console.error('Cleanup error:', deleteError.message);
-            else console.log(`Deleted posts older than ${cutOffDate}`);
-        }
-    } catch (err) {
-        console.error('Cleanup failed:', err.message);
     }
 }
 

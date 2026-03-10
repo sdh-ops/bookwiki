@@ -199,7 +199,29 @@ export default function PostDetailPage() {
                 </div>
 
                 <div className="min-h-[300px] text-gray-800 leading-relaxed text-sm">
-                    <div className="whitespace-pre-wrap mb-10" dangerouslySetInnerHTML={{ __html: post.content }}></div>
+                    <style jsx global>{`
+                        .post-content iframe {
+                            max-width: 100%;
+                            height: auto;
+                            min-height: 400px;
+                        }
+                        @media (max-width: 640px) {
+                            .post-content iframe {
+                                height: 350px !important;
+                                min-height: 350px;
+                            }
+                        }
+                        .post-content img {
+                            max-width: 100%;
+                            height: auto;
+                        }
+                        .post-content table {
+                            max-width: 100%;
+                            overflow-x: auto;
+                            display: block;
+                        }
+                    `}</style>
+                    <div className="post-content whitespace-pre-wrap mb-10 overflow-x-auto" dangerouslySetInnerHTML={{ __html: post.content }}></div>
 
                     {post.source_url && (
                         <div className="mt-10 pt-6 border-t border-gray-100 flex flex-col space-y-2">
