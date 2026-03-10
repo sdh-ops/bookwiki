@@ -49,7 +49,7 @@ async function scrapeKPIPA() {
             }
         });
 
-        console.log(`Found ${posts.length} new matching posts from KPIPA.`);
+        console.log(`Found ${posts.length} matching posts from KPIPA.`);
 
         for (const post of posts) {
             const { error } = await supabase
@@ -61,9 +61,39 @@ async function scrapeKPIPA() {
             }
         }
 
+        await cleanupOldPosts();
+
         console.log('KPIPA scraping finished.');
     } catch (err) {
         console.error('KPIPA scraping failed:', err.message);
+    }
+}
+
+async function cleanupOldPosts() {
+    console.log('Cleaning up old automated posts (keeping latest 200)...');
+    try {
+        const { data: posts } = await supabase
+            .from('bw_posts')
+            .select('created_at')
+            .eq('board_type', 'support')
+            .eq('is_auto', true)
+            .order('created_at', { ascending: false })
+            .range(199, 199);
+
+        if (posts && posts.length > 0) {
+            const cutOffDate = posts[0].created_at;
+            const { error: deleteError } = await supabase
+                .from('bw_posts')
+                .delete()
+                .eq('board_type', 'support')
+                .eq('is_auto', true)
+                .lt('created_at', cutOffDate);
+
+            if (deleteError) console.error('Cleanup error:', deleteError.message);
+            else console.log(`Deleted posts older than ${cutOffDate}`);
+        }
+    } catch (err) {
+        console.error('Cleanup failed:', err.message);
     }
 }
 
