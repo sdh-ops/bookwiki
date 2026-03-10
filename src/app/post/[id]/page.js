@@ -40,7 +40,7 @@ export default function PostDetailPage() {
             // Fetch post
             const { data: postData, error: postError } = await supabase
                 .from("bw_posts")
-                .select("*")
+                .select("*, source_url, is_auto")
                 .eq("id", id)
                 .single();
 
@@ -177,8 +177,22 @@ export default function PostDetailPage() {
                     </div>
                 </div>
 
-                <div className="min-h-[300px] text-gray-800 leading-relaxed whitespace-pre-wrap mb-10 text-sm">
-                    {post.content}
+                <div className="min-h-[300px] text-gray-800 leading-relaxed text-sm">
+                    <div className="whitespace-pre-wrap mb-10" dangerouslySetInnerHTML={{ __html: post.content }}></div>
+
+                    {post.source_url && (
+                        <div className="mt-10 pt-6 border-t border-gray-100 flex flex-col space-y-2">
+                            <p className="text-xs text-gray-400 italic font-medium">* 본 포스트는 북위키 크롤러에 의해 자동 수집되었습니다.</p>
+                            <a
+                                href={post.source_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center text-sm font-bold text-[#4a6a8a] border border-[#4a6a8a] px-4 py-2 rounded hover:bg-[#4a6a8a] hover:text-white transition w-fit"
+                            >
+                                원본 출처에서 내용 확인하기 →
+                            </a>
+                        </div>
+                    )}
                 </div>
 
                 <div className="border-t border-gray-200 pt-8">

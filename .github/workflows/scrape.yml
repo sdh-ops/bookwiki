@@ -1,0 +1,34 @@
+name: Scheduled Scraping
+
+on:
+  schedule:
+    - cron: '0 */2 * * *' # Every 2 hours
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          
+      - name: Install dependencies
+        run: npm install axios cheerio iconv-lite qs @supabase/supabase-js
+        
+      - name: Run KPIPA Scraper
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: node scripts/kpipa-scraper.js
+        
+      - name: Run BookEditor Scraper
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          BOOKEDITOR_ID: ${{ secrets.BOOKEDITOR_ID }}
+          BOOKEDITOR_PW: ${{ secrets.BOOKEDITOR_PW }}
+        run: node scripts/bookeditor-scraper.js

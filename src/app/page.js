@@ -161,6 +161,9 @@ function PostList() {
                       <td className="px-2 py-2 text-xs text-gray-400">{posts.length - idx}</td>
                       <td className="px-2 py-2 font-medium text-gray-800">
                         <span className="text-[#4a6a8a] mr-2 text-[10px] font-bold">[{post.board_type.toUpperCase()}]</span>
+                        {post.is_auto && (
+                          <span className="text-[10px] bg-slate-500 text-white px-1 mr-1 rounded-sm">자동수집</span>
+                        )}
                         {post.title}
                         {post.comment_count > 0 && (
                           <span className="text-red-500 ml-1 text-[10px] font-bold">[{post.comment_count}]</span>
