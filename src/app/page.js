@@ -1,19 +1,30 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { supabase } from "@/lib/supabase";
+import { useSearchParams, useRouter } from "next/navigation";
+import Link from "next/link";
 
-export default function Home() {
+function PostList() {
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const currentBoard = searchParams.get("board") || "all";
 
   useEffect(() => {
     async function fetchPosts() {
-      const { data, error } = await supabase
+      setLoading(true);
+      let query = supabase
         .from("bw_posts")
         .select("*")
-        .order("created_at", { ascending: false })
-        .limit(20);
+        .order("created_at", { ascending: false });
+
+      if (currentBoard !== "all") {
+        query = query.eq("board_type", currentBoard);
+      }
+
+      const { data, error } = await query.limit(20);
 
       if (!error) {
         setPosts(data);
@@ -21,7 +32,7 @@ export default function Home() {
       setLoading(false);
     }
     fetchPosts();
-  }, []);
+  }, [currentBoard]);
 
   const boardCategories = [
     { name: "전체", id: "all" },
@@ -32,23 +43,35 @@ export default function Home() {
     { name: "AI허브", id: "ai" },
   ];
 
+  const handleBoardClick = (id) => {
+    if (id === "all") {
+      router.push("/");
+    } else {
+      router.push(`/?board=${id}`);
+    }
+  };
+
   return (
-    <main className="min-h-screen bg-white">
+    <>
       {/* Header */}
       <header className="bg-[#4a6a8a] text-white">
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center space-x-6">
-            <h1 className="text-2xl font-bold tracking-tighter">북위키</h1>
+            <Link href="/" className="text-2xl font-bold tracking-tighter">북위키</Link>
             <nav className="hidden md:flex space-x-4 text-sm font-medium">
               {boardCategories.map((cat) => (
-                <a key={cat.id} href="#" className="hover:underline">
+                <button
+                  key={cat.id}
+                  onClick={() => handleBoardClick(cat.id)}
+                  className={`hover:underline ${currentBoard === cat.id ? "font-bold underline" : ""}`}
+                >
                   {cat.name}
-                </a>
+                </button>
               ))}
             </nav>
           </div>
           <div className="flex items-center space-x-4">
-            <button className="text-sm border border-white/30 px-3 py-1 rounded hover:bg-white/10">로그인</button>
+            <Link href="/login" className="text-sm border border-white/30 px-3 py-1 rounded hover:bg-white/10">로그인</Link>
             <div className="relative">
               <input
                 type="text"
@@ -62,16 +85,19 @@ export default function Home() {
 
       {/* Main Content */}
       <section className="max-w-6xl mx-auto px-4 py-6 grid grid-cols-1 lg:grid-cols-4 gap-6">
-        {/* Left - Board List (Theqoo Style Side) */}
+        {/* Left - Board List */}
         <aside className="lg:col-span-1 hidden lg:block">
           <div className="border border-gray-200">
             <div className="bg-gray-100 px-3 py-2 text-xs font-bold border-b border-gray-200">주요 게시판</div>
             <ul className="text-xs">
               {boardCategories.map((cat) => (
                 <li key={cat.id} className="border-b border-gray-100 last:border-0">
-                  <a href="#" className="block px-3 py-2 hover:bg-gray-50 text-gray-700">
+                  <button
+                    onClick={() => handleBoardClick(cat.id)}
+                    className={`block w-full text-left px-3 py-2 hover:bg-gray-50 text-gray-700 ${currentBoard === cat.id ? "bg-gray-50 font-bold" : ""}`}
+                  >
                     {cat.name}
-                  </a>
+                  </button>
                 </li>
               ))}
             </ul>
@@ -81,8 +107,10 @@ export default function Home() {
         {/* Center - Post List */}
         <div className="lg:col-span-3">
           <div className="flex justify-between items-center mb-4 pb-2 border-b-2 border-[#4a6a8a]">
-            <h2 className="text-lg font-bold text-[#4a6a8a]">전체 최신글</h2>
-            <button className="text-xs bg-[#4a6a8a] text-white px-3 py-1 rounded">글쓰기</button>
+            <h2 className="text-lg font-bold text-[#4a6a8a]">
+              {boardCategories.find(c => c.id === currentBoard)?.name} 최신글
+            </h2>
+            <Link href="/write" className="text-xs bg-[#4a6a8a] text-white px-3 py-1 rounded">글쓰기</Link>
           </div>
 
           <div className="overflow-x-auto">
@@ -103,12 +131,14 @@ export default function Home() {
                   <tr><td colSpan="5" className="py-10 text-center text-gray-400 text-xs">작성된 게시물이 없습니다.</td></tr>
                 ) : (
                   posts.map((post, idx) => (
-                    <tr key={post.id} className="hover:bg-gray-50 cursor-pointer">
+                    <tr key={post.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => router.push(`/post/${post.id}`)}>
                       <td className="px-2 py-2 text-xs text-gray-400">{posts.length - idx}</td>
                       <td className="px-2 py-2 font-medium text-gray-800">
-                        <span className="text-[#4a6a8a] mr-2 text-[10px] font-bold">[{post.board_type}]</span>
+                        <span className="text-[#4a6a8a] mr-2 text-[10px] font-bold">[{post.board_type.toUpperCase()}]</span>
                         {post.title}
-                        {post.comment_count > 0 && <span className="text-red-500 ml-1 text-xs">({post.comment_count})</span>}
+                        {post.comment_count > 0 && (
+                          <span className="text-red-500 ml-1 text-[10px] font-bold">[{post.comment_count}]</span>
+                        )}
                       </td>
                       <td className="px-2 py-2 text-xs text-gray-600 truncate max-w-[80px]">{post.author}</td>
                       <td className="px-2 py-2 text-xs text-gray-400 text-center">{new Date(post.created_at).toLocaleDateString()}</td>
@@ -128,6 +158,14 @@ export default function Home() {
           <p>© 2026 북위키 (Book-Wiki). All rights reserved.</p>
         </div>
       </footer>
-    </main>
+    </>
+  );
+}
+
+export default function Home() {
+  return (
+    <Suspense fallback={<div className="p-10 text-center">로딩 중...</div>}>
+      <PostList />
+    </Suspense>
   );
 }
