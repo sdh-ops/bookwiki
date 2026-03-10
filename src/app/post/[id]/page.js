@@ -13,11 +13,29 @@ export default function PostDetailPage() {
     const [commentAuthor, setCommentAuthor] = useState("");
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
+    const [user, setUser] = useState(null);
+    const [isAdmin, setIsAdmin] = useState(false);
+    const [showPasswordModal, setShowPasswordModal] = useState(false);
+    const [tempPassword, setTempPassword] = useState("");
+    const [managementType, setManagementType] = useState(""); // 'edit' or 'delete'
     const router = useRouter();
 
     useEffect(() => {
-        async function fetchPostAndComments() {
+        async function fetchData() {
             setLoading(true);
+
+            // Get current user
+            const { data: { user } } = await supabase.auth.getUser();
+            setUser(user);
+
+            if (user) {
+                const { data: adminData } = await supabase
+                    .from("bw_admins")
+                    .select("email")
+                    .eq("email", user.email)
+                    .single();
+                setIsAdmin(!!adminData);
+            }
 
             // Fetch post
             const { data: postData, error: postError } = await supabase
@@ -32,7 +50,7 @@ export default function PostDetailPage() {
                 return;
             }
 
-            // Increment view count (simple implementation)
+            // Increment view count
             await supabase.rpc('increment_view_count', { post_id: id });
 
             setPost(postData);
@@ -51,7 +69,7 @@ export default function PostDetailPage() {
             setLoading(false);
         }
 
-        if (id) fetchPostAndComments();
+        if (id) fetchData();
     }, [id, router]);
 
     const handleCommentSubmit = async (e) => {
@@ -70,7 +88,6 @@ export default function PostDetailPage() {
             alert("댓글 작성 실패: " + error.message);
         } else {
             setNewComment("");
-            // Refresh comments
             const { data } = await supabase
                 .from("bw_comments")
                 .select("*")
@@ -81,12 +98,51 @@ export default function PostDetailPage() {
         setSubmitting(false);
     };
 
+    const handleManagement = (type) => {
+        // If Admin or Owner (user_id match)
+        if (isAdmin || (user && post.user_id === user.id)) {
+            if (type === 'delete') {
+                if (confirm("정말로 삭제하시겠습니까?")) executeDelete();
+            } else {
+                router.push(`/post/${id}/edit`);
+            }
+            return;
+        }
+
+        // Guest post with password
+        if (!post.user_id && post.password) {
+            setManagementType(type);
+            setShowPasswordModal(true);
+        } else {
+            alert("권한이 없습니다.");
+        }
+    };
+
+    const executeDelete = async () => {
+        const { error } = await supabase.from("bw_posts").delete().eq("id", id);
+        if (error) alert("삭제 실패: " + error.message);
+        else {
+            alert("삭제되었습니다.");
+            router.push("/");
+        }
+    };
+
+    const handlePasswordConfirm = async () => {
+        if (tempPassword === post.password) {
+            if (managementType === 'delete') executeDelete();
+            else router.push(`/post/${id}/edit`);
+        } else {
+            alert("비밀번호가 틀렸습니다.");
+        }
+        setShowPasswordModal(false);
+        setTempPassword("");
+    };
+
     if (loading) return <div className="p-10 text-center">로딩 중...</div>;
     if (!post) return null;
 
     return (
         <main className="min-h-screen bg-white">
-            {/* Header */}
             <header className="bg-[#4a6a8a] text-white py-3">
                 <div className="max-w-4xl mx-auto px-4 flex items-center justify-between">
                     <Link href="/" className="text-xl font-bold tracking-tighter">북위키</Link>
@@ -98,12 +154,19 @@ export default function PostDetailPage() {
             </header>
 
             <article className="max-w-4xl mx-auto px-4 py-8">
-                {/* Post Header */}
                 <div className="border-b-2 border-gray-200 pb-4 mb-6">
-                    <div className="flex items-center space-x-2 text-[10px] font-bold text-[#4a6a8a] mb-2">
-                        <span>{post.board_type.toUpperCase()}</span>
-                        <span className="text-gray-300">|</span>
-                        <span className="text-gray-400 font-normal">{new Date(post.created_at).toLocaleString()}</span>
+                    <div className="flex justify-between items-start mb-2">
+                        <div className="flex items-center space-x-2 text-[10px] font-bold text-[#4a6a8a]">
+                            <span>{post.board_type.toUpperCase()}</span>
+                            <span className="text-gray-300">|</span>
+                            <span className="text-gray-400 font-normal">{new Date(post.created_at).toLocaleString()}</span>
+                        </div>
+                        {(isAdmin || !post.user_id || (user && post.user_id === user.id)) && (
+                            <div className="flex space-x-2 text-[10px] text-gray-400 font-bold">
+                                <button onClick={() => handleManagement('edit')} className="hover:text-black">수정</button>
+                                <button onClick={() => handleManagement('delete')} className="hover:text-red-500">삭제</button>
+                            </div>
+                        )}
                     </div>
                     <h1 className="text-2xl font-bold text-gray-900 mb-4">{post.title}</h1>
                     <div className="flex justify-between items-center text-sm text-gray-600">
@@ -114,12 +177,10 @@ export default function PostDetailPage() {
                     </div>
                 </div>
 
-                {/* Content */}
                 <div className="min-h-[300px] text-gray-800 leading-relaxed whitespace-pre-wrap mb-10 text-sm">
                     {post.content}
                 </div>
 
-                {/* Comments Section */}
                 <div className="border-t border-gray-200 pt-8">
                     <h3 className="text-sm font-bold text-gray-900 mb-6 flex items-center">
                         댓글 <span className="ml-2 bg-[#4a6a8a] text-white text-[10px] px-2 py-0.5 rounded-full">{comments.length}</span>
@@ -137,7 +198,6 @@ export default function PostDetailPage() {
                         ))}
                     </div>
 
-                    {/* Comment Form */}
                     <form onSubmit={handleCommentSubmit} className="bg-white border border-gray-200 rounded p-4">
                         <div className="mb-3">
                             <input
@@ -168,6 +228,36 @@ export default function PostDetailPage() {
                     </form>
                 </div>
             </article>
+
+            {/* Password Modal */}
+            {showPasswordModal && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+                    <div className="bg-white rounded p-6 max-w-xs w-full shadow-2xl">
+                        <h4 className="text-sm font-bold mb-4">비밀번호 확인</h4>
+                        <input
+                            type="password"
+                            placeholder="비밀번호"
+                            value={tempPassword}
+                            onChange={(e) => setTempPassword(e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-200 rounded text-sm mb-4 focus:outline-none focus:border-[#4a6a8a]"
+                        />
+                        <div className="flex space-x-2">
+                            <button
+                                onClick={() => setShowPasswordModal(false)}
+                                className="flex-1 py-2 text-xs text-gray-500 hover:bg-gray-50 rounded border border-gray-100"
+                            >
+                                취소
+                            </button>
+                            <button
+                                onClick={handlePasswordConfirm}
+                                className="flex-1 py-2 text-xs bg-[#4a6a8a] text-white rounded hover:bg-[#3a5a7a]"
+                            >
+                                확인
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             <footer className="mt-10 border-t border-gray-200 bg-gray-50 py-10">
                 <div className="max-w-4xl mx-auto px-4 text-center text-xs text-gray-400">

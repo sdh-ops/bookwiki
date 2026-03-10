@@ -2,61 +2,56 @@
 
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
-import { useRouter } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 
-export default function WritePage() {
+export default function EditPage() {
+    const { id } = useParams();
     const [title, setTitle] = useState("");
     const [content, setContent] = useState("");
-    const [boardType, setBoardType] = useState("free");
-    const [author, setAuthor] = useState("");
-    const [password, setPassword] = useState("");
+    const [boardType, setBoardType] = useState("");
+    const [loading, setLoading] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [user, setUser] = useState(null);
     const router = useRouter();
 
     useEffect(() => {
-        const fetchUser = async () => {
-            const { data: { user } } = await supabase.auth.getUser();
-            setUser(user);
-            if (user) {
-                // Logged in users get their nickname or email prefix as default author
-                setAuthor(user.user_metadata?.nickname || user.email.split('@')[0]);
+        async function fetchPost() {
+            const { data, error } = await supabase
+                .from("bw_posts")
+                .select("*")
+                .eq("id", id)
+                .single();
+
+            if (error) {
+                alert("게시글을 찾을 수 없습니다.");
+                router.push("/");
+            } else {
+                setTitle(data.title);
+                setContent(data.content);
+                setBoardType(data.board_type);
             }
-        };
-        fetchUser();
-    }, []);
+            setLoading(false);
+        }
+        fetchPost();
+    }, [id, router]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if (!title || !content || !author) {
+        if (!title || !content) {
             alert("모든 필드를 채워주세요.");
             return;
         }
 
-        // Guess/Anonymous posts require password
-        if (!user && !password) {
-            alert("비회원 글쓰기는 비밀번호가 필요합니다.");
-            return;
-        }
-
         setIsSubmitting(true);
-
-        const postData = {
-            title,
-            content,
-            author,
-            board_type: boardType,
-            user_id: user ? user.id : null,
-            password: user ? null : password // Only guests need password
-        };
-
-        const { error } = await supabase.from("bw_posts").insert([postData]);
+        const { error } = await supabase
+            .from("bw_posts")
+            .update({ title, content, board_type: boardType })
+            .eq("id", id);
 
         if (error) {
-            alert("글 작성에 실패했습니다: " + error.message);
+            alert("수정에 실패했습니다: " + error.message);
         } else {
-            router.push("/");
+            router.push(`/post/${id}`);
             router.refresh();
         }
         setIsSubmitting(false);
@@ -69,12 +64,14 @@ export default function WritePage() {
         { name: "AI허브", id: "ai" },
     ];
 
+    if (loading) return <div className="p-10 text-center">로딩 중...</div>;
+
     return (
         <main className="min-h-screen bg-white">
             <header className="bg-[#4a6a8a] text-white py-3">
                 <div className="max-w-3xl mx-auto px-4 flex items-center">
                     <Link href="/" className="text-xl font-bold tracking-tighter">북위키</Link>
-                    <span className="ml-4 text-sm font-medium opacity-80">글쓰기</span>
+                    <span className="ml-4 text-sm font-medium opacity-80">글 수정하기</span>
                 </div>
             </header>
 
@@ -97,33 +94,6 @@ export default function WritePage() {
                                 </button>
                             ))}
                         </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-sm font-bold text-gray-700 mb-2">닉네임</label>
-                            <input
-                                type="text"
-                                value={author}
-                                onChange={(e) => setAuthor(e.target.value)}
-                                className="w-full px-3 py-2 border border-gray-200 rounded text-sm focus:outline-none focus:border-[#4a6a8a]"
-                                placeholder="공개될 이름을 입력하세요"
-                                required
-                            />
-                        </div>
-                        {!user && (
-                            <div>
-                                <label className="block text-sm font-bold text-gray-700 mb-2">비밀번호 (수정/삭제용)</label>
-                                <input
-                                    type="password"
-                                    value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
-                                    className="w-full px-3 py-2 border border-gray-200 rounded text-sm focus:outline-none focus:border-[#4a6a8a]"
-                                    placeholder="비밀번호 4자리 이상"
-                                    required={!user}
-                                />
-                            </div>
-                        )}
                     </div>
 
                     <div>
@@ -150,13 +120,13 @@ export default function WritePage() {
                     </div>
 
                     <div className="flex justify-end space-x-3 pt-4 border-t border-gray-100">
-                        <Link href="/" className="px-6 py-2 text-sm text-gray-600 border border-gray-200 rounded hover:bg-gray-50">취소</Link>
+                        <Link href={`/post/${id}`} className="px-6 py-2 text-sm text-gray-600 border border-gray-200 rounded hover:bg-gray-50">취소</Link>
                         <button
                             type="submit"
                             disabled={isSubmitting}
                             className={`px-6 py-2 text-sm text-white bg-[#4a6a8a] rounded hover:bg-[#3a5a7a] ${isSubmitting ? "opacity-50 cursor-not-allowed" : ""}`}
                         >
-                            {isSubmitting ? "작성 중..." : "등록하기"}
+                            {isSubmitting ? "수정 중..." : "저장하기"}
                         </button>
                     </div>
                 </form>
