@@ -24,15 +24,21 @@ function PostList() {
   const [loading, setLoading] = useState(true);
   const [totalCount, setTotalCount] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
+  const [supportView, setSupportView] = useState("list"); // list or calendar
+  const [calendarEvents, setCalendarEvents] = useState([]);
+  const [calendarDate, setCalendarDate] = useState(new Date());
   const searchParams = useSearchParams();
   const router = useRouter();
   const currentBoard = searchParams.get("board") || "all";
   const pageParam = searchParams.get("page");
+  const viewParam = searchParams.get("view");
 
   useEffect(() => {
     const page = parseInt(pageParam) || 1;
     setCurrentPage(page);
-  }, [pageParam]);
+    if (viewParam === "calendar") setSupportView("calendar");
+    else setSupportView("list");
+  }, [pageParam, viewParam]);
 
   useEffect(() => {
     async function fetchData() {
@@ -125,6 +131,32 @@ function PostList() {
     fetchData();
   }, [currentBoard, currentPage]);
 
+  // Load calendar events for support board
+  useEffect(() => {
+    async function fetchCalendarEvents() {
+      if (currentBoard !== "support") return;
+      const { data: posts } = await supabase
+        .from("bw_posts")
+        .select("id, title, content, created_at")
+        .eq("board_type", "support")
+        .order("created_at", { ascending: false });
+
+      if (posts) {
+        const eventsWithDeadlines = posts
+          .map(post => {
+            const deadlineMatch = post.content?.match(/마감일:<\/strong>\s*(\d{4}-\d{2}-\d{2})/);
+            if (deadlineMatch) {
+              return { ...post, deadline: deadlineMatch[1] };
+            }
+            return null;
+          })
+          .filter(Boolean);
+        setCalendarEvents(eventsWithDeadlines);
+      }
+    }
+    fetchCalendarEvents();
+  }, [currentBoard]);
+
   const handleLogout = async () => {
     await supabase.auth.signOut();
     window.location.reload();
@@ -170,6 +202,38 @@ function PostList() {
       pages.push(i);
     }
     return pages;
+  };
+
+  // Calendar helpers
+  const calYear = calendarDate.getFullYear();
+  const calMonth = calendarDate.getMonth();
+  const calFirstDay = new Date(calYear, calMonth, 1).getDay();
+  const calDaysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+  const monthNames = ['1월', '2월', '3월', '4월', '5월', '6월', '7월', '8월', '9월', '10월', '11월', '12월'];
+  const dayNames = ['일', '월', '화', '수', '목', '금', '토'];
+
+  const getEventsForDay = (day) => {
+    const dateStr = `${calYear}-${String(calMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    return calendarEvents.filter(e => e.deadline === dateStr);
+  };
+
+  const isToday = (day) => {
+    const today = new Date();
+    return today.getFullYear() === calYear && today.getMonth() === calMonth && today.getDate() === day;
+  };
+
+  const isPastDay = (day) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return new Date(calYear, calMonth, day) < today;
+  };
+
+  const handleSupportViewChange = (view) => {
+    if (view === "calendar") {
+      router.push("/?board=support&view=calendar");
+    } else {
+      router.push("/?board=support");
+    }
   };
 
   return (
@@ -234,14 +298,6 @@ function PostList() {
                   </button>
                 </li>
               ))}
-              <li className="border-b border-gray-100 last:border-0">
-                <Link
-                  href="/calendar"
-                  className="block w-full text-left px-3 py-2 hover:bg-gray-50 text-gray-700 flex items-center gap-1"
-                >
-                  <span>📅</span> 마감 캘린더
-                </Link>
-              </li>
             </ul>
           </div>
 
@@ -295,12 +351,147 @@ function PostList() {
         {/* Center - Post List */}
         <div className="lg:col-span-3">
           <div className="flex justify-between items-center mb-4 pb-2 border-b-2 border-[#4a6a8a]">
-            <h2 className="text-lg font-bold text-[#4a6a8a]">
-              {currentBoard === "hot" ? "HOT 인기글 (최근 7일)" : `${boardCategories.find(c => c.id === currentBoard)?.name} 최신글`}
-            </h2>
-            <Link href="/write" className="text-xs bg-[#4a6a8a] text-white px-3 py-1 rounded">글쓰기</Link>
+            <div className="flex items-center gap-4">
+              <h2 className="text-lg font-bold text-[#4a6a8a]">
+                {currentBoard === "hot" ? "HOT 인기글 (최근 7일)" : currentBoard === "ai" ? "AI 허브" : `${boardCategories.find(c => c.id === currentBoard)?.name} 최신글`}
+              </h2>
+              {currentBoard === "support" && (
+                <div className="flex border border-gray-300 rounded overflow-hidden text-xs">
+                  <button
+                    onClick={() => handleSupportViewChange("list")}
+                    className={`px-3 py-1 ${supportView === "list" ? "bg-[#4a6a8a] text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
+                  >
+                    목록
+                  </button>
+                  <button
+                    onClick={() => handleSupportViewChange("calendar")}
+                    className={`px-3 py-1 ${supportView === "calendar" ? "bg-[#4a6a8a] text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
+                  >
+                    📅 캘린더
+                  </button>
+                </div>
+              )}
+            </div>
+            {currentBoard !== "ai" && (
+              <Link href="/write" className="text-xs bg-[#4a6a8a] text-white px-3 py-1 rounded">글쓰기</Link>
+            )}
           </div>
 
+          {/* AI Hub Card View */}
+          {currentBoard === "ai" ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {[
+                { icon: "📖", title: "원서 검토", desc: "AI가 원서의 완성도와 시장성을 분석합니다" },
+                { icon: "🌐", title: "AI 번역", desc: "출판물 전문 AI 번역 서비스" },
+                { icon: "💡", title: "마케팅 아이디어", desc: "도서 마케팅 전략을 AI가 제안합니다" },
+                { icon: "✏️", title: "제목 제안", desc: "매력적인 도서 제목을 추천받으세요" },
+                { icon: "📝", title: "카피라이팅", desc: "책 소개 문구를 AI가 작성합니다" },
+                { icon: "🎨", title: "표지 컨셉", desc: "표지 디자인 방향을 제안합니다" },
+              ].map((item, idx) => (
+                <div key={idx} className="border border-gray-200 rounded-lg p-5 hover:shadow-md transition bg-white">
+                  <div className="text-3xl mb-3">{item.icon}</div>
+                  <h3 className="font-bold text-gray-800 mb-2">{item.title}</h3>
+                  <p className="text-xs text-gray-500 mb-4">{item.desc}</p>
+                  <span className="inline-block text-[10px] bg-yellow-100 text-yellow-700 px-2 py-1 rounded font-medium">
+                    🚧 개발 중
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : currentBoard === "support" && supportView === "calendar" ? (
+            <div className="bg-white">
+              {/* Calendar Header */}
+              <div className="flex items-center justify-between mb-4 p-3 bg-gray-50 rounded-lg">
+                <button
+                  onClick={() => setCalendarDate(new Date(calYear, calMonth - 1, 1))}
+                  className="px-3 py-1 text-sm bg-white border rounded hover:bg-gray-100"
+                >
+                  ◀ 이전
+                </button>
+                <h3 className="text-lg font-bold">{calYear}년 {monthNames[calMonth]}</h3>
+                <button
+                  onClick={() => setCalendarDate(new Date(calYear, calMonth + 1, 1))}
+                  className="px-3 py-1 text-sm bg-white border rounded hover:bg-gray-100"
+                >
+                  다음 ▶
+                </button>
+              </div>
+
+              {/* Day Names */}
+              <div className="grid grid-cols-7 gap-0 mb-1">
+                {dayNames.map((name, idx) => (
+                  <div
+                    key={name}
+                    className={`text-center text-xs font-bold py-2 ${idx === 0 ? 'text-red-500' : idx === 6 ? 'text-blue-500' : 'text-gray-600'}`}
+                  >
+                    {name}
+                  </div>
+                ))}
+              </div>
+
+              {/* Calendar Grid */}
+              <div className="grid grid-cols-7 gap-0 border border-gray-200 rounded-lg overflow-hidden">
+                {/* Empty cells */}
+                {Array.from({ length: calFirstDay }).map((_, i) => (
+                  <div key={`empty-${i}`} className="h-20 md:h-24 bg-gray-50 border-b border-r border-gray-100"></div>
+                ))}
+                {/* Day cells */}
+                {Array.from({ length: calDaysInMonth }).map((_, i) => {
+                  const day = i + 1;
+                  const dayEvents = getEventsForDay(day);
+                  const todayClass = isToday(day) ? "bg-blue-50" : "bg-white";
+                  const pastClass = isPastDay(day) ? "text-gray-400" : "";
+
+                  return (
+                    <div key={day} className={`h-20 md:h-24 border-b border-r border-gray-100 p-1 overflow-hidden ${todayClass}`}>
+                      <div className={`text-xs font-bold mb-1 ${pastClass} ${isToday(day) ? 'text-blue-600' : ''}`}>
+                        {day}
+                      </div>
+                      <div className="space-y-0.5">
+                        {dayEvents.slice(0, 2).map((event, idx) => (
+                          <Link
+                            key={idx}
+                            href={`/post/${event.id}`}
+                            className="block text-[9px] md:text-[10px] bg-red-100 text-red-700 px-1 py-0.5 rounded truncate hover:bg-red-200"
+                            title={event.title}
+                          >
+                            {event.title.replace(/\[.*?\]/g, '').trim().substring(0, 12)}...
+                          </Link>
+                        ))}
+                        {dayEvents.length > 2 && (
+                          <div className="text-[9px] text-gray-500">+{dayEvents.length - 2}개</div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Upcoming Deadlines */}
+              <div className="mt-6 bg-gray-50 rounded-lg p-4">
+                <h4 className="font-bold text-sm mb-3">다가오는 마감</h4>
+                {calendarEvents.filter(e => new Date(e.deadline) >= new Date(new Date().setHours(0,0,0,0))).length === 0 ? (
+                  <p className="text-xs text-gray-500">마감 예정인 지원사업이 없습니다.</p>
+                ) : (
+                  <ul className="space-y-2">
+                    {calendarEvents
+                      .filter(e => new Date(e.deadline) >= new Date(new Date().setHours(0,0,0,0)))
+                      .sort((a, b) => new Date(a.deadline) - new Date(b.deadline))
+                      .slice(0, 5)
+                      .map(event => (
+                        <li key={event.id} className="flex items-start gap-3 text-sm">
+                          <span className="text-red-600 font-bold whitespace-nowrap text-xs">{event.deadline}</span>
+                          <Link href={`/post/${event.id}`} className="text-gray-700 hover:text-blue-600 truncate text-xs">
+                            {event.title}
+                          </Link>
+                        </li>
+                      ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+          ) : (
+          <>
           <div className="overflow-x-auto">
             <table className="w-full text-sm text-left">
               <thead className="text-xs text-gray-500 border-b border-gray-200">
@@ -389,6 +580,8 @@ function PostList() {
                 총 {totalCount.toLocaleString()}개
               </span>
             </div>
+          )}
+          </>
           )}
         </div>
       </section>
