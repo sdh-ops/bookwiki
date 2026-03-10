@@ -13,37 +13,60 @@ const boardTypeNames = {
   ai: "AI허브",
 };
 
+const POSTS_PER_PAGE = 50;
+
 function PostList() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [user, setUser] = useState(null);
   const [posts, setPosts] = useState([]);
   const [hotPostIds, setHotPostIds] = useState([]);
+  const [bestPosts, setBestPosts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [totalCount, setTotalCount] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
   const searchParams = useSearchParams();
   const router = useRouter();
   const currentBoard = searchParams.get("board") || "all";
+  const pageParam = searchParams.get("page");
+
+  useEffect(() => {
+    const page = parseInt(pageParam) || 1;
+    setCurrentPage(page);
+  }, [pageParam]);
 
   useEffect(() => {
     async function fetchData() {
       setLoading(true);
+      const offset = (currentPage - 1) * POSTS_PER_PAGE;
 
       // Calculate one week ago for HOT posts
       const oneWeekAgo = new Date();
       oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
 
-      // Fetch HOT post IDs (top 10 by view count in last week)
+      // Fetch HOT posts (top 10 by composite score in last week)
+      // HOT Score = view_count + (comment_count * 10)
+      // This combines views and engagement (comments are weighted higher)
       const { data: hotPosts } = await supabase
         .from("bw_posts")
-        .select("id")
+        .select("id, title, view_count, comment_count, board_type, created_at")
         .gte("created_at", oneWeekAgo.toISOString())
         .order("view_count", { ascending: false })
-        .limit(10);
+        .limit(50);
 
       if (hotPosts) {
-        setHotPostIds(hotPosts.map(p => p.id));
+        // Calculate composite score and sort
+        const scored = hotPosts.map(p => ({
+          ...p,
+          hotScore: (p.view_count || 0) + ((p.comment_count || 0) * 10)
+        }));
+        scored.sort((a, b) => b.hotScore - a.hotScore);
+        const top10 = scored.slice(0, 10);
+        setHotPostIds(top10.map(p => p.id));
+        setBestPosts(top10);
       }
 
       let query;
+      let countQuery;
 
       if (currentBoard === "hot") {
         query = supabase
@@ -51,24 +74,36 @@ function PostList() {
           .select("*")
           .gte("created_at", oneWeekAgo.toISOString())
           .order("view_count", { ascending: false })
-          .limit(20);
+          .range(offset, offset + POSTS_PER_PAGE - 1);
+        countQuery = supabase
+          .from("bw_posts")
+          .select("*", { count: "exact", head: true })
+          .gte("created_at", oneWeekAgo.toISOString());
       } else if (currentBoard === "all") {
         query = supabase
           .from("bw_posts")
           .select("*")
           .order("created_at", { ascending: false })
-          .limit(20);
+          .range(offset, offset + POSTS_PER_PAGE - 1);
+        countQuery = supabase
+          .from("bw_posts")
+          .select("*", { count: "exact", head: true });
       } else {
         query = supabase
           .from("bw_posts")
           .select("*")
           .eq("board_type", currentBoard)
           .order("created_at", { ascending: false })
-          .limit(20);
+          .range(offset, offset + POSTS_PER_PAGE - 1);
+        countQuery = supabase
+          .from("bw_posts")
+          .select("*", { count: "exact", head: true })
+          .eq("board_type", currentBoard);
       }
 
-      const { data: postsData } = await query;
+      const [{ data: postsData }, { count }] = await Promise.all([query, countQuery]);
       if (postsData) setPosts(postsData);
+      if (count !== null) setTotalCount(count);
 
       // Check login and admin
       const { data: { user } } = await supabase.auth.getUser();
@@ -88,7 +123,7 @@ function PostList() {
       setLoading(false);
     }
     fetchData();
-  }, [currentBoard]);
+  }, [currentBoard, currentPage]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -110,6 +145,31 @@ function PostList() {
     } else {
       router.push(`/?board=${id}`);
     }
+  };
+
+  const totalPages = Math.ceil(totalCount / POSTS_PER_PAGE);
+
+  const handlePageChange = (page) => {
+    if (page < 1 || page > totalPages) return;
+    const params = new URLSearchParams();
+    if (currentBoard !== "all") params.set("board", currentBoard);
+    if (page > 1) params.set("page", page.toString());
+    const queryString = params.toString();
+    router.push(queryString ? `/?${queryString}` : "/");
+  };
+
+  const getPageNumbers = () => {
+    const pages = [];
+    const maxVisible = 5;
+    let start = Math.max(1, currentPage - Math.floor(maxVisible / 2));
+    let end = Math.min(totalPages, start + maxVisible - 1);
+    if (end - start + 1 < maxVisible) {
+      start = Math.max(1, end - maxVisible + 1);
+    }
+    for (let i = start; i <= end; i++) {
+      pages.push(i);
+    }
+    return pages;
   };
 
   return (
@@ -177,6 +237,33 @@ function PostList() {
             </ul>
           </div>
 
+          {/* Best Posts (Weekly HOT) */}
+          {bestPosts.length > 0 && (
+            <div className="border border-gray-200 mt-4">
+              <div className="bg-red-500 text-white px-3 py-2 text-xs font-bold border-b border-gray-200 flex items-center gap-1">
+                <span>🔥</span> 주간 베스트
+              </div>
+              <ul className="text-xs">
+                {bestPosts.slice(0, 5).map((post, idx) => (
+                  <li key={post.id} className="border-b border-gray-100 last:border-0">
+                    <Link
+                      href={`/post/${post.id}`}
+                      className="block px-3 py-2 hover:bg-gray-50 text-gray-700"
+                    >
+                      <div className="flex items-start gap-2">
+                        <span className="text-red-500 font-bold">{idx + 1}</span>
+                        <span className="truncate flex-1">{post.title}</span>
+                      </div>
+                      <div className="text-[10px] text-gray-400 mt-1 ml-4">
+                        조회 {post.view_count || 0} · 댓글 {post.comment_count || 0}
+                      </div>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           {/* User Menu for logged in users */}
           {user && (
             <div className="border border-gray-200 mt-4">
@@ -225,7 +312,7 @@ function PostList() {
                 ) : (
                   posts.map((post, idx) => (
                     <tr key={post.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => router.push(`/post/${post.id}`)}>
-                      <td className="px-2 py-2 text-xs text-gray-400">{posts.length - idx}</td>
+                      <td className="px-2 py-2 text-xs text-gray-400">{totalCount - ((currentPage - 1) * POSTS_PER_PAGE) - idx}</td>
                       <td className="px-2 py-2 font-medium text-gray-800">
                         {hotPostIds.includes(post.id) && (
                           <span className="text-[10px] bg-red-500 text-white px-1.5 py-0.5 mr-1.5 rounded-sm font-bold">HOT</span>
@@ -245,6 +332,56 @@ function PostList() {
               </tbody>
             </table>
           </div>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex justify-center items-center mt-6 space-x-1">
+              <button
+                onClick={() => handlePageChange(1)}
+                disabled={currentPage === 1}
+                className="px-2 py-1 text-xs text-gray-500 hover:bg-gray-100 rounded disabled:opacity-30 disabled:cursor-not-allowed"
+              >
+                «
+              </button>
+              <button
+                onClick={() => handlePageChange(currentPage - 1)}
+                disabled={currentPage === 1}
+                className="px-2 py-1 text-xs text-gray-500 hover:bg-gray-100 rounded disabled:opacity-30 disabled:cursor-not-allowed"
+              >
+                ‹
+              </button>
+              {getPageNumbers().map((page) => (
+                <button
+                  key={page}
+                  onClick={() => handlePageChange(page)}
+                  className={`px-3 py-1 text-xs rounded ${
+                    currentPage === page
+                      ? "bg-[#4a6a8a] text-white font-bold"
+                      : "text-gray-600 hover:bg-gray-100"
+                  }`}
+                >
+                  {page}
+                </button>
+              ))}
+              <button
+                onClick={() => handlePageChange(currentPage + 1)}
+                disabled={currentPage === totalPages}
+                className="px-2 py-1 text-xs text-gray-500 hover:bg-gray-100 rounded disabled:opacity-30 disabled:cursor-not-allowed"
+              >
+                ›
+              </button>
+              <button
+                onClick={() => handlePageChange(totalPages)}
+                disabled={currentPage === totalPages}
+                className="px-2 py-1 text-xs text-gray-500 hover:bg-gray-100 rounded disabled:opacity-30 disabled:cursor-not-allowed"
+              >
+                »
+              </button>
+              <span className="ml-4 text-xs text-gray-400">
+                총 {totalCount.toLocaleString()}개
+              </span>
+            </div>
+          )}
         </div>
       </section>
 
