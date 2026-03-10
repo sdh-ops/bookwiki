@@ -6,6 +6,8 @@ import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 
 function PostList() {
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [user, setUser] = useState(null);
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const searchParams = useSearchParams();
@@ -13,8 +15,9 @@ function PostList() {
   const currentBoard = searchParams.get("board") || "all";
 
   useEffect(() => {
-    async function fetchPosts() {
+    async function fetchData() {
       setLoading(true);
+
       let query = supabase
         .from("bw_posts")
         .select("*")
@@ -24,15 +27,29 @@ function PostList() {
         query = query.eq("board_type", currentBoard);
       }
 
-      const { data, error } = await query.limit(20);
+      const { data: postsData } = await query.limit(20);
+      if (postsData) setPosts(postsData);
 
-      if (!error) {
-        setPosts(data);
+      // Check login and admin
+      const { data: { user } } = await supabase.auth.getUser();
+      setUser(user);
+      if (user) {
+        const { data: adminData } = await supabase
+          .from("bw_admins")
+          .select("email")
+          .eq("email", user.email)
+          .single();
+        setIsAdmin(!!adminData);
       }
       setLoading(false);
     }
-    fetchPosts();
+    fetchData();
   }, [currentBoard]);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    window.location.reload();
+  };
 
   const boardCategories = [
     { name: "전체", id: "all" },
@@ -71,7 +88,16 @@ function PostList() {
             </nav>
           </div>
           <div className="flex items-center space-x-4">
-            <Link href="/login" className="text-sm border border-white/30 px-3 py-1 rounded hover:bg-white/10">로그인</Link>
+            {isAdmin && (
+              <Link href="/admin" className="text-xs font-bold bg-red-500 px-3 py-1.5 rounded hover:bg-red-600 transition">
+                관리자
+              </Link>
+            )}
+            {user ? (
+              <button onClick={handleLogout} className="text-xs text-white/70 hover:text-white">로그아웃</button>
+            ) : (
+              <Link href="/login" className="text-sm border border-white/30 px-3 py-1 rounded hover:bg-white/10">로그인</Link>
+            )}
             <div className="relative">
               <input
                 type="text"
