@@ -7,7 +7,7 @@ const { supabase } = require('./common');
 async function scrapeKPIPA() {
     console.log('Starting KPIPA scraping...');
     const baseUrl = 'https://www.kpipa.or.kr';
-    const listUrl = `${baseUrl}/info/newsNotice.do`;
+    const listUrl = `${baseUrl}/p/g1_2`;
 
     try {
         // Fetch listing page
@@ -22,65 +22,29 @@ async function scrapeKPIPA() {
         const $list = cheerio.load(listHtml);
         const postLinks = [];
 
-        // Find all post links in the list
-        $list('table tbody tr').each((i, row) => {
-            const titleCell = $list(row).find('td.title, td:nth-child(2)');
-            const link = titleCell.find('a');
+        // Find all post links - they are in table rows with links like /p/g1_2/XXXX
+        $list('a').each((_, el) => {
+            const href = $list(el).attr('href') || '';
+            const text = $list(el).text().trim();
 
-            if (link.length > 0) {
-                const href = link.attr('href') || link.attr('onclick');
-                const title = link.text().trim();
+            // Match links like /p/g1_2/2016
+            if (href.match(/\/p\/g1_2\/\d+/) && text.length > 5) {
+                const fullUrl = href.startsWith('http') ? href : `${baseUrl}${href}`;
 
-                if (title && (title.includes('공고') || title.includes('모집') || title.includes('지원') || title.includes('사업'))) {
-                    // Extract post ID from href or onclick
-                    let postUrl = '';
-                    if (href && href.includes('seq=')) {
-                        const match = href.match(/seq=(\d+)/);
-                        if (match) {
-                            postUrl = `${baseUrl}/info/newsNoticeView.do?seq=${match[1]}`;
-                        }
-                    } else if (href && href.startsWith('/')) {
-                        postUrl = `${baseUrl}${href}`;
-                    } else if (href && href.startsWith('http')) {
-                        postUrl = href;
-                    }
-
-                    if (postUrl) {
-                        postLinks.push({ title, url: postUrl });
-                    }
+                if (!postLinks.find(p => p.url === fullUrl)) {
+                    postLinks.push({ title: text, url: fullUrl });
                 }
             }
         });
 
-        // Also try alternative list structure
-        if (postLinks.length === 0) {
-            $list('a').each((i, el) => {
-                const href = $list(el).attr('href') || '';
-                const text = $list(el).text().trim();
-
-                if (text.length > 10 && (text.includes('공고') || text.includes('모집') || text.includes('지원'))) {
-                    let postUrl = '';
-                    if (href.startsWith('/')) {
-                        postUrl = `${baseUrl}${href}`;
-                    } else if (href.startsWith('http')) {
-                        postUrl = href;
-                    }
-
-                    if (postUrl && !postLinks.find(p => p.url === postUrl)) {
-                        postLinks.push({ title: text, url: postUrl });
-                    }
-                }
-            });
-        }
-
-        console.log(`Found ${postLinks.length} potential posts from KPIPA.`);
+        console.log(`Found ${postLinks.length} posts from KPIPA.`);
 
         const posts = [];
 
         // Fetch each post's detail content
-        for (const link of postLinks.slice(0, 20)) { // Limit to 20 posts
+        for (const link of postLinks.slice(0, 20)) {
             try {
-                console.log(`Fetching: ${link.title.substring(0, 40)}...`);
+                console.log(`Fetching: ${link.title.substring(0, 50)}...`);
 
                 const { data: detailHtml } = await axios.get(link.url, {
                     headers: {
@@ -92,25 +56,25 @@ async function scrapeKPIPA() {
 
                 const $detail = cheerio.load(detailHtml);
 
-                // Extract content from detail page
+                // Extract content - try multiple selectors
                 let content = '';
-
-                // Try various content selectors
                 const contentSelectors = [
                     '.view-content',
                     '.board-view-content',
                     '.content-area',
                     '.view_content',
+                    '.board_view',
                     'div.content',
-                    'td.content',
-                    '.post-content'
+                    '.post-body',
+                    'article',
+                    '.entry-content'
                 ];
 
                 for (const selector of contentSelectors) {
                     const contentEl = $detail(selector);
-                    if (contentEl.length > 0 && contentEl.text().trim().length > 50) {
+                    if (contentEl.length > 0 && contentEl.text().trim().length > 30) {
                         // Convert images to absolute URLs
-                        contentEl.find('img').each((j, img) => {
+                        contentEl.find('img').each((_, img) => {
                             const src = $detail(img).attr('src');
                             if (src && !src.startsWith('http')) {
                                 $detail(img).attr('src', `${baseUrl}${src.startsWith('/') ? '' : '/'}${src}`);
@@ -121,15 +85,38 @@ async function scrapeKPIPA() {
                     }
                 }
 
-                // Fallback: get main text content
+                // Try to find content in table structure (common in Korean sites)
                 if (!content) {
+                    $detail('table').each((_, table) => {
+                        const tableText = $detail(table).text();
+                        if (tableText.includes('내용') || tableText.includes('공고')) {
+                            const rows = $detail(table).find('tr');
+                            rows.each((_, row) => {
+                                const cells = $detail(row).find('td');
+                                if (cells.length > 0) {
+                                    const cellContent = cells.last().html();
+                                    if (cellContent && cellContent.length > 100) {
+                                        content = cellContent.trim();
+                                        return false;
+                                    }
+                                }
+                            });
+                        }
+                        if (content) return false;
+                    });
+                }
+
+                // Fallback: extract main body text
+                if (!content || content.length < 50) {
+                    // Remove header, footer, nav elements
+                    $detail('header, footer, nav, script, style').remove();
                     const bodyText = $detail('body').text().replace(/\s+/g, ' ').trim();
                     if (bodyText.length > 100) {
-                        content = `<p>${bodyText.substring(0, 2000)}...</p><p><a href="${link.url}" target="_blank">전체 내용 보기</a></p>`;
+                        content = `<p>${bodyText.substring(0, 3000)}</p>`;
                     }
                 }
 
-                if (content) {
+                if (content && content.length > 50) {
                     posts.push({
                         title: link.title,
                         source_url: link.url,
@@ -138,10 +125,13 @@ async function scrapeKPIPA() {
                         is_auto: true,
                         content: content
                     });
+                    console.log(`✓ Got content for: ${link.title.substring(0, 40)}...`);
+                } else {
+                    console.log(`✗ No content found for: ${link.title.substring(0, 40)}...`);
                 }
 
-                // Small delay to be polite
-                await new Promise(r => setTimeout(r, 500));
+                // Delay between requests
+                await new Promise(r => setTimeout(r, 300));
 
             } catch (detailErr) {
                 console.error(`Failed to fetch ${link.title}:`, detailErr.message);
@@ -157,7 +147,7 @@ async function scrapeKPIPA() {
                 .upsert(post, { onConflict: 'source_url' });
 
             if (error && error.code !== '23505') {
-                console.error(`Error inserting ${post.title}:`, error.message);
+                console.error(`DB Error for ${post.title}:`, error.message);
             } else {
                 console.log(`Saved: ${post.title.substring(0, 40)}...`);
             }
