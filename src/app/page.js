@@ -18,16 +18,36 @@ function PostList() {
     async function fetchData() {
       setLoading(true);
 
-      let query = supabase
-        .from("bw_posts")
-        .select("*")
-        .order("created_at", { ascending: false });
+      // Calculate one week ago for HOT posts
+      const oneWeekAgo = new Date();
+      oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
 
-      if (currentBoard !== "all") {
-        query = query.eq("board_type", currentBoard);
+      let query;
+
+      if (currentBoard === "hot") {
+        // HOT: Posts from last week, sorted by view_count
+        query = supabase
+          .from("bw_posts")
+          .select("*")
+          .gte("created_at", oneWeekAgo.toISOString())
+          .order("view_count", { ascending: false })
+          .limit(20);
+      } else if (currentBoard === "all") {
+        query = supabase
+          .from("bw_posts")
+          .select("*")
+          .order("created_at", { ascending: false })
+          .limit(20);
+      } else {
+        query = supabase
+          .from("bw_posts")
+          .select("*")
+          .eq("board_type", currentBoard)
+          .order("created_at", { ascending: false })
+          .limit(20);
       }
 
-      const { data: postsData } = await query.limit(20);
+      const { data: postsData } = await query;
       if (postsData) setPosts(postsData);
 
       // Check login and admin
@@ -94,7 +114,10 @@ function PostList() {
               </Link>
             )}
             {user ? (
-              <button onClick={handleLogout} className="text-xs text-white/70 hover:text-white">로그아웃</button>
+              <div className="flex items-center space-x-3">
+                <Link href="/mypage" className="text-xs text-white/80 hover:text-white">내 활동</Link>
+                <button onClick={handleLogout} className="text-xs text-white/70 hover:text-white">로그아웃</button>
+              </div>
             ) : (
               <Link href="/login" className="text-sm border border-white/30 px-3 py-1 rounded hover:bg-white/10">로그인</Link>
             )}
@@ -128,13 +151,32 @@ function PostList() {
               ))}
             </ul>
           </div>
+
+          {/* User Menu for logged in users */}
+          {user && (
+            <div className="border border-gray-200 mt-4">
+              <div className="bg-gray-100 px-3 py-2 text-xs font-bold border-b border-gray-200">내 활동</div>
+              <ul className="text-xs">
+                <li className="border-b border-gray-100">
+                  <Link href="/mypage" className="block w-full text-left px-3 py-2 hover:bg-gray-50 text-gray-700">
+                    내가 쓴 글
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/mypage?tab=comments" className="block w-full text-left px-3 py-2 hover:bg-gray-50 text-gray-700">
+                    내가 쓴 댓글
+                  </Link>
+                </li>
+              </ul>
+            </div>
+          )}
         </aside>
 
         {/* Center - Post List */}
         <div className="lg:col-span-3">
           <div className="flex justify-between items-center mb-4 pb-2 border-b-2 border-[#4a6a8a]">
             <h2 className="text-lg font-bold text-[#4a6a8a]">
-              {boardCategories.find(c => c.id === currentBoard)?.name} 최신글
+              {currentBoard === "hot" ? "HOT 인기글 (최근 7일)" : `${boardCategories.find(c => c.id === currentBoard)?.name} 최신글`}
             </h2>
             <Link href="/write" className="text-xs bg-[#4a6a8a] text-white px-3 py-1 rounded">글쓰기</Link>
           </div>

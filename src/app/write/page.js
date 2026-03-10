@@ -13,6 +13,7 @@ export default function WritePage() {
     const [password, setPassword] = useState("");
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [user, setUser] = useState(null);
+    const [loading, setLoading] = useState(true);
     const router = useRouter();
 
     useEffect(() => {
@@ -20,9 +21,9 @@ export default function WritePage() {
             const { data: { user } } = await supabase.auth.getUser();
             setUser(user);
             if (user) {
-                // Logged in users get their nickname or email prefix as default author
                 setAuthor(user.user_metadata?.nickname || user.email.split('@')[0]);
             }
+            setLoading(false);
         };
         fetchUser();
     }, []);
@@ -34,7 +35,13 @@ export default function WritePage() {
             return;
         }
 
-        // Guess/Anonymous posts require password
+        // Non-members can only post to 자유게시판
+        if (!user && boardType !== "free") {
+            alert("비회원은 자유게시판에만 글을 작성할 수 있습니다.");
+            return;
+        }
+
+        // Guest posts require password
         if (!user && !password) {
             alert("비회원 글쓰기는 비밀번호가 필요합니다.");
             return;
@@ -48,7 +55,7 @@ export default function WritePage() {
             author,
             board_type: boardType,
             user_id: user ? user.id : null,
-            password: user ? null : password // Only guests need password
+            password: user ? null : password
         };
 
         const { error } = await supabase.from("bw_posts").insert([postData]);
@@ -62,12 +69,21 @@ export default function WritePage() {
         setIsSubmitting(false);
     };
 
-    const boardCategories = [
-        { name: "자유게시판", id: "free" },
-        { name: "구인구직", id: "job" },
-        { name: "지원사업", id: "support" },
-        { name: "AI허브", id: "ai" },
-    ];
+    // All boards for logged-in users, only free board for guests
+    const boardCategories = user
+        ? [
+            { name: "자유게시판", id: "free" },
+            { name: "구인구직", id: "job" },
+            { name: "지원사업", id: "support" },
+            { name: "AI허브", id: "ai" },
+        ]
+        : [
+            { name: "자유게시판", id: "free" },
+        ];
+
+    if (loading) {
+        return <div className="p-10 text-center">로딩 중...</div>;
+    }
 
     return (
         <main className="min-h-screen bg-white">
@@ -79,6 +95,13 @@ export default function WritePage() {
             </header>
 
             <section className="max-w-3xl mx-auto px-4 py-8">
+                {!user && (
+                    <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded text-sm text-yellow-800">
+                        비회원은 <strong>자유게시판</strong>에만 글을 작성할 수 있습니다.
+                        다른 게시판에 글을 쓰려면 <Link href="/login" className="text-[#4a6a8a] underline font-bold">로그인</Link>해주세요.
+                    </div>
+                )}
+
                 <form onSubmit={handleSubmit} className="space-y-6">
                     <div>
                         <label className="block text-sm font-bold text-gray-700 mb-2">게시판 선택</label>
