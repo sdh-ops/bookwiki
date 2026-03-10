@@ -304,7 +304,7 @@ function PostList() {
           {/* Best Posts (Weekly HOT) */}
           {bestPosts.length > 0 && (
             <div className="border border-gray-200 mt-4">
-              <div className="bg-red-500 text-white px-3 py-2 text-xs font-bold border-b border-gray-200 flex items-center gap-1">
+              <div className="bg-yellow-400 text-gray-800 px-3 py-2 text-xs font-bold border-b border-gray-200 flex items-center gap-1">
                 <span>🔥</span> 주간 베스트
               </div>
               <ul className="text-xs">
