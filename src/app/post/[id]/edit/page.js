@@ -12,10 +12,30 @@ export default function EditPage() {
     const [boardType, setBoardType] = useState("");
     const [loading, setLoading] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isAdmin, setIsAdmin] = useState(false);
+    const [showAdminBadge, setShowAdminBadge] = useState(false);
     const router = useRouter();
 
     useEffect(() => {
         async function fetchPost() {
+            // Check user and admin status
+            const { data: { user } } = await supabase.auth.getUser();
+            let adminStatus = false;
+
+            if (user) {
+                try {
+                    const { data: adminData } = await supabase
+                        .from("bw_admins")
+                        .select("email")
+                        .eq("email", user.email)
+                        .maybeSingle();
+                    adminStatus = !!adminData;
+                    setIsAdmin(adminStatus);
+                } catch (e) {
+                    console.log("Admin check failed:", e);
+                }
+            }
+
             const { data, error } = await supabase
                 .from("bw_posts")
                 .select("*")
@@ -25,11 +45,23 @@ export default function EditPage() {
             if (error) {
                 alert("게시글을 찾을 수 없습니다.");
                 router.push("/");
-            } else {
-                setTitle(data.title);
-                setContent(data.content);
-                setBoardType(data.board_type);
+                return;
             }
+
+            // Permission check: admin, owner, or guest post (handled via password in detail page)
+            const isOwner = user && data.user_id === user.id;
+            const isGuestPost = !data.user_id;
+
+            if (!adminStatus && !isOwner && !isGuestPost) {
+                alert("수정 권한이 없습니다.");
+                router.push(`/post/${id}`);
+                return;
+            }
+
+            setTitle(data.title);
+            setContent(data.content);
+            setBoardType(data.board_type);
+            setShowAdminBadge(adminStatus && !isOwner);
             setLoading(false);
         }
         fetchPost();
@@ -72,6 +104,9 @@ export default function EditPage() {
                 <div className="max-w-3xl mx-auto px-4 flex items-center">
                     <Link href="/" className="text-xl font-bold tracking-tighter">북위키</Link>
                     <span className="ml-4 text-sm font-medium opacity-80">글 수정하기</span>
+                    {isAdmin && showAdminBadge && (
+                        <span className="ml-2 text-[10px] bg-red-500 px-2 py-0.5 rounded font-bold">관리자 수정</span>
+                    )}
                 </div>
             </header>
 
