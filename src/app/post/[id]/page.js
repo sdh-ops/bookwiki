@@ -25,7 +25,7 @@ export default function PostDetailPage() {
     const [isAdmin, setIsAdmin] = useState(false);
     const [showPasswordModal, setShowPasswordModal] = useState(false);
     const [tempPassword, setTempPassword] = useState("");
-    const [managementType, setManagementType] = useState(""); // 'edit' or 'delete'
+    const [managementType, setManagementType] = useState("");
     const router = useRouter();
 
     useEffect(() => {
@@ -37,43 +37,48 @@ export default function PostDetailPage() {
             setUser(user);
 
             if (user) {
-                const { data: adminData } = await supabase
-                    .from("bw_admins")
-                    .select("email")
-                    .eq("email", user.email)
-                    .single();
-                setIsAdmin(!!adminData);
+                try {
+                    const { data: adminData } = await supabase
+                        .from("bw_admins")
+                        .select("email")
+                        .eq("email", user.email)
+                        .maybeSingle();
+                    setIsAdmin(!!adminData);
+                } catch (e) {
+                    console.log("Admin check failed:", e);
+                }
             }
 
-            // Fetch post
+            // Fetch post (include password field)
             const { data: postData, error: postError } = await supabase
                 .from("bw_posts")
-                .select("*, source_url, is_auto")
+                .select("*")
                 .eq("id", id)
                 .single();
 
-            if (postError) {
+            if (postError || !postData) {
                 alert("게시글을 찾을 수 없습니다.");
                 router.push("/");
                 return;
             }
 
-            // Increment view count (direct update instead of RPC)
+            // Increment view count
+            const newViewCount = (postData.view_count || 0) + 1;
             await supabase
                 .from("bw_posts")
-                .update({ view_count: (postData.view_count || 0) + 1 })
+                .update({ view_count: newViewCount })
                 .eq("id", id);
 
-            setPost({ ...postData, view_count: (postData.view_count || 0) + 1 });
+            setPost({ ...postData, view_count: newViewCount });
 
             // Fetch comments
-            const { data: commentData, error: commentError } = await supabase
+            const { data: commentData } = await supabase
                 .from("bw_comments")
                 .select("*")
                 .eq("post_id", id)
                 .order("created_at", { ascending: true });
 
-            if (!commentError) {
+            if (commentData) {
                 setComments(commentData);
             }
 
@@ -104,12 +109,14 @@ export default function PostDetailPage() {
                 .select("*")
                 .eq("post_id", id)
                 .order("created_at", { ascending: true });
-            setComments(data);
+            setComments(data || []);
         }
         setSubmitting(false);
     };
 
     const handleManagement = (type) => {
+        if (!post) return;
+
         // If Admin or Owner (user_id match)
         if (isAdmin || (user && post.user_id === user.id)) {
             if (type === 'delete') {
@@ -120,7 +127,7 @@ export default function PostDetailPage() {
             return;
         }
 
-        // Guest post with password
+        // Guest post with password (check if password exists)
         if (!post.user_id && post.password) {
             setManagementType(type);
             setShowPasswordModal(true);
@@ -139,7 +146,7 @@ export default function PostDetailPage() {
     };
 
     const handlePasswordConfirm = async () => {
-        if (tempPassword === post.password) {
+        if (post && tempPassword === post.password) {
             if (managementType === 'delete') executeDelete();
             else router.push(`/post/${id}/edit`);
         } else {
@@ -150,7 +157,10 @@ export default function PostDetailPage() {
     };
 
     if (loading) return <div className="p-10 text-center">로딩 중...</div>;
-    if (!post) return null;
+    if (!post) return <div className="p-10 text-center">게시글을 찾을 수 없습니다.</div>;
+
+    // Check if current user can edit/delete
+    const canManage = isAdmin || !post.user_id || (user && post.user_id === user.id);
 
     return (
         <main className="min-h-screen bg-white">
@@ -172,7 +182,7 @@ export default function PostDetailPage() {
                             <span className="text-gray-300">|</span>
                             <span className="text-gray-400 font-normal">{new Date(post.created_at).toLocaleString()}</span>
                         </div>
-                        {(isAdmin || !post.user_id || (user && post.user_id === user.id)) && (
+                        {canManage && (
                             <div className="flex space-x-2 text-[10px] text-gray-400 font-bold">
                                 <button onClick={() => handleManagement('edit')} className="hover:text-black">수정</button>
                                 <button onClick={() => handleManagement('delete')} className="hover:text-red-500">삭제</button>
@@ -183,7 +193,7 @@ export default function PostDetailPage() {
                     <div className="flex justify-between items-center text-sm text-gray-600">
                         <span className="font-bold">{post.author}</span>
                         <div className="space-x-4 text-gray-400 text-xs">
-                            <span>조회 {post.view_count}</span>
+                            <span>조회 {post.view_count || 0}</span>
                         </div>
                     </div>
                 </div>
@@ -193,14 +203,13 @@ export default function PostDetailPage() {
 
                     {post.source_url && (
                         <div className="mt-10 pt-6 border-t border-gray-100 flex flex-col space-y-2">
-                            <p className="text-xs text-gray-400 italic font-medium">* 본 포스트는 북위키 크롤러에 의해 자동 수집되었습니다.</p>
                             <a
                                 href={post.source_url}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="inline-flex items-center text-sm font-bold text-[#4a6a8a] border border-[#4a6a8a] px-4 py-2 rounded hover:bg-[#4a6a8a] hover:text-white transition w-fit"
                             >
-                                원본 출처에서 내용 확인하기 →
+                                원문 보기 →
                             </a>
                         </div>
                     )}

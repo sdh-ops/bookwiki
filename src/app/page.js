@@ -74,12 +74,16 @@ function PostList() {
       const { data: { user } } = await supabase.auth.getUser();
       setUser(user);
       if (user) {
-        const { data: adminData } = await supabase
-          .from("bw_admins")
-          .select("email")
-          .eq("email", user.email)
-          .single();
-        setIsAdmin(!!adminData);
+        try {
+          const { data: adminData } = await supabase
+            .from("bw_admins")
+            .select("email")
+            .eq("email", user.email)
+            .maybeSingle();
+          setIsAdmin(!!adminData);
+        } catch (e) {
+          console.log("Admin check error:", e);
+        }
       }
       setLoading(false);
     }
