@@ -9,8 +9,40 @@ export default function LoginPage() {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
+    const [nickname, setNickname] = useState("");
+    const [nicknameAvailable, setNicknameAvailable] = useState(null);
+    const [checkingNickname, setCheckingNickname] = useState(false);
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState("");
+
+    const checkNickname = async () => {
+        if (!nickname || nickname.length < 2) {
+            setMessage("닉네임은 2자 이상이어야 합니다.");
+            setNicknameAvailable(false);
+            return;
+        }
+
+        setCheckingNickname(true);
+
+        // Check in bw_posts table for existing authors with this nickname
+        const { data: existingPosts } = await supabase
+            .from("bw_posts")
+            .select("author")
+            .eq("author", nickname)
+            .limit(1);
+
+        // Also check in users metadata (need to query auth users or store nicknames separately)
+        // For now, check posts table
+
+        if (existingPosts && existingPosts.length > 0) {
+            setNicknameAvailable(false);
+            setMessage("이미 사용 중인 닉네임입니다.");
+        } else {
+            setNicknameAvailable(true);
+            setMessage("사용 가능한 닉네임입니다.");
+        }
+        setCheckingNickname(false);
+    };
 
     const handleLogin = async (e) => {
         e.preventDefault();
@@ -35,6 +67,18 @@ export default function LoginPage() {
         setLoading(true);
         setMessage("");
 
+        if (!nickname || nickname.length < 2) {
+            setMessage("닉네임은 2자 이상이어야 합니다.");
+            setLoading(false);
+            return;
+        }
+
+        if (nicknameAvailable !== true) {
+            setMessage("닉네임 중복확인을 해주세요.");
+            setLoading(false);
+            return;
+        }
+
         if (password !== confirmPassword) {
             setMessage("비밀번호가 일치하지 않습니다.");
             setLoading(false);
@@ -52,6 +96,9 @@ export default function LoginPage() {
             password,
             options: {
                 emailRedirectTo: window.location.origin,
+                data: {
+                    nickname: nickname,
+                }
             },
         });
 
@@ -77,6 +124,42 @@ export default function LoginPage() {
             <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
                 <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10 border border-gray-100">
                     <form className="space-y-6" onSubmit={isSignUp ? handleSignUp : handleLogin}>
+                        {isSignUp && (
+                            <div>
+                                <label htmlFor="nickname" className="block text-sm font-medium text-gray-700">
+                                    닉네임 <span className="text-red-500">*</span>
+                                </label>
+                                <div className="mt-1 flex space-x-2">
+                                    <input
+                                        id="nickname"
+                                        name="nickname"
+                                        type="text"
+                                        required
+                                        value={nickname}
+                                        onChange={(e) => {
+                                            setNickname(e.target.value);
+                                            setNicknameAvailable(null);
+                                        }}
+                                        className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-[#4a6a8a] focus:border-[#4a6a8a] sm:text-sm"
+                                        placeholder="사이트에서 사용할 닉네임"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={checkNickname}
+                                        disabled={checkingNickname || !nickname}
+                                        className={`px-3 py-2 text-xs font-medium rounded-md whitespace-nowrap ${
+                                            nicknameAvailable === true
+                                                ? "bg-green-500 text-white"
+                                                : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                                        } ${checkingNickname ? "opacity-50" : ""}`}
+                                    >
+                                        {checkingNickname ? "확인중..." : nicknameAvailable === true ? "확인완료" : "중복확인"}
+                                    </button>
+                                </div>
+                                <p className="mt-1 text-xs text-gray-500">* 이메일은 절대 공개되지 않으며, 닉네임만 표시됩니다.</p>
+                            </div>
+                        )}
+
                         <div>
                             <label htmlFor="email" className="block text-sm font-medium text-gray-700">
                                 이메일 주소
@@ -148,7 +231,13 @@ export default function LoginPage() {
                     </form>
 
                     {message && (
-                        <div className={`mt-4 p-3 rounded text-sm text-center ${message.includes("실패") || message.includes("일치하지") || message.includes("이상") ? "bg-red-50 text-red-600" : "bg-blue-50 text-blue-600"}`}>
+                        <div className={`mt-4 p-3 rounded text-sm text-center ${
+                            message.includes("실패") || message.includes("일치하지") || message.includes("이상") || message.includes("이미") || message.includes("중복")
+                                ? "bg-red-50 text-red-600"
+                                : message.includes("사용 가능")
+                                    ? "bg-green-50 text-green-600"
+                                    : "bg-blue-50 text-blue-600"
+                        }`}>
                             {message}
                         </div>
                     )}
@@ -173,6 +262,8 @@ export default function LoginPage() {
                                     setMessage("");
                                     setPassword("");
                                     setConfirmPassword("");
+                                    setNickname("");
+                                    setNicknameAvailable(null);
                                 }}
                                 className="w-full flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#4a6a8a]"
                             >

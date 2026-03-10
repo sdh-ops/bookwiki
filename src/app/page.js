@@ -5,10 +5,19 @@ import { supabase } from "@/lib/supabase";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 
+// Board type to Korean name mapping
+const boardTypeNames = {
+  job: "구인구직",
+  support: "지원사업",
+  free: "자유게시판",
+  ai: "AI허브",
+};
+
 function PostList() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [user, setUser] = useState(null);
   const [posts, setPosts] = useState([]);
+  const [hotPostIds, setHotPostIds] = useState([]);
   const [loading, setLoading] = useState(true);
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -22,10 +31,21 @@ function PostList() {
       const oneWeekAgo = new Date();
       oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
 
+      // Fetch HOT post IDs (top 10 by view count in last week)
+      const { data: hotPosts } = await supabase
+        .from("bw_posts")
+        .select("id")
+        .gte("created_at", oneWeekAgo.toISOString())
+        .order("view_count", { ascending: false })
+        .limit(10);
+
+      if (hotPosts) {
+        setHotPostIds(hotPosts.map(p => p.id));
+      }
+
       let query;
 
       if (currentBoard === "hot") {
-        // HOT: Posts from last week, sorted by view_count
         query = supabase
           .from("bw_posts")
           .select("*")
@@ -115,6 +135,7 @@ function PostList() {
             )}
             {user ? (
               <div className="flex items-center space-x-3">
+                <span className="text-xs text-white/60">{user.user_metadata?.nickname || user.email.split('@')[0]}</span>
                 <Link href="/mypage" className="text-xs text-white/80 hover:text-white">내 활동</Link>
                 <button onClick={handleLogout} className="text-xs text-white/70 hover:text-white">로그아웃</button>
               </div>
@@ -202,10 +223,10 @@ function PostList() {
                     <tr key={post.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => router.push(`/post/${post.id}`)}>
                       <td className="px-2 py-2 text-xs text-gray-400">{posts.length - idx}</td>
                       <td className="px-2 py-2 font-medium text-gray-800">
-                        <span className="text-[#4a6a8a] mr-2 text-[10px] font-bold">[{post.board_type.toUpperCase()}]</span>
-                        {post.is_auto && (
-                          <span className="text-[10px] bg-slate-500 text-white px-1 mr-1 rounded-sm">자동수집</span>
+                        {hotPostIds.includes(post.id) && (
+                          <span className="text-[10px] bg-red-500 text-white px-1.5 py-0.5 mr-1.5 rounded-sm font-bold">HOT</span>
                         )}
+                        <span className="text-[#4a6a8a] mr-2 text-[10px] font-bold">[{boardTypeNames[post.board_type] || post.board_type}]</span>
                         {post.title}
                         {post.comment_count > 0 && (
                           <span className="text-red-500 ml-1 text-[10px] font-bold">[{post.comment_count}]</span>

@@ -5,6 +5,14 @@ import { supabase } from "@/lib/supabase";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 
+// Board type to Korean name mapping
+const boardTypeNames = {
+    job: "구인구직",
+    support: "지원사업",
+    free: "자유게시판",
+    ai: "AI허브",
+};
+
 function MyPageContent() {
     const [user, setUser] = useState(null);
     const [posts, setPosts] = useState([]);
@@ -37,14 +45,17 @@ function MyPageContent() {
 
             if (postsData) setPosts(postsData);
 
-            // Fetch user's comments with post info
-            const { data: commentsData } = await supabase
-                .from("bw_comments")
-                .select("*, bw_posts(id, title)")
-                .eq("author", user.user_metadata?.nickname || user.email.split('@')[0])
-                .order("created_at", { ascending: false });
+            // Fetch user's comments with post info (by nickname)
+            const nickname = user.user_metadata?.nickname;
+            if (nickname) {
+                const { data: commentsData } = await supabase
+                    .from("bw_comments")
+                    .select("*, bw_posts(id, title)")
+                    .eq("author", nickname)
+                    .order("created_at", { ascending: false });
 
-            if (commentsData) setComments(commentsData);
+                if (commentsData) setComments(commentsData);
+            }
 
             setLoading(false);
         }
@@ -60,6 +71,8 @@ function MyPageContent() {
     if (loading) return <div className="p-10 text-center">로딩 중...</div>;
     if (!user) return null;
 
+    const nickname = user.user_metadata?.nickname || "사용자";
+
     return (
         <main className="min-h-screen bg-white">
             <header className="bg-[#4a6a8a] text-white py-3">
@@ -69,7 +82,7 @@ function MyPageContent() {
                         <span className="ml-4 text-sm font-medium opacity-80">내 활동</span>
                     </div>
                     <div className="flex items-center space-x-4">
-                        <span className="text-xs text-white/70">{user.email}</span>
+                        <span className="text-xs text-white/70">{nickname}</span>
                         <button onClick={handleLogout} className="text-xs text-white/70 hover:text-white">로그아웃</button>
                     </div>
                 </div>
@@ -122,7 +135,7 @@ function MyPageContent() {
                                                     <span className="text-red-500 ml-1 text-[10px] font-bold">[{post.comment_count}]</span>
                                                 )}
                                             </td>
-                                            <td className="px-2 py-3 text-xs text-[#4a6a8a] font-bold">{post.board_type.toUpperCase()}</td>
+                                            <td className="px-2 py-3 text-xs text-[#4a6a8a] font-bold">{boardTypeNames[post.board_type] || post.board_type}</td>
                                             <td className="px-2 py-3 text-xs text-gray-400 text-center">{new Date(post.created_at).toLocaleDateString()}</td>
                                             <td className="px-2 py-3 text-xs text-gray-400 text-center">{post.view_count}</td>
                                         </tr>

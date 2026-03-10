@@ -21,7 +21,8 @@ export default function WritePage() {
             const { data: { user } } = await supabase.auth.getUser();
             setUser(user);
             if (user) {
-                setAuthor(user.user_metadata?.nickname || user.email.split('@')[0]);
+                // Always use nickname, never expose email
+                setAuthor(user.user_metadata?.nickname || "익명");
             }
             setLoading(false);
         };

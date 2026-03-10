@@ -5,6 +5,14 @@ import { supabase } from "@/lib/supabase";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 
+// Board type to Korean name mapping
+const boardTypeNames = {
+    job: "구인구직",
+    support: "지원사업",
+    free: "자유게시판",
+    ai: "AI허브",
+};
+
 export default function PostDetailPage() {
     const { id } = useParams();
     const [post, setPost] = useState(null);
@@ -160,7 +168,7 @@ export default function PostDetailPage() {
                 <div className="border-b-2 border-gray-200 pb-4 mb-6">
                     <div className="flex justify-between items-start mb-2">
                         <div className="flex items-center space-x-2 text-[10px] font-bold text-[#4a6a8a]">
-                            <span>{post.board_type.toUpperCase()}</span>
+                            <span>{boardTypeNames[post.board_type] || post.board_type}</span>
                             <span className="text-gray-300">|</span>
                             <span className="text-gray-400 font-normal">{new Date(post.created_at).toLocaleString()}</span>
                         </div>
