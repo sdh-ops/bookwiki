@@ -283,24 +283,8 @@ function PostList() {
 
       {/* Main Content */}
       <section className="max-w-6xl mx-auto px-4 py-6 grid grid-cols-1 lg:grid-cols-4 gap-6">
-        {/* Left - Board List */}
+        {/* Left - Sidebar */}
         <aside className="lg:col-span-1 hidden lg:block">
-          <div className="border border-gray-200">
-            <div className="bg-gray-100 px-3 py-2 text-xs font-bold border-b border-gray-200">주요 게시판</div>
-            <ul className="text-xs">
-              {boardCategories.map((cat) => (
-                <li key={cat.id} className="border-b border-gray-100 last:border-0">
-                  <button
-                    onClick={() => handleBoardClick(cat.id)}
-                    className={`block w-full text-left px-3 py-2 hover:bg-gray-50 text-gray-700 ${currentBoard === cat.id ? "bg-gray-50 font-bold" : ""}`}
-                  >
-                    {cat.name}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </div>
-
           {/* Best Posts (Weekly HOT) */}
           {bestPosts.length > 0 && (
             <div className="border border-gray-200 mt-4">
@@ -509,24 +493,49 @@ function PostList() {
                 ) : posts.length === 0 ? (
                   <tr><td colSpan="5" className="py-10 text-center text-gray-400 text-xs">작성된 게시물이 없습니다.</td></tr>
                 ) : (
-                  posts.map((post, idx) => (
-                    <tr key={post.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => router.push(`/post/${post.id}`)}>
-                      <td className="px-2 py-2 text-xs text-gray-400">{totalCount - ((currentPage - 1) * POSTS_PER_PAGE) - idx}</td>
-                      <td className="px-2 py-2 font-medium text-gray-800">
-                        {hotPostIds.includes(post.id) && (
-                          <span className="text-[10px] bg-red-500 text-white px-1.5 py-0.5 mr-1.5 rounded-sm font-bold">HOT</span>
-                        )}
-                        <span className="text-[#4a6a8a] mr-2 text-[10px] font-bold">[{boardTypeNames[post.board_type] || post.board_type}]</span>
-                        {post.title}
-                        {post.comment_count > 0 && (
-                          <span className="text-red-500 ml-1 text-[10px] font-bold">[{post.comment_count}]</span>
-                        )}
-                      </td>
-                      <td className="px-2 py-2 text-xs text-gray-600 truncate max-w-[80px]">{post.author}</td>
-                      <td className="px-2 py-2 text-xs text-gray-400 text-center">{new Date(post.created_at).toLocaleDateString()}</td>
-                      <td className="px-2 py-2 text-xs text-gray-400 text-center">{post.view_count}</td>
-                    </tr>
-                  ))
+                  <>
+                    {/* 공지사항 먼저 표시 */}
+                    {posts.filter(p => p.is_notice).map((post) => (
+                      <tr key={post.id} className="bg-blue-50 hover:bg-blue-100 cursor-pointer" onClick={() => router.push(`/post/${post.id}`)}>
+                        <td className="px-2 py-2 text-xs text-blue-600 font-bold">공지</td>
+                        <td className="px-2 py-2 font-bold text-gray-900">
+                          <span className="text-[#4a6a8a] mr-2 text-[10px] font-bold">[{boardTypeNames[post.board_type] || post.board_type}]</span>
+                          {post.title}
+                          {post.comment_count > 0 && (
+                            <span className="text-red-500 ml-1 text-[10px] font-bold">[{post.comment_count}]</span>
+                          )}
+                        </td>
+                        <td className="px-2 py-2 text-xs text-gray-600 truncate max-w-[80px]">
+                          {post.author}
+                          {post.user_id && <span className="ml-0.5 text-green-500" title="회원">✓</span>}
+                        </td>
+                        <td className="px-2 py-2 text-xs text-gray-400 text-center">{new Date(post.created_at).toLocaleDateString()}</td>
+                        <td className="px-2 py-2 text-xs text-gray-400 text-center">{post.view_count}</td>
+                      </tr>
+                    ))}
+                    {/* 일반 게시글 */}
+                    {posts.filter(p => !p.is_notice).map((post, idx) => (
+                      <tr key={post.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => router.push(`/post/${post.id}`)}>
+                        <td className="px-2 py-2 text-xs text-gray-400">{totalCount - posts.filter(p => p.is_notice).length - ((currentPage - 1) * POSTS_PER_PAGE) - idx}</td>
+                        <td className="px-2 py-2 font-medium text-gray-800">
+                          {hotPostIds.includes(post.id) && (
+                            <span className="text-[10px] bg-red-500 text-white px-1.5 py-0.5 mr-1.5 rounded-sm font-bold">HOT</span>
+                          )}
+                          <span className="text-[#4a6a8a] mr-2 text-[10px] font-bold">[{boardTypeNames[post.board_type] || post.board_type}]</span>
+                          {post.title}
+                          {post.comment_count > 0 && (
+                            <span className="text-red-500 ml-1 text-[10px] font-bold">[{post.comment_count}]</span>
+                          )}
+                        </td>
+                        <td className="px-2 py-2 text-xs text-gray-600 truncate max-w-[80px]">
+                          {post.author}
+                          {post.user_id && <span className="ml-0.5 text-green-500" title="회원">✓</span>}
+                        </td>
+                        <td className="px-2 py-2 text-xs text-gray-400 text-center">{new Date(post.created_at).toLocaleDateString()}</td>
+                        <td className="px-2 py-2 text-xs text-gray-400 text-center">{post.view_count}</td>
+                      </tr>
+                    ))}
+                  </>
                 )}
               </tbody>
             </table>

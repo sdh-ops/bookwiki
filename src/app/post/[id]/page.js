@@ -32,8 +32,6 @@ export default function PostDetailPage() {
     // Comment management states
     const [commentModal, setCommentModal] = useState({ show: false, type: '', commentId: null });
     const [commentTempPassword, setCommentTempPassword] = useState("");
-    const [editingComment, setEditingComment] = useState(null);
-    const [editContent, setEditContent] = useState("");
     const commentInputRef = useRef(null);
 
     useEffect(() => {
@@ -96,6 +94,14 @@ export default function PostDetailPage() {
         if (id) fetchData();
     }, [id, router]);
 
+    // Auto-set nickname for logged-in users
+    useEffect(() => {
+        if (user) {
+            const nickname = user.user_metadata?.nickname || user.email.split('@')[0];
+            setCommentAuthor(nickname);
+        }
+    }, [user]);
+
     const refreshComments = async () => {
         const { data } = await supabase
             .from("bw_comments")
@@ -111,21 +117,26 @@ export default function PostDetailPage() {
             alert("이름과 내용을 입력해주세요.");
             return;
         }
-        if (!commentPassword) {
+        // 비회원만 비밀번호 필요
+        if (!user && !commentPassword) {
             alert("비밀번호를 입력해주세요.");
             return;
         }
 
         setSubmitting(true);
-        const { error } = await supabase.from("bw_comments").insert([
-            {
-                post_id: id,
-                content: newComment,
-                author: commentAuthor,
-                password: commentPassword,
-                is_hidden: false
-            }
-        ]);
+        const commentData = {
+            post_id: id,
+            content: newComment,
+            author: commentAuthor,
+            is_hidden: false
+        };
+        // 회원이면 user_id 저장, 비회원이면 password 저장
+        if (user) {
+            commentData.user_id = user.id;
+        } else {
+            commentData.password = commentPassword;
+        }
+        const { error } = await supabase.from("bw_comments").insert([commentData]);
 
         if (error) {
             alert("댓글 작성 실패: " + error.message);
@@ -157,9 +168,6 @@ export default function PostDetailPage() {
                 if (confirm("댓글을 삭제하시겠습니까?")) executeCommentDelete(comment.id);
             } else if (type === 'hide') {
                 executeCommentHide(comment.id, !comment.is_hidden);
-            } else if (type === 'edit') {
-                setEditingComment(comment.id);
-                setEditContent(comment.content);
             }
         } else {
             // Need password verification
@@ -193,20 +201,6 @@ export default function PostDetailPage() {
         }
     };
 
-    const executeCommentEdit = async (commentId) => {
-        const { error } = await supabase
-            .from("bw_comments")
-            .update({ content: editContent })
-            .eq("id", commentId);
-        if (error) {
-            alert("수정 실패: " + error.message);
-        } else {
-            setEditingComment(null);
-            setEditContent("");
-            await refreshComments();
-        }
-    };
-
     const handleCommentPasswordConfirm = async () => {
         const { type, comment } = commentModal;
 
@@ -215,9 +209,6 @@ export default function PostDetailPage() {
                 await executeCommentDelete(comment.id);
             } else if (type === 'hide') {
                 await executeCommentHide(comment.id, !comment.is_hidden);
-            } else if (type === 'edit') {
-                setEditingComment(comment.id);
-                setEditContent(comment.content);
             }
         } else {
             alert("비밀번호가 틀렸습니다.");
@@ -303,7 +294,10 @@ export default function PostDetailPage() {
                     </div>
                     <h1 className="text-2xl font-bold text-gray-900 mb-4">{post.title}</h1>
                     <div className="flex justify-between items-center text-sm text-gray-600">
-                        <span className="font-bold">{post.author}</span>
+                        <span className="font-bold">
+                            {post.author}
+                            {post.user_id && <span className="ml-1 text-green-500 text-xs" title="회원">✓</span>}
+                        </span>
                         <div className="space-x-4 text-gray-400 text-xs">
                             <span>조회 {post.view_count || 0}</span>
                         </div>
@@ -359,7 +353,10 @@ export default function PostDetailPage() {
                             <div key={comment.id} className={`p-4 rounded border ${comment.is_hidden ? 'bg-gray-200 border-gray-300' : 'bg-gray-50 border-gray-100'}`}>
                                 <div className="flex justify-between items-center mb-2">
                                     <div className="flex items-center gap-2">
-                                        <span className="text-xs font-bold text-gray-700">{comment.author}</span>
+                                        <span className="text-xs font-bold text-gray-700">
+                                            {comment.author}
+                                            {comment.user_id && <span className="ml-0.5 text-green-500" title="회원">✓</span>}
+                                        </span>
                                         {comment.is_hidden && <span className="text-[10px] text-red-500">(숨김)</span>}
                                     </div>
                                     <div className="flex items-center gap-2">
@@ -378,12 +375,6 @@ export default function PostDetailPage() {
                                                 {comment.is_hidden ? '보이기' : '숨기기'}
                                             </button>
                                             <button
-                                                onClick={() => handleCommentAction('edit', comment)}
-                                                className="text-gray-500 hover:underline"
-                                            >
-                                                수정
-                                            </button>
-                                            <button
                                                 onClick={() => handleCommentAction('delete', comment)}
                                                 className="text-red-500 hover:underline"
                                             >
@@ -393,33 +384,9 @@ export default function PostDetailPage() {
                                     </div>
                                 </div>
 
-                                {editingComment === comment.id ? (
-                                    <div className="mt-2">
-                                        <textarea
-                                            value={editContent}
-                                            onChange={(e) => setEditContent(e.target.value)}
-                                            className="w-full h-20 px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:border-[#4a6a8a] resize-none"
-                                        />
-                                        <div className="flex gap-2 mt-2">
-                                            <button
-                                                onClick={() => executeCommentEdit(comment.id)}
-                                                className="px-3 py-1 text-xs bg-[#4a6a8a] text-white rounded hover:bg-[#3a5a7a]"
-                                            >
-                                                저장
-                                            </button>
-                                            <button
-                                                onClick={() => { setEditingComment(null); setEditContent(""); }}
-                                                className="px-3 py-1 text-xs bg-gray-300 text-gray-700 rounded hover:bg-gray-400"
-                                            >
-                                                취소
-                                            </button>
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <p className={`text-sm whitespace-pre-wrap ${comment.is_hidden ? 'text-gray-500 italic' : 'text-gray-700'}`}>
-                                        {comment.is_hidden ? '숨겨진 댓글입니다.' : comment.content}
-                                    </p>
-                                )}
+                                <p className={`text-sm whitespace-pre-wrap ${comment.is_hidden ? 'text-gray-500 italic' : 'text-gray-700'}`}>
+                                    {comment.is_hidden ? '숨겨진 댓글입니다.' : comment.content}
+                                </p>
                             </div>
                         ))}
                     </div>
@@ -430,18 +397,24 @@ export default function PostDetailPage() {
                                 type="text"
                                 placeholder="닉네임"
                                 value={commentAuthor}
-                                onChange={(e) => setCommentAuthor(e.target.value)}
-                                className="w-28 px-2 py-1.5 border border-gray-200 rounded text-xs focus:outline-none focus:border-[#4a6a8a]"
+                                onChange={(e) => !user && setCommentAuthor(e.target.value)}
+                                className={`w-28 px-2 py-1.5 border border-gray-200 rounded text-xs focus:outline-none focus:border-[#4a6a8a] ${user ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                                readOnly={!!user}
                                 required
                             />
-                            <input
-                                type="password"
-                                placeholder="비밀번호"
-                                value={commentPassword}
-                                onChange={(e) => setCommentPassword(e.target.value)}
-                                className="w-28 px-2 py-1.5 border border-gray-200 rounded text-xs focus:outline-none focus:border-[#4a6a8a]"
-                                required
-                            />
+                            {!user && (
+                                <input
+                                    type="password"
+                                    placeholder="비밀번호"
+                                    value={commentPassword}
+                                    onChange={(e) => setCommentPassword(e.target.value)}
+                                    className="w-28 px-2 py-1.5 border border-gray-200 rounded text-xs focus:outline-none focus:border-[#4a6a8a]"
+                                    required
+                                />
+                            )}
+                            {user && (
+                                <span className="text-[10px] text-green-600 flex items-center">✓ 회원</span>
+                            )}
                         </div>
                         <textarea
                             ref={commentInputRef}

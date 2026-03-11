@@ -125,13 +125,16 @@ export default function WritePage() {
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-sm font-bold text-gray-700 mb-2">닉네임</label>
+                            <label className="block text-sm font-bold text-gray-700 mb-2">
+                                닉네임 {user && <span className="text-green-600 text-xs font-normal">✓ 회원</span>}
+                            </label>
                             <input
                                 type="text"
                                 value={author}
-                                onChange={(e) => setAuthor(e.target.value)}
-                                className="w-full px-3 py-2 border border-gray-200 rounded text-sm focus:outline-none focus:border-[#4a6a8a]"
+                                onChange={(e) => !user && setAuthor(e.target.value)}
+                                className={`w-full px-3 py-2 border border-gray-200 rounded text-sm focus:outline-none focus:border-[#4a6a8a] ${user ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                                 placeholder="공개될 이름을 입력하세요"
+                                readOnly={!!user}
                                 required
                             />
                         </div>

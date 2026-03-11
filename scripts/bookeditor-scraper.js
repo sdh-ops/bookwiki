@@ -58,7 +58,9 @@ async function scrapeBookEditor() {
                     const titleText = titleLink.text().trim();
                     const postId = parseInt($list(tds[0]).text().trim());
 
-                    if (!isNaN(postId) && !titleText.includes('공지')) {
+                    // 공지, re:, Re: 등 답글 필터링
+                    const lowerTitle = titleText.toLowerCase();
+                    if (!isNaN(postId) && !titleText.includes('공지') && !lowerTitle.startsWith('re:') && !lowerTitle.startsWith('re ')) {
                         const detailUrl = `${baseUrl}/editorplaza/sub9/bread.php?id=${postId}&code=bepsub9&start=0`;
                         const author = $list(tds[4]).text().trim() || '익명';
 
