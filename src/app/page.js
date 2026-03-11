@@ -25,6 +25,7 @@ function PostList() {
   const [totalCount, setTotalCount] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
   const [supportView, setSupportView] = useState("list"); // list or calendar
+  const [jobFilter, setJobFilter] = useState("all"); // all, hiring, seeking
   const [calendarEvents, setCalendarEvents] = useState([]);
   const [calendarDate, setCalendarDate] = useState(new Date());
   const searchParams = useSearchParams();
@@ -32,13 +33,16 @@ function PostList() {
   const currentBoard = searchParams.get("board") || "all";
   const pageParam = searchParams.get("page");
   const viewParam = searchParams.get("view");
+  const filterParam = searchParams.get("filter");
 
   useEffect(() => {
     const page = parseInt(pageParam) || 1;
     setCurrentPage(page);
     if (viewParam === "calendar") setSupportView("calendar");
     else setSupportView("list");
-  }, [pageParam, viewParam]);
+    if (filterParam) setJobFilter(filterParam);
+    else setJobFilter("all");
+  }, [pageParam, viewParam, filterParam]);
 
   useEffect(() => {
     async function fetchData() {
@@ -236,6 +240,23 @@ function PostList() {
     }
   };
 
+  // 구인/구직 분류 함수
+  const isHiringPost = (title) => {
+    const hiringKeywords = ["모십니다", "채용", "모집", "구합니다", "채용합니다"];
+    return hiringKeywords.some(keyword => title.includes(keyword));
+  };
+
+  // 필터링된 게시글
+  const getFilteredPosts = () => {
+    if (currentBoard !== "job" || jobFilter === "all") return posts;
+    return posts.filter(post => {
+      const isHiring = isHiringPost(post.title);
+      return jobFilter === "hiring" ? isHiring : !isHiring;
+    });
+  };
+
+  const filteredPosts = getFilteredPosts();
+
   return (
     <>
       {/* Header */}
@@ -352,6 +373,28 @@ function PostList() {
                     className={`px-3 py-1 ${supportView === "calendar" ? "bg-[#4a6a8a] text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
                   >
                     📅 캘린더
+                  </button>
+                </div>
+              )}
+              {currentBoard === "job" && (
+                <div className="flex border border-gray-300 rounded overflow-hidden text-xs">
+                  <button
+                    onClick={() => router.push("/?board=job")}
+                    className={`px-3 py-1 ${jobFilter === "all" ? "bg-[#4a6a8a] text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
+                  >
+                    전체
+                  </button>
+                  <button
+                    onClick={() => router.push("/?board=job&filter=hiring")}
+                    className={`px-3 py-1 ${jobFilter === "hiring" ? "bg-[#4a6a8a] text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
+                  >
+                    구인
+                  </button>
+                  <button
+                    onClick={() => router.push("/?board=job&filter=seeking")}
+                    className={`px-3 py-1 ${jobFilter === "seeking" ? "bg-[#4a6a8a] text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
+                  >
+                    구직
                   </button>
                 </div>
               )}
@@ -490,12 +533,12 @@ function PostList() {
               <tbody className="divide-y divide-gray-100">
                 {loading ? (
                   <tr><td colSpan="5" className="py-10 text-center text-gray-400">불러오는 중...</td></tr>
-                ) : posts.length === 0 ? (
+                ) : filteredPosts.length === 0 ? (
                   <tr><td colSpan="5" className="py-10 text-center text-gray-400 text-xs">작성된 게시물이 없습니다.</td></tr>
                 ) : (
                   <>
                     {/* 공지사항 먼저 표시 */}
-                    {posts.filter(p => p.is_notice).map((post) => (
+                    {filteredPosts.filter(p => p.is_notice).map((post) => (
                       <tr key={post.id} className="bg-blue-50 hover:bg-blue-100 cursor-pointer" onClick={() => router.push(`/post/${post.id}`)}>
                         <td className="px-2 py-2 text-xs text-blue-600 font-bold">공지</td>
                         <td className="px-2 py-2 font-bold text-gray-900">
@@ -513,10 +556,32 @@ function PostList() {
                         <td className="px-2 py-2 text-xs text-gray-400 text-center">{post.view_count}</td>
                       </tr>
                     ))}
-                    {/* 일반 게시글 */}
-                    {posts.filter(p => !p.is_notice).map((post, idx) => (
+                    {/* 구인구직 게시판: 직접 작성글 먼저 표시 */}
+                    {currentBoard === "job" && filteredPosts.filter(p => !p.is_notice && !p.is_auto).map((post, idx) => (
+                      <tr key={post.id} className="bg-green-50 hover:bg-green-100 cursor-pointer" onClick={() => router.push(`/post/${post.id}`)}>
+                        <td className="px-2 py-2 text-xs text-green-600 font-bold">직접</td>
+                        <td className="px-2 py-2 font-medium text-gray-800">
+                          {hotPostIds.includes(post.id) && (
+                            <span className="text-[10px] bg-red-500 text-white px-1.5 py-0.5 mr-1.5 rounded-sm font-bold">HOT</span>
+                          )}
+                          <span className="text-[#4a6a8a] mr-2 text-[10px] font-bold">[{boardTypeNames[post.board_type] || post.board_type}]</span>
+                          {post.title}
+                          {post.comment_count > 0 && (
+                            <span className="text-red-500 ml-1 text-[10px] font-bold">[{post.comment_count}]</span>
+                          )}
+                        </td>
+                        <td className="px-2 py-2 text-xs text-gray-600 truncate max-w-[80px]">
+                          {post.author}
+                          {post.user_id && <span className="ml-0.5 text-green-500" title="회원">✓</span>}
+                        </td>
+                        <td className="px-2 py-2 text-xs text-gray-400 text-center">{new Date(post.created_at).toLocaleDateString()}</td>
+                        <td className="px-2 py-2 text-xs text-gray-400 text-center">{post.view_count}</td>
+                      </tr>
+                    ))}
+                    {/* 일반 게시글 (구인구직은 자동 스크래핑 글만, 다른 게시판은 전부) */}
+                    {filteredPosts.filter(p => !p.is_notice && (currentBoard !== "job" || p.is_auto)).map((post, idx) => (
                       <tr key={post.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => router.push(`/post/${post.id}`)}>
-                        <td className="px-2 py-2 text-xs text-gray-400">{totalCount - posts.filter(p => p.is_notice).length - ((currentPage - 1) * POSTS_PER_PAGE) - idx}</td>
+                        <td className="px-2 py-2 text-xs text-gray-400">{totalCount - filteredPosts.filter(p => p.is_notice).length - (currentBoard === "job" ? filteredPosts.filter(p => !p.is_notice && !p.is_auto).length : 0) - ((currentPage - 1) * POSTS_PER_PAGE) - idx}</td>
                         <td className="px-2 py-2 font-medium text-gray-800">
                           {hotPostIds.includes(post.id) && (
                             <span className="text-[10px] bg-red-500 text-white px-1.5 py-0.5 mr-1.5 rounded-sm font-bold">HOT</span>

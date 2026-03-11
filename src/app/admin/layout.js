@@ -49,6 +49,7 @@ export default function AdminLayout({ children }) {
                 </div>
                 <nav className="flex-1 p-4 space-y-2">
                     <Link href="/admin" className="block px-4 py-2 text-sm rounded hover:bg-[#34495e] transition">대시보드</Link>
+                    <Link href="/admin/posts" className="block px-4 py-2 text-sm rounded hover:bg-[#34495e] transition">게시물 관리</Link>
                     <Link href="/admin/users" className="block px-4 py-2 text-sm rounded hover:bg-[#34495e] transition">운영자 관리</Link>
                     <div className="pt-4 border-t border-[#34495e] mt-4">
                         <Link href="/" className="block px-4 py-2 text-sm text-gray-400 hover:text-white transition">메인으로 가기</Link>

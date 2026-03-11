@@ -94,13 +94,22 @@ export default function PostDetailPage() {
         if (id) fetchData();
     }, [id, router]);
 
-    // Auto-set nickname for logged-in users
+    // 랜덤 익명 닉네임 생성
+    const generateAnonNickname = () => {
+        const num = Math.floor(1000 + Math.random() * 9000); // 1000-9999
+        return `위키키${num}`;
+    };
+
+    // Auto-set nickname for users
     useEffect(() => {
         if (user) {
             const nickname = user.user_metadata?.nickname || user.email.split('@')[0];
             setCommentAuthor(nickname);
+        } else if (user === null && !commentAuthor) {
+            // 비회원은 랜덤 익명 닉네임 자동 생성
+            setCommentAuthor(generateAnonNickname());
         }
-    }, [user]);
+    }, [user, commentAuthor]);
 
     const refreshComments = async () => {
         const { data } = await supabase

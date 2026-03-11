@@ -16,6 +16,12 @@ export default function WritePage() {
     const [loading, setLoading] = useState(true);
     const router = useRouter();
 
+    // 랜덤 익명 닉네임 생성
+    const generateAnonNickname = () => {
+        const num = Math.floor(1000 + Math.random() * 9000); // 1000-9999
+        return `위키키${num}`;
+    };
+
     useEffect(() => {
         const fetchUser = async () => {
             const { data: { user } } = await supabase.auth.getUser();
@@ -23,6 +29,9 @@ export default function WritePage() {
             if (user) {
                 // Always use nickname, never expose email
                 setAuthor(user.user_metadata?.nickname || "익명");
+            } else {
+                // 비회원은 랜덤 익명 닉네임 자동 생성
+                setAuthor(generateAnonNickname());
             }
             setLoading(false);
         };
