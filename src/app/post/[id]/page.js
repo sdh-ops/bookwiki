@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
@@ -19,6 +19,7 @@ export default function PostDetailPage() {
     const [comments, setComments] = useState([]);
     const [newComment, setNewComment] = useState("");
     const [commentAuthor, setCommentAuthor] = useState("");
+    const [commentPassword, setCommentPassword] = useState("");
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
     const [user, setUser] = useState(null);
@@ -27,6 +28,13 @@ export default function PostDetailPage() {
     const [tempPassword, setTempPassword] = useState("");
     const [managementType, setManagementType] = useState("");
     const router = useRouter();
+
+    // Comment management states
+    const [commentModal, setCommentModal] = useState({ show: false, type: '', commentId: null });
+    const [commentTempPassword, setCommentTempPassword] = useState("");
+    const [editingComment, setEditingComment] = useState(null);
+    const [editContent, setEditContent] = useState("");
+    const commentInputRef = useRef(null);
 
     useEffect(() => {
         async function fetchData() {
@@ -88,30 +96,134 @@ export default function PostDetailPage() {
         if (id) fetchData();
     }, [id, router]);
 
+    const refreshComments = async () => {
+        const { data } = await supabase
+            .from("bw_comments")
+            .select("*")
+            .eq("post_id", id)
+            .order("created_at", { ascending: true });
+        setComments(data || []);
+    };
+
     const handleCommentSubmit = async (e) => {
         e.preventDefault();
         if (!newComment || !commentAuthor) {
             alert("이름과 내용을 입력해주세요.");
             return;
         }
+        if (!commentPassword) {
+            alert("비밀번호를 입력해주세요.");
+            return;
+        }
 
         setSubmitting(true);
         const { error } = await supabase.from("bw_comments").insert([
-            { post_id: id, content: newComment, author: commentAuthor }
+            {
+                post_id: id,
+                content: newComment,
+                author: commentAuthor,
+                password: commentPassword,
+                is_hidden: false
+            }
         ]);
 
         if (error) {
             alert("댓글 작성 실패: " + error.message);
         } else {
             setNewComment("");
-            const { data } = await supabase
-                .from("bw_comments")
-                .select("*")
-                .eq("post_id", id)
-                .order("created_at", { ascending: true });
-            setComments(data || []);
+            setCommentPassword("");
+            await refreshComments();
+
+            // Update comment count on post
+            await supabase
+                .from("bw_posts")
+                .update({ comment_count: comments.length + 1 })
+                .eq("id", id);
         }
         setSubmitting(false);
+    };
+
+    // Reply to comment (add @mention)
+    const handleReply = (authorName) => {
+        setNewComment(`@${authorName} `);
+        commentInputRef.current?.focus();
+    };
+
+    // Comment management
+    const handleCommentAction = (type, comment) => {
+        if (isAdmin) {
+            // Admin can do anything without password
+            if (type === 'delete') {
+                if (confirm("댓글을 삭제하시겠습니까?")) executeCommentDelete(comment.id);
+            } else if (type === 'hide') {
+                executeCommentHide(comment.id, !comment.is_hidden);
+            } else if (type === 'edit') {
+                setEditingComment(comment.id);
+                setEditContent(comment.content);
+            }
+        } else {
+            // Need password verification
+            setCommentModal({ show: true, type, commentId: comment.id, comment });
+        }
+    };
+
+    const executeCommentDelete = async (commentId) => {
+        const { error } = await supabase.from("bw_comments").delete().eq("id", commentId);
+        if (error) {
+            alert("삭제 실패: " + error.message);
+        } else {
+            await refreshComments();
+            // Update comment count
+            await supabase
+                .from("bw_posts")
+                .update({ comment_count: Math.max(0, comments.length - 1) })
+                .eq("id", id);
+        }
+    };
+
+    const executeCommentHide = async (commentId, hidden) => {
+        const { error } = await supabase
+            .from("bw_comments")
+            .update({ is_hidden: hidden })
+            .eq("id", commentId);
+        if (error) {
+            alert("숨기기 실패: " + error.message);
+        } else {
+            await refreshComments();
+        }
+    };
+
+    const executeCommentEdit = async (commentId) => {
+        const { error } = await supabase
+            .from("bw_comments")
+            .update({ content: editContent })
+            .eq("id", commentId);
+        if (error) {
+            alert("수정 실패: " + error.message);
+        } else {
+            setEditingComment(null);
+            setEditContent("");
+            await refreshComments();
+        }
+    };
+
+    const handleCommentPasswordConfirm = async () => {
+        const { type, comment } = commentModal;
+
+        if (commentTempPassword === comment.password) {
+            if (type === 'delete') {
+                await executeCommentDelete(comment.id);
+            } else if (type === 'hide') {
+                await executeCommentHide(comment.id, !comment.is_hidden);
+            } else if (type === 'edit') {
+                setEditingComment(comment.id);
+                setEditContent(comment.content);
+            }
+        } else {
+            alert("비밀번호가 틀렸습니다.");
+        }
+        setCommentModal({ show: false, type: '', commentId: null });
+        setCommentTempPassword("");
     };
 
     const handleManagement = (type) => {
@@ -244,29 +356,96 @@ export default function PostDetailPage() {
 
                     <div className="space-y-4 mb-10">
                         {comments.map((comment) => (
-                            <div key={comment.id} className="bg-gray-50 p-4 rounded border border-gray-100">
+                            <div key={comment.id} className={`p-4 rounded border ${comment.is_hidden ? 'bg-gray-200 border-gray-300' : 'bg-gray-50 border-gray-100'}`}>
                                 <div className="flex justify-between items-center mb-2">
-                                    <span className="text-xs font-bold text-gray-700">{comment.author}</span>
-                                    <span className="text-[10px] text-gray-400">{new Date(comment.created_at).toLocaleString()}</span>
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-xs font-bold text-gray-700">{comment.author}</span>
+                                        {comment.is_hidden && <span className="text-[10px] text-red-500">(숨김)</span>}
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-[10px] text-gray-400">{new Date(comment.created_at).toLocaleString()}</span>
+                                        <div className="flex gap-1 text-[10px]">
+                                            <button
+                                                onClick={() => handleReply(comment.author)}
+                                                className="text-blue-500 hover:underline"
+                                            >
+                                                답글
+                                            </button>
+                                            <button
+                                                onClick={() => handleCommentAction('hide', comment)}
+                                                className="text-yellow-600 hover:underline"
+                                            >
+                                                {comment.is_hidden ? '보이기' : '숨기기'}
+                                            </button>
+                                            <button
+                                                onClick={() => handleCommentAction('edit', comment)}
+                                                className="text-gray-500 hover:underline"
+                                            >
+                                                수정
+                                            </button>
+                                            <button
+                                                onClick={() => handleCommentAction('delete', comment)}
+                                                className="text-red-500 hover:underline"
+                                            >
+                                                삭제
+                                            </button>
+                                        </div>
+                                    </div>
                                 </div>
-                                <p className="text-sm text-gray-700 whitespace-pre-wrap">{comment.content}</p>
+
+                                {editingComment === comment.id ? (
+                                    <div className="mt-2">
+                                        <textarea
+                                            value={editContent}
+                                            onChange={(e) => setEditContent(e.target.value)}
+                                            className="w-full h-20 px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:border-[#4a6a8a] resize-none"
+                                        />
+                                        <div className="flex gap-2 mt-2">
+                                            <button
+                                                onClick={() => executeCommentEdit(comment.id)}
+                                                className="px-3 py-1 text-xs bg-[#4a6a8a] text-white rounded hover:bg-[#3a5a7a]"
+                                            >
+                                                저장
+                                            </button>
+                                            <button
+                                                onClick={() => { setEditingComment(null); setEditContent(""); }}
+                                                className="px-3 py-1 text-xs bg-gray-300 text-gray-700 rounded hover:bg-gray-400"
+                                            >
+                                                취소
+                                            </button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <p className={`text-sm whitespace-pre-wrap ${comment.is_hidden ? 'text-gray-500 italic' : 'text-gray-700'}`}>
+                                        {comment.is_hidden ? '숨겨진 댓글입니다.' : comment.content}
+                                    </p>
+                                )}
                             </div>
                         ))}
                     </div>
 
                     <form onSubmit={handleCommentSubmit} className="bg-white border border-gray-200 rounded p-4">
-                        <div className="mb-3">
+                        <div className="flex gap-2 mb-3">
                             <input
                                 type="text"
                                 placeholder="닉네임"
                                 value={commentAuthor}
                                 onChange={(e) => setCommentAuthor(e.target.value)}
-                                className="w-32 px-2 py-1.5 border border-gray-200 rounded text-xs focus:outline-none focus:border-[#4a6a8a]"
+                                className="w-28 px-2 py-1.5 border border-gray-200 rounded text-xs focus:outline-none focus:border-[#4a6a8a]"
+                                required
+                            />
+                            <input
+                                type="password"
+                                placeholder="비밀번호"
+                                value={commentPassword}
+                                onChange={(e) => setCommentPassword(e.target.value)}
+                                className="w-28 px-2 py-1.5 border border-gray-200 rounded text-xs focus:outline-none focus:border-[#4a6a8a]"
                                 required
                             />
                         </div>
                         <textarea
-                            placeholder="댓글을 남겨보세요"
+                            ref={commentInputRef}
+                            placeholder="댓글을 남겨보세요 (다른 댓글을 클릭하면 @태그로 답글)"
                             value={newComment}
                             onChange={(e) => setNewComment(e.target.value)}
                             className="w-full h-24 px-3 py-2 border border-gray-200 rounded text-sm focus:outline-none focus:border-[#4a6a8a] resize-none mb-3"
@@ -285,7 +464,7 @@ export default function PostDetailPage() {
                 </div>
             </article>
 
-            {/* Password Modal */}
+            {/* Post Password Modal */}
             {showPasswordModal && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
                     <div className="bg-white rounded p-6 max-w-xs w-full shadow-2xl">
@@ -306,6 +485,36 @@ export default function PostDetailPage() {
                             </button>
                             <button
                                 onClick={handlePasswordConfirm}
+                                className="flex-1 py-2 text-xs bg-[#4a6a8a] text-white rounded hover:bg-[#3a5a7a]"
+                            >
+                                확인
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Comment Password Modal */}
+            {commentModal.show && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+                    <div className="bg-white rounded p-6 max-w-xs w-full shadow-2xl">
+                        <h4 className="text-sm font-bold mb-4">댓글 비밀번호 확인</h4>
+                        <input
+                            type="password"
+                            placeholder="비밀번호"
+                            value={commentTempPassword}
+                            onChange={(e) => setCommentTempPassword(e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-200 rounded text-sm mb-4 focus:outline-none focus:border-[#4a6a8a]"
+                        />
+                        <div className="flex space-x-2">
+                            <button
+                                onClick={() => { setCommentModal({ show: false, type: '', commentId: null }); setCommentTempPassword(""); }}
+                                className="flex-1 py-2 text-xs text-gray-500 hover:bg-gray-50 rounded border border-gray-100"
+                            >
+                                취소
+                            </button>
+                            <button
+                                onClick={handleCommentPasswordConfirm}
                                 className="flex-1 py-2 text-xs bg-[#4a6a8a] text-white rounded hover:bg-[#3a5a7a]"
                             >
                                 확인
