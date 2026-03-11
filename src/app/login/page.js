@@ -91,11 +91,10 @@ export default function LoginPage() {
             return;
         }
 
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
             email,
             password,
             options: {
-                emailRedirectTo: window.location.origin,
                 data: {
                     nickname: nickname,
                 }
@@ -104,8 +103,9 @@ export default function LoginPage() {
 
         if (error) {
             setMessage("회원가입 실패: " + error.message);
-        } else {
-            setMessage("회원가입 완료! 이메일을 확인하여 계정을 인증해주세요.");
+        } else if (data?.user) {
+            // 회원가입 성공 시 바로 홈으로 이동
+            window.location.href = "/";
         }
         setLoading(false);
     };
