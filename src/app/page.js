@@ -28,6 +28,10 @@ function PostList() {
   const [jobFilter, setJobFilter] = useState("all"); // all, hiring, seeking
   const [calendarEvents, setCalendarEvents] = useState([]);
   const [calendarDate, setCalendarDate] = useState(new Date());
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState([]);
+  const [showSearchResults, setShowSearchResults] = useState(false);
   const searchParams = useSearchParams();
   const router = useRouter();
   const currentBoard = searchParams.get("board") || "all";
@@ -257,13 +261,35 @@ function PostList() {
 
   const filteredPosts = getFilteredPosts();
 
+  // 게시물 검색
+  const handleSearch = async () => {
+    if (!searchQuery.trim()) {
+      setShowSearchResults(false);
+      return;
+    }
+    const { data } = await supabase
+      .from("bw_posts")
+      .select("id, title, board_type, created_at")
+      .ilike("title", `%${searchQuery}%`)
+      .order("created_at", { ascending: false })
+      .limit(10);
+    setSearchResults(data || []);
+    setShowSearchResults(true);
+  };
+
   return (
     <>
       {/* Header */}
-      <header className="bg-[#4a6a8a] text-white">
+      <header className="bg-[#355E3B] text-white">
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center space-x-6">
-            <Link href="/" className="text-2xl font-bold tracking-tighter">북위키</Link>
+            {/* 모바일: 북위키 클릭 시 메뉴 토글 */}
+            <button
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="text-2xl font-bold tracking-tighter md:pointer-events-none"
+            >
+              북위키
+            </button>
             <nav className="hidden md:flex space-x-4 text-sm font-medium">
               {boardCategories.map((cat) => (
                 <button
@@ -276,101 +302,112 @@ function PostList() {
               ))}
             </nav>
           </div>
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-2 md:space-x-4">
             {isAdmin && (
-              <Link href="/admin" className="text-xs font-bold bg-red-500 px-3 py-1.5 rounded hover:bg-red-600 transition">
+              <Link href="/admin" className="hidden md:block text-xs font-bold bg-red-500 px-3 py-1.5 rounded hover:bg-red-600 transition">
                 관리자
               </Link>
             )}
             {user ? (
-              <div className="flex items-center space-x-3">
+              <div className="hidden md:flex items-center space-x-3">
                 <span className="text-xs text-white/60">{user.user_metadata?.nickname || user.email.split('@')[0]}</span>
                 <Link href="/mypage" className="text-xs text-white/80 hover:text-white">내 활동</Link>
                 <button onClick={handleLogout} className="text-xs text-white/70 hover:text-white">로그아웃</button>
               </div>
             ) : (
-              <Link href="/login" className="text-sm border border-white/30 px-3 py-1 rounded hover:bg-white/10">로그인</Link>
+              <Link href="/login" className="hidden md:block text-sm border border-white/30 px-3 py-1 rounded hover:bg-white/10">로그인</Link>
             )}
             <div className="relative">
               <input
                 type="text"
-                placeholder="게시판 찾기"
-                className="bg-[#3a5a7a] text-xs px-3 py-1.5 rounded w-32 md:w-48 outline-none placeholder:text-gray-300"
+                placeholder="게시물 찾기"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+                className="bg-[#2A4A2E] text-xs px-3 py-1.5 rounded w-28 md:w-48 outline-none placeholder:text-gray-300"
               />
+              <button onClick={handleSearch} className="absolute right-2 top-1/2 -translate-y-1/2 text-white/60 hover:text-white">
+                🔍
+              </button>
+              {/* 검색 결과 드롭다운 */}
+              {showSearchResults && searchResults.length > 0 && (
+                <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded shadow-lg z-50 max-h-64 overflow-y-auto">
+                  {searchResults.map((result) => (
+                    <Link
+                      key={result.id}
+                      href={`/post/${result.id}`}
+                      onClick={() => setShowSearchResults(false)}
+                      className="block px-3 py-2 text-xs text-gray-700 hover:bg-gray-100 border-b border-gray-100 last:border-0"
+                    >
+                      <span className="text-[#355E3B] font-bold">[{boardTypeNames[result.board_type]}]</span> {result.title}
+                    </Link>
+                  ))}
+                </div>
+              )}
+              {showSearchResults && searchResults.length === 0 && searchQuery && (
+                <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded shadow-lg z-50 px-3 py-2 text-xs text-gray-500">
+                  검색 결과가 없습니다.
+                </div>
+              )}
             </div>
           </div>
         </div>
+        {/* 모바일 메뉴 드롭다운 */}
+        {mobileMenuOpen && (
+          <div className="md:hidden bg-[#2A4A2E] border-t border-[#355E3B]">
+            <nav className="max-w-6xl mx-auto px-4 py-2 space-y-1">
+              {boardCategories.map((cat) => (
+                <button
+                  key={cat.id}
+                  onClick={() => { handleBoardClick(cat.id); setMobileMenuOpen(false); }}
+                  className={`block w-full text-left px-3 py-2 text-sm rounded ${currentBoard === cat.id ? "bg-[#355E3B] font-bold" : "hover:bg-[#355E3B]/50"}`}
+                >
+                  {cat.name}
+                </button>
+              ))}
+              <div className="border-t border-[#355E3B] pt-2 mt-2">
+                {user ? (
+                  <>
+                    <Link href="/mypage" className="block px-3 py-2 text-sm hover:bg-[#355E3B]/50 rounded">내 활동</Link>
+                    <button onClick={handleLogout} className="block w-full text-left px-3 py-2 text-sm hover:bg-[#355E3B]/50 rounded">로그아웃</button>
+                  </>
+                ) : (
+                  <Link href="/login" className="block px-3 py-2 text-sm hover:bg-[#355E3B]/50 rounded">로그인</Link>
+                )}
+                {isAdmin && <Link href="/admin" className="block px-3 py-2 text-sm text-red-300 hover:bg-[#355E3B]/50 rounded">관리자</Link>}
+              </div>
+            </nav>
+          </div>
+        )}
       </header>
+
+      {/* Banner */}
+      <div className="max-w-6xl mx-auto px-4 mt-4">
+        <div className="bg-black h-20 md:h-24 rounded flex items-center justify-center text-white text-sm">
+          광고 배너 영역
+        </div>
+      </div>
 
       {/* Main Content */}
       <section className="max-w-6xl mx-auto px-4 py-6 grid grid-cols-1 lg:grid-cols-4 gap-6">
-        {/* Left - Sidebar */}
-        <aside className="lg:col-span-1 hidden lg:block">
-          {/* Best Posts (Weekly HOT) */}
-          {bestPosts.length > 0 && (
-            <div className="border border-gray-200 mt-4">
-              <div className="bg-yellow-400 text-gray-800 px-3 py-2 text-xs font-bold border-b border-gray-200 flex items-center gap-1">
-                <span>🔥</span> 주간 베스트
-              </div>
-              <ul className="text-xs">
-                {bestPosts.slice(0, 5).map((post, idx) => (
-                  <li key={post.id} className="border-b border-gray-100 last:border-0">
-                    <Link
-                      href={`/post/${post.id}`}
-                      className="block px-3 py-2 hover:bg-gray-50 text-gray-700"
-                    >
-                      <div className="flex items-start gap-2">
-                        <span className="text-red-500 font-bold">{idx + 1}</span>
-                        <span className="truncate flex-1">{post.title}</span>
-                      </div>
-                      <div className="text-[10px] text-gray-400 mt-1 ml-4">
-                        조회 {post.view_count || 0} · 댓글 {post.comment_count || 0}
-                      </div>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {/* User Menu for logged in users */}
-          {user && (
-            <div className="border border-gray-200 mt-4">
-              <div className="bg-gray-100 px-3 py-2 text-xs font-bold border-b border-gray-200">내 활동</div>
-              <ul className="text-xs">
-                <li className="border-b border-gray-100">
-                  <Link href="/mypage" className="block w-full text-left px-3 py-2 hover:bg-gray-50 text-gray-700">
-                    내가 쓴 글
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/mypage?tab=comments" className="block w-full text-left px-3 py-2 hover:bg-gray-50 text-gray-700">
-                    내가 쓴 댓글
-                  </Link>
-                </li>
-              </ul>
-            </div>
-          )}
-        </aside>
-
-        {/* Center - Post List */}
-        <div className="lg:col-span-3">
-          <div className="flex justify-between items-center mb-4 pb-2 border-b-2 border-[#4a6a8a]">
+        {/* Left - Post List (3 columns) */}
+        <div className="lg:col-span-3 order-2 lg:order-1">
+          <div className="flex justify-between items-center mb-4 pb-2 border-b-2 border-[#355E3B]">
             <div className="flex items-center gap-4">
-              <h2 className="text-lg font-bold text-[#4a6a8a]">
+              <h2 className="text-lg font-bold text-[#355E3B]">
                 {currentBoard === "hot" ? "HOT 인기글 (최근 7일)" : currentBoard === "ai" ? "AI 허브" : `${boardCategories.find(c => c.id === currentBoard)?.name} 최신글`}
               </h2>
               {currentBoard === "support" && (
                 <div className="flex border border-gray-300 rounded overflow-hidden text-xs">
                   <button
                     onClick={() => handleSupportViewChange("list")}
-                    className={`px-3 py-1 ${supportView === "list" ? "bg-[#4a6a8a] text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
+                    className={`px-3 py-1 ${supportView === "list" ? "bg-[#355E3B] text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
                   >
                     목록
                   </button>
                   <button
                     onClick={() => handleSupportViewChange("calendar")}
-                    className={`px-3 py-1 ${supportView === "calendar" ? "bg-[#4a6a8a] text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
+                    className={`px-3 py-1 ${supportView === "calendar" ? "bg-[#355E3B] text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
                   >
                     📅 캘린더
                   </button>
@@ -380,27 +417,30 @@ function PostList() {
                 <div className="flex border border-gray-300 rounded overflow-hidden text-xs">
                   <button
                     onClick={() => router.push("/?board=job")}
-                    className={`px-3 py-1 ${jobFilter === "all" ? "bg-[#4a6a8a] text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
+                    className={`px-3 py-1 ${jobFilter === "all" ? "bg-[#355E3B] text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
                   >
                     전체
                   </button>
                   <button
                     onClick={() => router.push("/?board=job&filter=hiring")}
-                    className={`px-3 py-1 ${jobFilter === "hiring" ? "bg-[#4a6a8a] text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
+                    className={`px-3 py-1 ${jobFilter === "hiring" ? "bg-[#355E3B] text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
                   >
                     구인
                   </button>
                   <button
                     onClick={() => router.push("/?board=job&filter=seeking")}
-                    className={`px-3 py-1 ${jobFilter === "seeking" ? "bg-[#4a6a8a] text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
+                    className={`px-3 py-1 ${jobFilter === "seeking" ? "bg-[#355E3B] text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
                   >
                     구직
                   </button>
                 </div>
               )}
             </div>
-            {currentBoard !== "ai" && (
-              <Link href="/write" className="text-xs bg-[#4a6a8a] text-white px-3 py-1 rounded">글쓰기</Link>
+            {currentBoard !== "ai" && currentBoard !== "hot" && currentBoard !== "all" && (
+              <Link href={`/write?board=${currentBoard}`} className="text-xs bg-[#355E3B] text-white px-3 py-1 rounded">글쓰기</Link>
+            )}
+            {(currentBoard === "all" || currentBoard === "hot") && (
+              <Link href="/write" className="text-xs bg-[#355E3B] text-white px-3 py-1 rounded">글쓰기</Link>
             )}
           </div>
 
@@ -523,11 +563,11 @@ function PostList() {
             <table className="w-full text-sm text-left">
               <thead className="text-xs text-gray-500 border-b border-gray-200">
                 <tr>
-                  <th className="px-2 py-2 font-medium w-16">번호</th>
+                  <th className="px-2 py-2 font-medium w-12 md:w-16 hidden md:table-cell">번호</th>
                   <th className="px-2 py-2 font-medium">제목</th>
-                  <th className="px-2 py-2 font-medium w-24">글쓴이</th>
-                  <th className="px-2 py-2 font-medium w-20 text-center">날짜</th>
-                  <th className="px-2 py-2 font-medium w-16 text-center">조회</th>
+                  <th className="px-2 py-2 font-medium w-24 hidden md:table-cell">글쓴이</th>
+                  <th className="px-2 py-2 font-medium w-16 md:w-20 text-center">날짜</th>
+                  <th className="px-2 py-2 font-medium w-12 md:w-16 text-center">조회</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -540,63 +580,65 @@ function PostList() {
                     {/* 공지사항 먼저 표시 */}
                     {filteredPosts.filter(p => p.is_notice).map((post) => (
                       <tr key={post.id} className="bg-blue-50 hover:bg-blue-100 cursor-pointer" onClick={() => router.push(`/post/${post.id}`)}>
-                        <td className="px-2 py-2 text-xs text-blue-600 font-bold">공지</td>
+                        <td className="px-2 py-2 text-xs text-blue-600 font-bold hidden md:table-cell">공지</td>
                         <td className="px-2 py-2 font-bold text-gray-900">
-                          <span className="text-[#4a6a8a] mr-2 text-[10px] font-bold">[{boardTypeNames[post.board_type] || post.board_type}]</span>
+                          <span className="md:hidden text-blue-600 mr-1">[공지]</span>
+                          <span className="text-[#355E3B] mr-2 text-[10px] font-bold hidden md:inline">[{boardTypeNames[post.board_type] || post.board_type}]</span>
                           {post.title}
                           {post.comment_count > 0 && (
                             <span className="text-red-500 ml-1 text-[10px] font-bold">[{post.comment_count}]</span>
                           )}
                         </td>
-                        <td className="px-2 py-2 text-xs text-gray-600 truncate max-w-[80px]">
+                        <td className="px-2 py-2 text-xs text-gray-600 truncate max-w-[80px] hidden md:table-cell">
                           {post.author}
                           {post.user_id && <span className="ml-0.5 text-green-500" title="회원">✓</span>}
                         </td>
-                        <td className="px-2 py-2 text-xs text-gray-400 text-center">{new Date(post.created_at).toLocaleDateString()}</td>
+                        <td className="px-2 py-2 text-xs text-gray-400 text-center">{new Date(post.created_at).toLocaleDateString().slice(5)}</td>
                         <td className="px-2 py-2 text-xs text-gray-400 text-center">{post.view_count}</td>
                       </tr>
                     ))}
                     {/* 구인구직 게시판: 직접 작성글 먼저 표시 */}
-                    {currentBoard === "job" && filteredPosts.filter(p => !p.is_notice && !p.is_auto).map((post, idx) => (
+                    {currentBoard === "job" && filteredPosts.filter(p => !p.is_notice && !p.is_auto).map((post) => (
                       <tr key={post.id} className="bg-green-50 hover:bg-green-100 cursor-pointer" onClick={() => router.push(`/post/${post.id}`)}>
-                        <td className="px-2 py-2 text-xs text-green-600 font-bold">직접</td>
+                        <td className="px-2 py-2 text-xs text-green-600 font-bold hidden md:table-cell">직접</td>
                         <td className="px-2 py-2 font-medium text-gray-800">
+                          <span className="md:hidden text-green-600 mr-1">[직접]</span>
                           {hotPostIds.includes(post.id) && (
                             <span className="text-[10px] bg-red-500 text-white px-1.5 py-0.5 mr-1.5 rounded-sm font-bold">HOT</span>
                           )}
-                          <span className="text-[#4a6a8a] mr-2 text-[10px] font-bold">[{boardTypeNames[post.board_type] || post.board_type}]</span>
+                          <span className="text-[#355E3B] mr-2 text-[10px] font-bold hidden md:inline">[{boardTypeNames[post.board_type] || post.board_type}]</span>
                           {post.title}
                           {post.comment_count > 0 && (
                             <span className="text-red-500 ml-1 text-[10px] font-bold">[{post.comment_count}]</span>
                           )}
                         </td>
-                        <td className="px-2 py-2 text-xs text-gray-600 truncate max-w-[80px]">
+                        <td className="px-2 py-2 text-xs text-gray-600 truncate max-w-[80px] hidden md:table-cell">
                           {post.author}
                           {post.user_id && <span className="ml-0.5 text-green-500" title="회원">✓</span>}
                         </td>
-                        <td className="px-2 py-2 text-xs text-gray-400 text-center">{new Date(post.created_at).toLocaleDateString()}</td>
+                        <td className="px-2 py-2 text-xs text-gray-400 text-center">{new Date(post.created_at).toLocaleDateString().slice(5)}</td>
                         <td className="px-2 py-2 text-xs text-gray-400 text-center">{post.view_count}</td>
                       </tr>
                     ))}
                     {/* 일반 게시글 (구인구직은 자동 스크래핑 글만, 다른 게시판은 전부) */}
                     {filteredPosts.filter(p => !p.is_notice && (currentBoard !== "job" || p.is_auto)).map((post, idx) => (
                       <tr key={post.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => router.push(`/post/${post.id}`)}>
-                        <td className="px-2 py-2 text-xs text-gray-400">{totalCount - filteredPosts.filter(p => p.is_notice).length - (currentBoard === "job" ? filteredPosts.filter(p => !p.is_notice && !p.is_auto).length : 0) - ((currentPage - 1) * POSTS_PER_PAGE) - idx}</td>
+                        <td className="px-2 py-2 text-xs text-gray-400 hidden md:table-cell">{totalCount - filteredPosts.filter(p => p.is_notice).length - (currentBoard === "job" ? filteredPosts.filter(p => !p.is_notice && !p.is_auto).length : 0) - ((currentPage - 1) * POSTS_PER_PAGE) - idx}</td>
                         <td className="px-2 py-2 font-medium text-gray-800">
                           {hotPostIds.includes(post.id) && (
                             <span className="text-[10px] bg-red-500 text-white px-1.5 py-0.5 mr-1.5 rounded-sm font-bold">HOT</span>
                           )}
-                          <span className="text-[#4a6a8a] mr-2 text-[10px] font-bold">[{boardTypeNames[post.board_type] || post.board_type}]</span>
+                          <span className="text-[#355E3B] mr-2 text-[10px] font-bold hidden md:inline">[{boardTypeNames[post.board_type] || post.board_type}]</span>
                           {post.title}
                           {post.comment_count > 0 && (
                             <span className="text-red-500 ml-1 text-[10px] font-bold">[{post.comment_count}]</span>
                           )}
                         </td>
-                        <td className="px-2 py-2 text-xs text-gray-600 truncate max-w-[80px]">
+                        <td className="px-2 py-2 text-xs text-gray-600 truncate max-w-[80px] hidden md:table-cell">
                           {post.author}
                           {post.user_id && <span className="ml-0.5 text-green-500" title="회원">✓</span>}
                         </td>
-                        <td className="px-2 py-2 text-xs text-gray-400 text-center">{new Date(post.created_at).toLocaleDateString()}</td>
+                        <td className="px-2 py-2 text-xs text-gray-400 text-center">{new Date(post.created_at).toLocaleDateString().slice(5)}</td>
                         <td className="px-2 py-2 text-xs text-gray-400 text-center">{post.view_count}</td>
                       </tr>
                     ))}
@@ -629,7 +671,7 @@ function PostList() {
                   onClick={() => handlePageChange(page)}
                   className={`px-3 py-1 text-xs rounded ${
                     currentPage === page
-                      ? "bg-[#4a6a8a] text-white font-bold"
+                      ? "bg-[#355E3B] text-white font-bold"
                       : "text-gray-600 hover:bg-gray-100"
                   }`}
                 >
@@ -658,12 +700,66 @@ function PostList() {
           </>
           )}
         </div>
+
+        {/* Right - Sidebar */}
+        <aside className="lg:col-span-1 order-1 lg:order-2">
+          {/* Best Posts (Weekly HOT) */}
+          {bestPosts.length > 0 && (
+            <div className="border border-gray-200">
+              <div className="bg-yellow-400 text-gray-800 px-3 py-2 text-xs font-bold border-b border-gray-200 flex items-center gap-1">
+                <span>🔥</span> 주간 베스트
+              </div>
+              <ul className="text-xs">
+                {bestPosts.slice(0, 5).map((post, idx) => (
+                  <li key={post.id} className="border-b border-gray-100 last:border-0">
+                    <Link
+                      href={`/post/${post.id}`}
+                      className="block px-3 py-2 hover:bg-gray-50 text-gray-700"
+                    >
+                      <div className="flex items-start gap-2">
+                        <span className="text-red-500 font-bold">{idx + 1}</span>
+                        <span className="truncate flex-1">{post.title}</span>
+                      </div>
+                      <div className="text-[10px] text-gray-400 mt-1 ml-4">
+                        조회 {post.view_count || 0} · 댓글 {post.comment_count || 0}
+                      </div>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* User Menu for logged in users */}
+          {user && (
+            <div className="border border-gray-200 mt-4 hidden lg:block">
+              <div className="bg-gray-100 px-3 py-2 text-xs font-bold border-b border-gray-200">내 활동</div>
+              <ul className="text-xs">
+                <li className="border-b border-gray-100">
+                  <Link href="/mypage" className="block w-full text-left px-3 py-2 hover:bg-gray-50 text-gray-700">
+                    내가 쓴 글
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/mypage?tab=comments" className="block w-full text-left px-3 py-2 hover:bg-gray-50 text-gray-700">
+                    내가 쓴 댓글
+                  </Link>
+                </li>
+              </ul>
+            </div>
+          )}
+        </aside>
       </section>
 
       {/* Footer */}
       <footer className="mt-10 border-t border-gray-200 bg-gray-50 py-10">
         <div className="max-w-6xl mx-auto px-4 text-center text-xs text-gray-400">
-          <p>© 2026 북위키 (Book-Wiki). All rights reserved.</p>
+          <p className="mb-2">© 2026 북위키 (Book-Wiki). All rights reserved.</p>
+          <p className="space-x-3">
+            <span>문의 <a href="mailto:bookwiki.official@gmail.com" className="text-[#355E3B] hover:underline">bookwiki.official@gmail.com</a></span>
+            <Link href="/terms" className="hover:underline">이용약관</Link>
+            <Link href="/privacy" className="hover:underline">개인정보처리방침</Link>
+          </p>
         </div>
       </footer>
     </>

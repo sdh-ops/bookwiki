@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { supabase } from "@/lib/supabase";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 
-export default function WritePage() {
+function WritePageContent() {
     const [title, setTitle] = useState("");
     const [content, setContent] = useState("");
     const [boardType, setBoardType] = useState("free");
@@ -15,6 +15,15 @@ export default function WritePage() {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
     const router = useRouter();
+    const searchParams = useSearchParams();
+
+    // URL에서 게시판 파라미터 읽어서 기본값 설정
+    useEffect(() => {
+        const boardParam = searchParams.get("board");
+        if (boardParam && ["free", "job", "support"].includes(boardParam)) {
+            setBoardType(boardParam);
+        }
+    }, [searchParams]);
 
     // 랜덤 익명 닉네임 생성
     const generateAnonNickname = () => {
@@ -97,7 +106,7 @@ export default function WritePage() {
 
     return (
         <main className="min-h-screen bg-white">
-            <header className="bg-[#4a6a8a] text-white py-3">
+            <header className="bg-[#355E3B] text-white py-3">
                 <div className="max-w-3xl mx-auto px-4 flex items-center">
                     <Link href="/" className="text-xl font-bold tracking-tighter">북위키</Link>
                     <span className="ml-4 text-sm font-medium opacity-80">글쓰기</span>
@@ -108,7 +117,7 @@ export default function WritePage() {
                 {!user && (
                     <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded text-sm text-yellow-800">
                         비회원은 <strong>자유게시판</strong>에만 글을 작성할 수 있습니다.
-                        다른 게시판에 글을 쓰려면 <Link href="/login" className="text-[#4a6a8a] underline font-bold">로그인</Link>해주세요.
+                        다른 게시판에 글을 쓰려면 <Link href="/login" className="text-[#355E3B] underline font-bold">로그인</Link>해주세요.
                     </div>
                 )}
 
@@ -122,8 +131,8 @@ export default function WritePage() {
                                     type="button"
                                     onClick={() => setBoardType(cat.id)}
                                     className={`px-4 py-1.5 text-xs rounded border ${boardType === cat.id
-                                            ? "bg-[#4a6a8a] text-white border-[#4a6a8a]"
-                                            : "bg-white text-gray-600 border-gray-200 hover:border-[#4a6a8a]"
+                                            ? "bg-[#355E3B] text-white border-[#355E3B]"
+                                            : "bg-white text-gray-600 border-gray-200 hover:border-[#355E3B]"
                                         }`}
                                 >
                                     {cat.name}
@@ -141,7 +150,7 @@ export default function WritePage() {
                                 type="text"
                                 value={author}
                                 onChange={(e) => !user && setAuthor(e.target.value)}
-                                className={`w-full px-3 py-2 border border-gray-200 rounded text-sm focus:outline-none focus:border-[#4a6a8a] ${user ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                                className={`w-full px-3 py-2 border border-gray-200 rounded text-sm focus:outline-none focus:border-[#355E3B] ${user ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                                 placeholder="공개될 이름을 입력하세요"
                                 readOnly={!!user}
                                 required
@@ -154,7 +163,7 @@ export default function WritePage() {
                                     type="password"
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
-                                    className="w-full px-3 py-2 border border-gray-200 rounded text-sm focus:outline-none focus:border-[#4a6a8a]"
+                                    className="w-full px-3 py-2 border border-gray-200 rounded text-sm focus:outline-none focus:border-[#355E3B]"
                                     placeholder="비밀번호 4자리 이상"
                                     required={!user}
                                 />
@@ -168,7 +177,7 @@ export default function WritePage() {
                             type="text"
                             value={title}
                             onChange={(e) => setTitle(e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-200 rounded text-sm font-medium focus:outline-none focus:border-[#4a6a8a]"
+                            className="w-full px-3 py-2 border border-gray-200 rounded text-sm font-medium focus:outline-none focus:border-[#355E3B]"
                             placeholder="제목을 입력하세요"
                             required
                         />
@@ -179,7 +188,7 @@ export default function WritePage() {
                         <textarea
                             value={content}
                             onChange={(e) => setContent(e.target.value)}
-                            className="w-full h-80 px-3 py-2 border border-gray-200 rounded text-sm focus:outline-none focus:border-[#4a6a8a] resize-none"
+                            className="w-full h-80 px-3 py-2 border border-gray-200 rounded text-sm focus:outline-none focus:border-[#355E3B] resize-none"
                             placeholder="내용을 작성해주세요"
                             required
                         ></textarea>
@@ -190,7 +199,7 @@ export default function WritePage() {
                         <button
                             type="submit"
                             disabled={isSubmitting}
-                            className={`px-6 py-2 text-sm text-white bg-[#4a6a8a] rounded hover:bg-[#3a5a7a] ${isSubmitting ? "opacity-50 cursor-not-allowed" : ""}`}
+                            className={`px-6 py-2 text-sm text-white bg-[#355E3B] rounded hover:bg-[#2A4A2E] ${isSubmitting ? "opacity-50 cursor-not-allowed" : ""}`}
                         >
                             {isSubmitting ? "작성 중..." : "등록하기"}
                         </button>
@@ -198,5 +207,13 @@ export default function WritePage() {
                 </form>
             </section>
         </main>
+    );
+}
+
+export default function WritePage() {
+    return (
+        <Suspense fallback={<div className="p-10 text-center">로딩 중...</div>}>
+            <WritePageContent />
+        </Suspense>
     );
 }

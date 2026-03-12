@@ -276,11 +276,28 @@ export default function PostDetailPage() {
 
     return (
         <main className="min-h-screen bg-white">
-            <header className="bg-[#4a6a8a] text-white py-3">
+            <header className="bg-[#355E3B] text-white py-3">
                 <div className="max-w-4xl mx-auto px-4 flex items-center justify-between">
-                    <Link href="/" className="text-xl font-bold tracking-tighter">북위키</Link>
-                    <div className="flex space-x-3 text-xs">
-                        <Link href="/" className="hover:underline opacity-80">목록으로</Link>
+                    <div className="flex items-center space-x-6">
+                        <Link href="/" className="text-xl font-bold tracking-tighter">북위키</Link>
+                        <nav className="hidden md:flex space-x-4 text-sm font-medium">
+                            <Link href="/" className="hover:underline">전체</Link>
+                            <Link href="/?board=hot" className="hover:underline">HOT</Link>
+                            <Link href="/?board=job" className="hover:underline">구인구직</Link>
+                            <Link href="/?board=support" className="hover:underline">지원사업</Link>
+                            <Link href="/?board=free" className="hover:underline">자유게시판</Link>
+                            <Link href="/?board=ai" className="hover:underline">AI허브</Link>
+                        </nav>
+                    </div>
+                    <div className="flex items-center space-x-3 text-xs">
+                        {user ? (
+                            <>
+                                <span className="text-white/60 hidden md:inline">{user.user_metadata?.nickname || user.email?.split('@')[0]}</span>
+                                <Link href="/mypage" className="hover:underline opacity-80 hidden md:inline">내 활동</Link>
+                            </>
+                        ) : (
+                            <Link href="/login" className="hover:underline opacity-80">로그인</Link>
+                        )}
                         <Link href="/write" className="hover:underline font-bold">글쓰기</Link>
                     </div>
                 </div>
@@ -289,7 +306,7 @@ export default function PostDetailPage() {
             <article className="max-w-4xl mx-auto px-4 py-8">
                 <div className="border-b-2 border-gray-200 pb-4 mb-6">
                     <div className="flex justify-between items-start mb-2">
-                        <div className="flex items-center space-x-2 text-[10px] font-bold text-[#4a6a8a]">
+                        <div className="flex items-center space-x-2 text-[10px] font-bold text-[#355E3B]">
                             <span>{boardTypeNames[post.board_type] || post.board_type}</span>
                             <span className="text-gray-300">|</span>
                             <span className="text-gray-400 font-normal">{new Date(post.created_at).toLocaleString()}</span>
@@ -344,7 +361,7 @@ export default function PostDetailPage() {
                                 href={post.source_url}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="inline-flex items-center text-sm font-bold text-[#4a6a8a] border border-[#4a6a8a] px-4 py-2 rounded hover:bg-[#4a6a8a] hover:text-white transition w-fit"
+                                className="inline-flex items-center text-sm font-bold text-[#355E3B] border border-[#355E3B] px-4 py-2 rounded hover:bg-[#355E3B] hover:text-white transition w-fit"
                             >
                                 원문 보기 →
                             </a>
@@ -354,12 +371,15 @@ export default function PostDetailPage() {
 
                 <div className="border-t border-gray-200 pt-8">
                     <h3 className="text-sm font-bold text-gray-900 mb-6 flex items-center">
-                        댓글 <span className="ml-2 bg-[#4a6a8a] text-white text-[10px] px-2 py-0.5 rounded-full">{comments.length}</span>
+                        댓글 <span className="ml-2 bg-[#355E3B] text-white text-[10px] px-2 py-0.5 rounded-full">{comments.length}</span>
                     </h3>
 
                     <div className="space-y-4 mb-10">
-                        {comments.map((comment) => (
-                            <div key={comment.id} className={`p-4 rounded border ${comment.is_hidden ? 'bg-gray-200 border-gray-300' : 'bg-gray-50 border-gray-100'}`}>
+                        {comments.map((comment) => {
+                            const isReply = comment.content?.startsWith('@');
+                            return (
+                            <div key={comment.id} className={`p-4 rounded border ${comment.is_hidden ? 'bg-gray-200 border-gray-300' : 'bg-gray-50 border-gray-100'} ${isReply ? 'ml-6 md:ml-10 border-l-4 border-l-[#355E3B]' : ''}`}>
+                                {isReply && <span className="text-[#355E3B] font-bold text-sm mr-2">ㄴ</span>}
                                 <div className="flex justify-between items-center mb-2">
                                     <div className="flex items-center gap-2">
                                         <span className="text-xs font-bold text-gray-700">
@@ -397,7 +417,7 @@ export default function PostDetailPage() {
                                     {comment.is_hidden ? '숨겨진 댓글입니다.' : comment.content}
                                 </p>
                             </div>
-                        ))}
+                        )})}
                     </div>
 
                     <form onSubmit={handleCommentSubmit} className="bg-white border border-gray-200 rounded p-4">
@@ -407,7 +427,7 @@ export default function PostDetailPage() {
                                 placeholder="닉네임"
                                 value={commentAuthor}
                                 onChange={(e) => !user && setCommentAuthor(e.target.value)}
-                                className={`w-28 px-2 py-1.5 border border-gray-200 rounded text-xs focus:outline-none focus:border-[#4a6a8a] ${user ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                                className={`w-28 px-2 py-1.5 border border-gray-200 rounded text-xs focus:outline-none focus:border-[#355E3B] ${user ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                                 readOnly={!!user}
                                 required
                             />
@@ -417,7 +437,7 @@ export default function PostDetailPage() {
                                     placeholder="비밀번호"
                                     value={commentPassword}
                                     onChange={(e) => setCommentPassword(e.target.value)}
-                                    className="w-28 px-2 py-1.5 border border-gray-200 rounded text-xs focus:outline-none focus:border-[#4a6a8a]"
+                                    className="w-28 px-2 py-1.5 border border-gray-200 rounded text-xs focus:outline-none focus:border-[#355E3B]"
                                     required
                                 />
                             )}
@@ -430,14 +450,14 @@ export default function PostDetailPage() {
                             placeholder="댓글을 남겨보세요 (다른 댓글을 클릭하면 @태그로 답글)"
                             value={newComment}
                             onChange={(e) => setNewComment(e.target.value)}
-                            className="w-full h-24 px-3 py-2 border border-gray-200 rounded text-sm focus:outline-none focus:border-[#4a6a8a] resize-none mb-3"
+                            className="w-full h-24 px-3 py-2 border border-gray-200 rounded text-sm focus:outline-none focus:border-[#355E3B] resize-none mb-3"
                             required
                         ></textarea>
                         <div className="flex justify-end">
                             <button
                                 type="submit"
                                 disabled={submitting}
-                                className={`bg-[#4a6a8a] text-white px-6 py-2 rounded text-xs transition hover:bg-[#3a5a7a] ${submitting ? "opacity-50" : ""}`}
+                                className={`bg-[#355E3B] text-white px-6 py-2 rounded text-xs transition hover:bg-[#2A4A2E] ${submitting ? "opacity-50" : ""}`}
                             >
                                 댓글 등록
                             </button>
@@ -456,7 +476,7 @@ export default function PostDetailPage() {
                             placeholder="비밀번호"
                             value={tempPassword}
                             onChange={(e) => setTempPassword(e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-200 rounded text-sm mb-4 focus:outline-none focus:border-[#4a6a8a]"
+                            className="w-full px-3 py-2 border border-gray-200 rounded text-sm mb-4 focus:outline-none focus:border-[#355E3B]"
                         />
                         <div className="flex space-x-2">
                             <button
@@ -467,7 +487,7 @@ export default function PostDetailPage() {
                             </button>
                             <button
                                 onClick={handlePasswordConfirm}
-                                className="flex-1 py-2 text-xs bg-[#4a6a8a] text-white rounded hover:bg-[#3a5a7a]"
+                                className="flex-1 py-2 text-xs bg-[#355E3B] text-white rounded hover:bg-[#2A4A2E]"
                             >
                                 확인
                             </button>
@@ -486,7 +506,7 @@ export default function PostDetailPage() {
                             placeholder="비밀번호"
                             value={commentTempPassword}
                             onChange={(e) => setCommentTempPassword(e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-200 rounded text-sm mb-4 focus:outline-none focus:border-[#4a6a8a]"
+                            className="w-full px-3 py-2 border border-gray-200 rounded text-sm mb-4 focus:outline-none focus:border-[#355E3B]"
                         />
                         <div className="flex space-x-2">
                             <button
@@ -497,7 +517,7 @@ export default function PostDetailPage() {
                             </button>
                             <button
                                 onClick={handleCommentPasswordConfirm}
-                                className="flex-1 py-2 text-xs bg-[#4a6a8a] text-white rounded hover:bg-[#3a5a7a]"
+                                className="flex-1 py-2 text-xs bg-[#355E3B] text-white rounded hover:bg-[#2A4A2E]"
                             >
                                 확인
                             </button>

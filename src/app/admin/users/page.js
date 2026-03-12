@@ -68,12 +68,12 @@ export default function AdminUsersPage() {
                         value={newEmail}
                         onChange={(e) => setNewEmail(e.target.value)}
                         placeholder="이메일 주소 입력"
-                        className="flex-1 px-3 py-2 border border-gray-200 rounded text-sm focus:outline-none focus:border-[#4a6a8a]"
+                        className="flex-1 px-3 py-2 border border-gray-200 rounded text-sm focus:outline-none focus:border-[#355E3B]"
                         required
                     />
                     <button
                         type="submit"
-                        className="px-4 py-2 bg-[#4a6a8a] text-white rounded text-sm font-bold hover:bg-[#3a5a7a]"
+                        className="px-4 py-2 bg-[#355E3B] text-white rounded text-sm font-bold hover:bg-[#3a5a7a]"
                     >
                         추가
                     </button>

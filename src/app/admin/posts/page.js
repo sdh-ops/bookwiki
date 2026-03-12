@@ -114,7 +114,7 @@ export default function AdminPostsPage() {
                             onClick={() => setFilter(f.id)}
                             className={`px-3 py-1.5 text-xs rounded ${
                                 filter === f.id
-                                    ? "bg-[#4a6a8a] text-white"
+                                    ? "bg-[#355E3B] text-white"
                                     : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                             }`}
                         >
@@ -135,7 +135,7 @@ export default function AdminPostsPage() {
                             onClick={() => setBoardFilter(f.id)}
                             className={`px-3 py-1.5 text-xs rounded ${
                                 boardFilter === f.id
-                                    ? "bg-[#4a6a8a] text-white"
+                                    ? "bg-[#355E3B] text-white"
                                     : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                             }`}
                         >
@@ -185,7 +185,7 @@ export default function AdminPostsPage() {
                                         )}
                                     </td>
                                     <td className="px-4 py-3">
-                                        <Link href={`/post/${post.id}`} className="text-gray-800 hover:text-[#4a6a8a] font-medium">
+                                        <Link href={`/post/${post.id}`} className="text-gray-800 hover:text-[#355E3B] font-medium">
                                             {post.title.length > 40 ? post.title.substring(0, 40) + "..." : post.title}
                                         </Link>
                                     </td>

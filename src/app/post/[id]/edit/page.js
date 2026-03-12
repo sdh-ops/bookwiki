@@ -100,7 +100,7 @@ export default function EditPage() {
 
     return (
         <main className="min-h-screen bg-white">
-            <header className="bg-[#4a6a8a] text-white py-3">
+            <header className="bg-[#355E3B] text-white py-3">
                 <div className="max-w-3xl mx-auto px-4 flex items-center">
                     <Link href="/" className="text-xl font-bold tracking-tighter">북위키</Link>
                     <span className="ml-4 text-sm font-medium opacity-80">글 수정하기</span>
@@ -121,8 +121,8 @@ export default function EditPage() {
                                     type="button"
                                     onClick={() => setBoardType(cat.id)}
                                     className={`px-4 py-1.5 text-xs rounded border ${boardType === cat.id
-                                            ? "bg-[#4a6a8a] text-white border-[#4a6a8a]"
-                                            : "bg-white text-gray-600 border-gray-200 hover:border-[#4a6a8a]"
+                                            ? "bg-[#355E3B] text-white border-[#355E3B]"
+                                            : "bg-white text-gray-600 border-gray-200 hover:border-[#355E3B]"
                                         }`}
                                 >
                                     {cat.name}
@@ -137,7 +137,7 @@ export default function EditPage() {
                             type="text"
                             value={title}
                             onChange={(e) => setTitle(e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-200 rounded text-sm font-medium focus:outline-none focus:border-[#4a6a8a]"
+                            className="w-full px-3 py-2 border border-gray-200 rounded text-sm font-medium focus:outline-none focus:border-[#355E3B]"
                             placeholder="제목을 입력하세요"
                             required
                         />
@@ -148,7 +148,7 @@ export default function EditPage() {
                         <textarea
                             value={content}
                             onChange={(e) => setContent(e.target.value)}
-                            className="w-full h-80 px-3 py-2 border border-gray-200 rounded text-sm focus:outline-none focus:border-[#4a6a8a] resize-none"
+                            className="w-full h-80 px-3 py-2 border border-gray-200 rounded text-sm focus:outline-none focus:border-[#355E3B] resize-none"
                             placeholder="내용을 작성해주세요"
                             required
                         ></textarea>
@@ -159,7 +159,7 @@ export default function EditPage() {
                         <button
                             type="submit"
                             disabled={isSubmitting}
-                            className={`px-6 py-2 text-sm text-white bg-[#4a6a8a] rounded hover:bg-[#3a5a7a] ${isSubmitting ? "opacity-50 cursor-not-allowed" : ""}`}
+                            className={`px-6 py-2 text-sm text-white bg-[#355E3B] rounded hover:bg-[#2A4A2E] ${isSubmitting ? "opacity-50 cursor-not-allowed" : ""}`}
                         >
                             {isSubmitting ? "수정 중..." : "저장하기"}
                         </button>

@@ -177,7 +177,7 @@ export default function AdminDashboard() {
                 </div>
                 <div className="bg-white p-5 rounded-lg shadow-sm border border-gray-100">
                     <p className="text-[10px] font-bold text-gray-400 mb-1">전체 게시글</p>
-                    <p className="text-2xl font-bold text-[#4a6a8a]">{stats.totalPosts.toLocaleString()}</p>
+                    <p className="text-2xl font-bold text-[#355E3B]">{stats.totalPosts.toLocaleString()}</p>
                 </div>
                 <div className="bg-white p-5 rounded-lg shadow-sm border border-gray-100">
                     <p className="text-[10px] font-bold text-gray-400 mb-1">오늘 게시글</p>
@@ -216,7 +216,7 @@ export default function AdminDashboard() {
                                     <div className="flex items-center gap-3">
                                         <div className="w-32 h-2 bg-gray-100 rounded-full overflow-hidden">
                                             <div
-                                                className="h-full bg-[#4a6a8a] rounded-full"
+                                                className="h-full bg-[#355E3B] rounded-full"
                                                 style={{ width: `${(board.count / stats.totalPosts) * 100}%` }}
                                             />
                                         </div>
@@ -239,7 +239,7 @@ export default function AdminDashboard() {
                                 <div key={idx} className="flex-1 flex flex-col items-center gap-2">
                                     <span className="text-[10px] font-bold text-gray-600">{day.count}</span>
                                     <div
-                                        className="w-full bg-[#4a6a8a] rounded-t"
+                                        className="w-full bg-[#355E3B] rounded-t"
                                         style={{ height: `${(day.count / maxTrend) * 80}px`, minHeight: day.count > 0 ? '4px' : '0' }}
                                     />
                                     <span className="text-[10px] text-gray-400">{day.date}</span>
@@ -264,7 +264,7 @@ export default function AdminDashboard() {
                         ) : (
                             stats.hotPosts.map((post, idx) => (
                                 <div key={post.id} className="px-6 py-3 flex items-center gap-4 hover:bg-gray-50">
-                                    <span className="text-lg font-bold text-[#4a6a8a] w-6">{idx + 1}</span>
+                                    <span className="text-lg font-bold text-[#355E3B] w-6">{idx + 1}</span>
                                     <div className="flex-1 min-w-0">
                                         <p className="text-sm font-medium text-gray-800 truncate">{post.title}</p>
                                         <p className="text-[10px] text-gray-400">{boardTypeNames[post.board_type]} · {post.author}</p>

@@ -75,7 +75,7 @@ function MyPageContent() {
 
     return (
         <main className="min-h-screen bg-white">
-            <header className="bg-[#4a6a8a] text-white py-3">
+            <header className="bg-[#355E3B] text-white py-3">
                 <div className="max-w-4xl mx-auto px-4 flex items-center justify-between">
                     <div className="flex items-center">
                         <Link href="/" className="text-xl font-bold tracking-tighter">북위키</Link>
@@ -93,13 +93,13 @@ function MyPageContent() {
                 <div className="flex border-b border-gray-200 mb-6">
                     <button
                         onClick={() => router.push("/mypage")}
-                        className={`px-6 py-3 text-sm font-medium border-b-2 -mb-px ${currentTab === "posts" ? "border-[#4a6a8a] text-[#4a6a8a]" : "border-transparent text-gray-500 hover:text-gray-700"}`}
+                        className={`px-6 py-3 text-sm font-medium border-b-2 -mb-px ${currentTab === "posts" ? "border-[#355E3B] text-[#355E3B]" : "border-transparent text-gray-500 hover:text-gray-700"}`}
                     >
                         내가 쓴 글 ({posts.length})
                     </button>
                     <button
                         onClick={() => router.push("/mypage?tab=comments")}
-                        className={`px-6 py-3 text-sm font-medium border-b-2 -mb-px ${currentTab === "comments" ? "border-[#4a6a8a] text-[#4a6a8a]" : "border-transparent text-gray-500 hover:text-gray-700"}`}
+                        className={`px-6 py-3 text-sm font-medium border-b-2 -mb-px ${currentTab === "comments" ? "border-[#355E3B] text-[#355E3B]" : "border-transparent text-gray-500 hover:text-gray-700"}`}
                     >
                         내가 쓴 댓글 ({comments.length})
                     </button>
@@ -135,7 +135,7 @@ function MyPageContent() {
                                                     <span className="text-red-500 ml-1 text-[10px] font-bold">[{post.comment_count}]</span>
                                                 )}
                                             </td>
-                                            <td className="px-2 py-3 text-xs text-[#4a6a8a] font-bold">{boardTypeNames[post.board_type] || post.board_type}</td>
+                                            <td className="px-2 py-3 text-xs text-[#355E3B] font-bold">{boardTypeNames[post.board_type] || post.board_type}</td>
                                             <td className="px-2 py-3 text-xs text-gray-400 text-center">{new Date(post.created_at).toLocaleDateString()}</td>
                                             <td className="px-2 py-3 text-xs text-gray-400 text-center">{post.view_count}</td>
                                         </tr>
@@ -162,7 +162,7 @@ function MyPageContent() {
                                         onClick={() => router.push(`/post/${comment.post_id}`)}
                                     >
                                         <div className="flex justify-between items-start mb-2">
-                                            <span className="text-xs text-[#4a6a8a] font-bold">
+                                            <span className="text-xs text-[#355E3B] font-bold">
                                                 {comment.bw_posts?.title || "삭제된 게시글"}
                                             </span>
                                             <span className="text-[10px] text-gray-400">
