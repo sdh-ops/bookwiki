@@ -163,41 +163,41 @@ export default function AdminDashboard() {
 
     return (
         <div>
-            <h2 className="text-2xl font-bold text-gray-800 mb-8">대시보드</h2>
+            <h2 className="text-xl md:text-2xl font-bold text-gray-800 mb-6 md:mb-8">대시보드</h2>
 
             {/* Main Metric Cards */}
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4 mb-8">
-                <div className="bg-white p-5 rounded-lg shadow-sm border border-gray-100">
+            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3 md:gap-4 mb-6 md:mb-8">
+                <div className="bg-white p-3 md:p-5 rounded-lg shadow-sm border border-gray-100">
                     <p className="text-[10px] font-bold text-gray-400 mb-1">전체 회원</p>
-                    <p className="text-2xl font-bold text-indigo-600">{stats.totalUsers.toLocaleString()}</p>
+                    <p className="text-xl md:text-2xl font-bold text-indigo-600">{stats.totalUsers.toLocaleString()}</p>
                 </div>
-                <div className="bg-white p-5 rounded-lg shadow-sm border border-gray-100">
+                <div className="bg-white p-3 md:p-5 rounded-lg shadow-sm border border-gray-100">
                     <p className="text-[10px] font-bold text-gray-400 mb-1">오늘 가입</p>
-                    <p className="text-2xl font-bold text-indigo-400">+{stats.todaySignups.toLocaleString()}</p>
+                    <p className="text-xl md:text-2xl font-bold text-indigo-400">+{stats.todaySignups.toLocaleString()}</p>
                 </div>
-                <div className="bg-white p-5 rounded-lg shadow-sm border border-gray-100">
+                <div className="bg-white p-3 md:p-5 rounded-lg shadow-sm border border-gray-100">
                     <p className="text-[10px] font-bold text-gray-400 mb-1">전체 게시글</p>
-                    <p className="text-2xl font-bold text-[#355E3B]">{stats.totalPosts.toLocaleString()}</p>
+                    <p className="text-xl md:text-2xl font-bold text-[#355E3B]">{stats.totalPosts.toLocaleString()}</p>
                 </div>
-                <div className="bg-white p-5 rounded-lg shadow-sm border border-gray-100">
+                <div className="bg-white p-3 md:p-5 rounded-lg shadow-sm border border-gray-100">
                     <p className="text-[10px] font-bold text-gray-400 mb-1">오늘 게시글</p>
-                    <p className="text-2xl font-bold text-green-500">+{stats.todayPosts.toLocaleString()}</p>
+                    <p className="text-xl md:text-2xl font-bold text-green-500">+{stats.todayPosts.toLocaleString()}</p>
                 </div>
-                <div className="bg-white p-5 rounded-lg shadow-sm border border-gray-100">
+                <div className="bg-white p-3 md:p-5 rounded-lg shadow-sm border border-gray-100">
                     <p className="text-[10px] font-bold text-gray-400 mb-1">전체 댓글</p>
-                    <p className="text-2xl font-bold text-gray-700">{stats.totalComments.toLocaleString()}</p>
+                    <p className="text-xl md:text-2xl font-bold text-gray-700">{stats.totalComments.toLocaleString()}</p>
                 </div>
-                <div className="bg-white p-5 rounded-lg shadow-sm border border-gray-100">
+                <div className="bg-white p-3 md:p-5 rounded-lg shadow-sm border border-gray-100">
                     <p className="text-[10px] font-bold text-gray-400 mb-1">오늘 댓글</p>
-                    <p className="text-2xl font-bold text-blue-500">+{stats.todayComments.toLocaleString()}</p>
+                    <p className="text-xl md:text-2xl font-bold text-blue-500">+{stats.todayComments.toLocaleString()}</p>
                 </div>
-                <div className="bg-white p-5 rounded-lg shadow-sm border border-gray-100">
+                <div className="bg-white p-3 md:p-5 rounded-lg shadow-sm border border-gray-100">
                     <p className="text-[10px] font-bold text-gray-400 mb-1">총 조회수</p>
-                    <p className="text-2xl font-bold text-purple-500">{stats.totalViews.toLocaleString()}</p>
+                    <p className="text-xl md:text-2xl font-bold text-purple-500">{stats.totalViews.toLocaleString()}</p>
                 </div>
-                <div className="bg-white p-5 rounded-lg shadow-sm border border-gray-100">
+                <div className="bg-white p-3 md:p-5 rounded-lg shadow-sm border border-gray-100">
                     <p className="text-[10px] font-bold text-gray-400 mb-1">활성 사용자 (7일)</p>
-                    <p className="text-2xl font-bold text-orange-500">{stats.activeUsers.toLocaleString()}</p>
+                    <p className="text-xl md:text-2xl font-bold text-orange-500">{stats.activeUsers.toLocaleString()}</p>
                 </div>
             </div>
 
@@ -278,27 +278,32 @@ export default function AdminDashboard() {
 
                 {/* Recent Posts */}
                 <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
-                    <div className="px-6 py-4 border-b border-gray-100">
+                    <div className="px-4 md:px-6 py-4 border-b border-gray-100">
                         <h3 className="text-sm font-bold text-gray-700">최근 게시글</h3>
                     </div>
-                    <table className="w-full text-left text-xs">
-                        <thead className="bg-gray-50 text-gray-500 font-bold">
-                            <tr>
-                                <th className="px-6 py-3">제목</th>
-                                <th className="px-6 py-3">작성자</th>
-                                <th className="px-6 py-3 text-right">작성일시</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-100">
-                            {stats.recentPosts.map((post) => (
-                                <tr key={post.id} className="hover:bg-gray-50">
-                                    <td className="px-6 py-4 font-medium text-gray-800 truncate max-w-[200px]">{post.title}</td>
-                                    <td className="px-6 py-4 text-gray-600">{post.author}</td>
-                                    <td className="px-6 py-4 text-gray-400 text-right whitespace-nowrap">{new Date(post.created_at).toLocaleString()}</td>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left text-xs">
+                            <thead className="bg-gray-50 text-gray-500 font-bold">
+                                <tr>
+                                    <th className="px-3 md:px-6 py-3">제목</th>
+                                    <th className="px-3 md:px-6 py-3 hidden sm:table-cell">작성자</th>
+                                    <th className="px-3 md:px-6 py-3 text-right">작성일시</th>
                                 </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100">
+                                {stats.recentPosts.map((post) => (
+                                    <tr key={post.id} className="hover:bg-gray-50">
+                                        <td className="px-3 md:px-6 py-4 font-medium text-gray-800">
+                                            <span className="block truncate max-w-[150px] md:max-w-[200px]">{post.title}</span>
+                                            <span className="sm:hidden text-[10px] text-gray-400">{post.author}</span>
+                                        </td>
+                                        <td className="px-3 md:px-6 py-4 text-gray-600 hidden sm:table-cell">{post.author}</td>
+                                        <td className="px-3 md:px-6 py-4 text-gray-400 text-right whitespace-nowrap text-[10px] md:text-xs">{new Date(post.created_at).toLocaleDateString()}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>

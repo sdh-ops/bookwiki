@@ -87,23 +87,23 @@ export default function AdminPostsPage() {
 
     return (
         <div>
-            <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold text-gray-800">게시물 관리</h2>
-                <div className="flex gap-2">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-6">
+                <h2 className="text-xl md:text-2xl font-bold text-gray-800">게시물 관리</h2>
+                <div className="w-full sm:w-auto">
                     <input
                         type="text"
                         placeholder="제목 또는 작성자 검색..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        className="px-3 py-2 border border-gray-200 rounded text-sm w-48"
+                        className="w-full sm:w-48 px-3 py-2 border border-gray-200 rounded text-sm"
                     />
                 </div>
             </div>
 
             {/* Filters */}
-            <div className="flex gap-4 mb-6">
-                <div className="flex gap-2">
-                    <span className="text-sm text-gray-500 self-center">상태:</span>
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 mb-6">
+                <div className="flex flex-wrap gap-2 items-center">
+                    <span className="text-xs sm:text-sm text-gray-500">상태:</span>
                     {[
                         { id: "all", name: "전체" },
                         { id: "notice", name: "공지만" },
@@ -112,7 +112,7 @@ export default function AdminPostsPage() {
                         <button
                             key={f.id}
                             onClick={() => setFilter(f.id)}
-                            className={`px-3 py-1.5 text-xs rounded ${
+                            className={`px-2 sm:px-3 py-1 sm:py-1.5 text-xs rounded ${
                                 filter === f.id
                                     ? "bg-[#355E3B] text-white"
                                     : "bg-gray-100 text-gray-600 hover:bg-gray-200"
@@ -122,18 +122,18 @@ export default function AdminPostsPage() {
                         </button>
                     ))}
                 </div>
-                <div className="flex gap-2">
-                    <span className="text-sm text-gray-500 self-center">게시판:</span>
+                <div className="flex flex-wrap gap-2 items-center">
+                    <span className="text-xs sm:text-sm text-gray-500">게시판:</span>
                     {[
                         { id: "all", name: "전체" },
-                        { id: "free", name: "자유게시판" },
-                        { id: "job", name: "구인구직" },
-                        { id: "support", name: "지원사업" },
+                        { id: "free", name: "자유" },
+                        { id: "job", name: "구인" },
+                        { id: "support", name: "지원" },
                     ].map((f) => (
                         <button
                             key={f.id}
                             onClick={() => setBoardFilter(f.id)}
-                            className={`px-3 py-1.5 text-xs rounded ${
+                            className={`px-2 sm:px-3 py-1 sm:py-1.5 text-xs rounded ${
                                 boardFilter === f.id
                                     ? "bg-[#355E3B] text-white"
                                     : "bg-gray-100 text-gray-600 hover:bg-gray-200"
@@ -147,81 +147,135 @@ export default function AdminPostsPage() {
 
             {/* Posts Table */}
             <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
-                <table className="w-full text-left text-sm">
-                    <thead className="bg-gray-50 text-gray-500 text-xs font-bold">
-                        <tr>
-                            <th className="px-4 py-3 w-16">상태</th>
-                            <th className="px-4 py-3">제목</th>
-                            <th className="px-4 py-3 w-24">게시판</th>
-                            <th className="px-4 py-3 w-24">작성자</th>
-                            <th className="px-4 py-3 w-20 text-center">조회</th>
-                            <th className="px-4 py-3 w-32 text-center">작성일</th>
-                            <th className="px-4 py-3 w-32 text-center">관리</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100">
+                <div className="overflow-x-auto">
+                    {/* Mobile Card View */}
+                    <div className="sm:hidden divide-y divide-gray-100">
                         {loading ? (
-                            <tr>
-                                <td colSpan="7" className="px-4 py-8 text-center text-gray-400">
-                                    로딩 중...
-                                </td>
-                            </tr>
+                            <div className="px-4 py-8 text-center text-gray-400">로딩 중...</div>
                         ) : filteredPosts.length === 0 ? (
-                            <tr>
-                                <td colSpan="7" className="px-4 py-8 text-center text-gray-400">
-                                    게시물이 없습니다.
-                                </td>
-                            </tr>
+                            <div className="px-4 py-8 text-center text-gray-400">게시물이 없습니다.</div>
                         ) : (
                             filteredPosts.map((post) => (
-                                <tr key={post.id} className={`hover:bg-gray-50 ${post.is_notice ? 'bg-blue-50' : ''}`}>
-                                    <td className="px-4 py-3">
-                                        {post.is_notice ? (
-                                            <span className="text-xs bg-blue-500 text-white px-2 py-0.5 rounded font-bold">공지</span>
-                                        ) : post.is_auto ? (
-                                            <span className="text-xs bg-gray-400 text-white px-2 py-0.5 rounded">자동</span>
-                                        ) : (
-                                            <span className="text-xs bg-green-500 text-white px-2 py-0.5 rounded">직접</span>
-                                        )}
-                                    </td>
-                                    <td className="px-4 py-3">
-                                        <Link href={`/post/${post.id}`} className="text-gray-800 hover:text-[#355E3B] font-medium">
-                                            {post.title.length > 40 ? post.title.substring(0, 40) + "..." : post.title}
-                                        </Link>
-                                    </td>
-                                    <td className="px-4 py-3 text-xs text-gray-500">
-                                        {boardTypeNames[post.board_type] || post.board_type}
-                                    </td>
-                                    <td className="px-4 py-3 text-xs text-gray-600">{post.author}</td>
-                                    <td className="px-4 py-3 text-xs text-gray-400 text-center">{post.view_count || 0}</td>
-                                    <td className="px-4 py-3 text-xs text-gray-400 text-center">
-                                        {new Date(post.created_at).toLocaleDateString()}
-                                    </td>
-                                    <td className="px-4 py-3 text-center">
-                                        <div className="flex gap-1 justify-center">
+                                <div key={post.id} className={`p-4 ${post.is_notice ? 'bg-blue-50' : ''}`}>
+                                    <div className="flex items-start justify-between gap-2 mb-2">
+                                        <div className="flex items-center gap-2">
+                                            {post.is_notice ? (
+                                                <span className="text-[10px] bg-blue-500 text-white px-1.5 py-0.5 rounded font-bold">공지</span>
+                                            ) : post.is_auto ? (
+                                                <span className="text-[10px] bg-gray-400 text-white px-1.5 py-0.5 rounded">자동</span>
+                                            ) : (
+                                                <span className="text-[10px] bg-green-500 text-white px-1.5 py-0.5 rounded">직접</span>
+                                            )}
+                                            <span className="text-[10px] text-gray-400">{boardTypeNames[post.board_type]}</span>
+                                        </div>
+                                        <span className="text-[10px] text-gray-400">{new Date(post.created_at).toLocaleDateString()}</span>
+                                    </div>
+                                    <Link href={`/post/${post.id}`} className="text-sm text-gray-800 hover:text-[#355E3B] font-medium block mb-2">
+                                        {post.title.length > 35 ? post.title.substring(0, 35) + "..." : post.title}
+                                    </Link>
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-[10px] text-gray-500">{post.author} · 조회 {post.view_count || 0}</span>
+                                        <div className="flex gap-1">
                                             <button
                                                 onClick={() => toggleNotice(post.id, post.is_notice)}
-                                                className={`px-2 py-1 text-xs rounded ${
+                                                className={`px-2 py-1 text-[10px] rounded ${
                                                     post.is_notice
-                                                        ? "bg-yellow-100 text-yellow-700 hover:bg-yellow-200"
-                                                        : "bg-blue-100 text-blue-700 hover:bg-blue-200"
+                                                        ? "bg-yellow-100 text-yellow-700"
+                                                        : "bg-blue-100 text-blue-700"
                                                 }`}
                                             >
-                                                {post.is_notice ? "공지해제" : "공지지정"}
+                                                {post.is_notice ? "해제" : "공지"}
                                             </button>
                                             <button
                                                 onClick={() => deletePost(post.id)}
-                                                className="px-2 py-1 text-xs rounded bg-red-100 text-red-700 hover:bg-red-200"
+                                                className="px-2 py-1 text-[10px] rounded bg-red-100 text-red-700"
                                             >
                                                 삭제
                                             </button>
                                         </div>
-                                    </td>
-                                </tr>
+                                    </div>
+                                </div>
                             ))
                         )}
-                    </tbody>
-                </table>
+                    </div>
+
+                    {/* Desktop Table View */}
+                    <table className="hidden sm:table w-full text-left text-sm">
+                        <thead className="bg-gray-50 text-gray-500 text-xs font-bold">
+                            <tr>
+                                <th className="px-3 md:px-4 py-3 w-14">상태</th>
+                                <th className="px-3 md:px-4 py-3">제목</th>
+                                <th className="px-3 md:px-4 py-3 w-20 hidden md:table-cell">게시판</th>
+                                <th className="px-3 md:px-4 py-3 w-20 hidden lg:table-cell">작성자</th>
+                                <th className="px-3 md:px-4 py-3 w-16 text-center hidden lg:table-cell">조회</th>
+                                <th className="px-3 md:px-4 py-3 w-24 text-center">작성일</th>
+                                <th className="px-3 md:px-4 py-3 w-28 text-center">관리</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                            {loading ? (
+                                <tr>
+                                    <td colSpan="7" className="px-4 py-8 text-center text-gray-400">
+                                        로딩 중...
+                                    </td>
+                                </tr>
+                            ) : filteredPosts.length === 0 ? (
+                                <tr>
+                                    <td colSpan="7" className="px-4 py-8 text-center text-gray-400">
+                                        게시물이 없습니다.
+                                    </td>
+                                </tr>
+                            ) : (
+                                filteredPosts.map((post) => (
+                                    <tr key={post.id} className={`hover:bg-gray-50 ${post.is_notice ? 'bg-blue-50' : ''}`}>
+                                        <td className="px-3 md:px-4 py-3">
+                                            {post.is_notice ? (
+                                                <span className="text-[10px] bg-blue-500 text-white px-1.5 py-0.5 rounded font-bold">공지</span>
+                                            ) : post.is_auto ? (
+                                                <span className="text-[10px] bg-gray-400 text-white px-1.5 py-0.5 rounded">자동</span>
+                                            ) : (
+                                                <span className="text-[10px] bg-green-500 text-white px-1.5 py-0.5 rounded">직접</span>
+                                            )}
+                                        </td>
+                                        <td className="px-3 md:px-4 py-3">
+                                            <Link href={`/post/${post.id}`} className="text-gray-800 hover:text-[#355E3B] font-medium text-xs md:text-sm">
+                                                {post.title.length > 30 ? post.title.substring(0, 30) + "..." : post.title}
+                                            </Link>
+                                        </td>
+                                        <td className="px-3 md:px-4 py-3 text-xs text-gray-500 hidden md:table-cell">
+                                            {boardTypeNames[post.board_type] || post.board_type}
+                                        </td>
+                                        <td className="px-3 md:px-4 py-3 text-xs text-gray-600 hidden lg:table-cell">{post.author}</td>
+                                        <td className="px-3 md:px-4 py-3 text-xs text-gray-400 text-center hidden lg:table-cell">{post.view_count || 0}</td>
+                                        <td className="px-3 md:px-4 py-3 text-xs text-gray-400 text-center">
+                                            {new Date(post.created_at).toLocaleDateString()}
+                                        </td>
+                                        <td className="px-3 md:px-4 py-3 text-center">
+                                            <div className="flex gap-1 justify-center">
+                                                <button
+                                                    onClick={() => toggleNotice(post.id, post.is_notice)}
+                                                    className={`px-1.5 py-1 text-[10px] rounded ${
+                                                        post.is_notice
+                                                            ? "bg-yellow-100 text-yellow-700 hover:bg-yellow-200"
+                                                            : "bg-blue-100 text-blue-700 hover:bg-blue-200"
+                                                    }`}
+                                                >
+                                                    {post.is_notice ? "해제" : "공지"}
+                                                </button>
+                                                <button
+                                                    onClick={() => deletePost(post.id)}
+                                                    className="px-1.5 py-1 text-[10px] rounded bg-red-100 text-red-700 hover:bg-red-200"
+                                                >
+                                                    삭제
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
+                </div>
             </div>
 
             <p className="mt-4 text-xs text-gray-400">
