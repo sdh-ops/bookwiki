@@ -9,8 +9,31 @@ import Link from "next/link";
 const boardTypeNames = {
     job: "구인구직",
     support: "지원사업",
-    free: "자유게시판",
+    free: "톡톡",
     ai: "AI허브",
+};
+
+// 비회원 익명 닉네임 생성용 단어 목록
+const ADJECTIVES = [
+    "마감중인", "교정중인", "밤샘하는", "잉크묻은", "종이굽는", "책장넘기는",
+    "오타찾는", "표지그리는", "인쇄걸어둔", "기획안쓰는", "외근나온", "차마시는",
+    "서점나들이간", "글발좋은", "문장고치는", "반려당한", "승인받은", "퇴근꿈꾸는",
+    "커피수혈중인", "파주사는", "합정가는"
+];
+
+const NOUNS = [
+    "고양이", "강아지", "에디터", "디자이너", "마케터", "작가님", "제작부장",
+    "인쇄기", "북디자인", "만년필", "원고뭉치", "교정지", "서점원", "북클럽",
+    "출판사", "책벌레", "종이배", "책갈피", "문장가", "편집장", "팀장",
+    "신입사원", "독서가"
+];
+
+// 랜덤 익명 닉네임 생성 (형용사 + 명사 + 번호)
+const generateAnonNickname = () => {
+    const adj = ADJECTIVES[Math.floor(Math.random() * ADJECTIVES.length)];
+    const noun = NOUNS[Math.floor(Math.random() * NOUNS.length)];
+    const num = Math.floor(10 + Math.random() * 90); // 10-99
+    return `${adj}${noun}${num}`;
 };
 
 export default function PostDetailPage() {
@@ -93,12 +116,6 @@ export default function PostDetailPage() {
 
         if (id) fetchData();
     }, [id, router]);
-
-    // 랜덤 익명 닉네임 생성
-    const generateAnonNickname = () => {
-        const num = Math.floor(1000 + Math.random() * 9000); // 1000-9999
-        return `위키키${num}`;
-    };
 
     // Auto-set nickname for users
     useEffect(() => {
@@ -285,7 +302,7 @@ export default function PostDetailPage() {
                             <Link href="/?board=hot" className="hover:underline">HOT</Link>
                             <Link href="/?board=job" className="hover:underline">구인구직</Link>
                             <Link href="/?board=support" className="hover:underline">지원사업</Link>
-                            <Link href="/?board=free" className="hover:underline">자유게시판</Link>
+                            <Link href="/?board=free" className="hover:underline">톡톡</Link>
                             <Link href="/?board=ai" className="hover:underline">AI허브</Link>
                         </nav>
                     </div>
@@ -421,13 +438,13 @@ export default function PostDetailPage() {
                     </div>
 
                     <form onSubmit={handleCommentSubmit} className="bg-white border border-gray-200 rounded p-4">
-                        <div className="flex gap-2 mb-3">
+                        <div className="flex gap-2 mb-3 flex-wrap">
                             <input
                                 type="text"
                                 placeholder="닉네임"
                                 value={commentAuthor}
                                 onChange={(e) => !user && setCommentAuthor(e.target.value)}
-                                className={`w-28 px-2 py-1.5 border border-gray-200 rounded text-xs focus:outline-none focus:border-[#355E3B] ${user ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                                className={`w-full md:w-auto md:flex-1 max-w-xs px-2 py-1.5 border border-gray-200 rounded text-xs focus:outline-none focus:border-[#355E3B] ${user ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                                 readOnly={!!user}
                                 required
                             />
@@ -528,7 +545,11 @@ export default function PostDetailPage() {
 
             <footer className="mt-10 border-t border-gray-200 bg-gray-50 py-10">
                 <div className="max-w-4xl mx-auto px-4 text-center text-xs text-gray-400">
-                    <p>© 2026 북위키 (Book-Wiki). All rights reserved.</p>
+                    <p className="mb-2">© 2026 북위키 (Book-Wiki). All rights reserved.</p>
+                    <p className="space-x-3">
+                        <Link href="/terms" className="hover:underline">이용약관</Link>
+                        <Link href="/privacy" className="hover:underline">개인정보처리방침</Link>
+                    </p>
                 </div>
             </footer>
         </main>

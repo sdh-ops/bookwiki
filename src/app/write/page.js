@@ -5,10 +5,33 @@ import { supabase } from "@/lib/supabase";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 
+// 비회원 익명 닉네임 생성용 단어 목록
+const ADJECTIVES = [
+    "마감중인", "교정중인", "밤샘하는", "잉크묻은", "종이굽는", "책장넘기는",
+    "오타찾는", "표지그리는", "인쇄걸어둔", "기획안쓰는", "외근나온", "차마시는",
+    "서점나들이간", "글발좋은", "문장고치는", "반려당한", "승인받은", "퇴근꿈꾸는",
+    "커피수혈중인", "파주사는", "합정가는"
+];
+
+const NOUNS = [
+    "고양이", "강아지", "에디터", "디자이너", "마케터", "작가님", "제작부장",
+    "인쇄기", "북디자인", "만년필", "원고뭉치", "교정지", "서점원", "북클럽",
+    "출판사", "책벌레", "종이배", "책갈피", "문장가", "편집장", "팀장",
+    "신입사원", "독서가"
+];
+
+// 톡톡 게시판 카테고리
+const freeBoardCategories = [
+    { id: "모집", name: "[모집]" },
+    { id: "후기", name: "[후기]" },
+    { id: "잡담", name: "[잡담]" },
+];
+
 function WritePageContent() {
     const [title, setTitle] = useState("");
     const [content, setContent] = useState("");
     const [boardType, setBoardType] = useState("free");
+    const [freeCategory, setFreeCategory] = useState(""); // 톡톡 카테고리
     const [author, setAuthor] = useState("");
     const [password, setPassword] = useState("");
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -25,10 +48,12 @@ function WritePageContent() {
         }
     }, [searchParams]);
 
-    // 랜덤 익명 닉네임 생성
+    // 랜덤 익명 닉네임 생성 (형용사 + 명사 + 번호)
     const generateAnonNickname = () => {
-        const num = Math.floor(1000 + Math.random() * 9000); // 1000-9999
-        return `위키키${num}`;
+        const adj = ADJECTIVES[Math.floor(Math.random() * ADJECTIVES.length)];
+        const noun = NOUNS[Math.floor(Math.random() * NOUNS.length)];
+        const num = Math.floor(10 + Math.random() * 90); // 10-99
+        return `${adj}${noun}${num}`;
     };
 
     useEffect(() => {
@@ -54,9 +79,9 @@ function WritePageContent() {
             return;
         }
 
-        // Non-members can only post to 자유게시판
+        // Non-members can only post to 톡톡
         if (!user && boardType !== "free") {
-            alert("비회원은 자유게시판에만 글을 작성할 수 있습니다.");
+            alert("비회원은 톡톡 게시판에만 글을 작성할 수 있습니다.");
             return;
         }
 
@@ -66,10 +91,22 @@ function WritePageContent() {
             return;
         }
 
+        // 톡톡 게시판에서 카테고리 확인
+        if (boardType === "free" && !freeCategory) {
+            alert("톡톡 게시판에서는 카테고리를 선택해주세요.");
+            return;
+        }
+
         setIsSubmitting(true);
 
+        // 톡톡 게시판인 경우 제목 앞에 카테고리 추가
+        let finalTitle = title;
+        if (boardType === "free" && freeCategory) {
+            finalTitle = `[${freeCategory}] ${title}`;
+        }
+
         const postData = {
-            title,
+            title: finalTitle,
             content,
             author,
             board_type: boardType,
@@ -92,12 +129,12 @@ function WritePageContent() {
     // AI허브는 글쓰기 게시판이 아님 - AI 기능 제공 페이지
     const boardCategories = user
         ? [
-            { name: "자유게시판", id: "free" },
+            { name: "톡톡", id: "free" },
             { name: "구인구직", id: "job" },
             { name: "지원사업", id: "support" },
         ]
         : [
-            { name: "자유게시판", id: "free" },
+            { name: "톡톡", id: "free" },
         ];
 
     if (loading) {
@@ -116,7 +153,7 @@ function WritePageContent() {
             <section className="max-w-3xl mx-auto px-4 py-8">
                 {!user && (
                     <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded text-sm text-yellow-800">
-                        비회원은 <strong>자유게시판</strong>에만 글을 작성할 수 있습니다.
+                        비회원은 <strong>톡톡</strong> 게시판에만 글을 작성할 수 있습니다.
                         다른 게시판에 글을 쓰려면 <Link href="/login" className="text-[#355E3B] underline font-bold">로그인</Link>해주세요.
                     </div>
                 )}
@@ -129,7 +166,10 @@ function WritePageContent() {
                                 <button
                                     key={cat.id}
                                     type="button"
-                                    onClick={() => setBoardType(cat.id)}
+                                    onClick={() => {
+                                        setBoardType(cat.id);
+                                        if (cat.id !== "free") setFreeCategory("");
+                                    }}
                                     className={`px-4 py-1.5 text-xs rounded border ${boardType === cat.id
                                             ? "bg-[#355E3B] text-white border-[#355E3B]"
                                             : "bg-white text-gray-600 border-gray-200 hover:border-[#355E3B]"
@@ -140,6 +180,31 @@ function WritePageContent() {
                             ))}
                         </div>
                     </div>
+
+                    {/* 톡톡 게시판 카테고리 선택 */}
+                    {boardType === "free" && (
+                        <div>
+                            <label className="block text-sm font-bold text-gray-700 mb-2">
+                                카테고리 선택 <span className="text-red-500">*</span>
+                            </label>
+                            <div className="flex flex-wrap gap-2">
+                                {freeBoardCategories.map((cat) => (
+                                    <button
+                                        key={cat.id}
+                                        type="button"
+                                        onClick={() => setFreeCategory(cat.id)}
+                                        className={`px-4 py-1.5 text-xs rounded border ${freeCategory === cat.id
+                                                ? "bg-blue-500 text-white border-blue-500"
+                                                : "bg-white text-gray-600 border-gray-200 hover:border-blue-500"
+                                            }`}
+                                    >
+                                        {cat.name}
+                                    </button>
+                                ))}
+                            </div>
+                            <p className="mt-1 text-xs text-gray-500">* 모집: 스터디/모임, 후기: 책/이벤트 후기, 잡담: 자유로운 이야기</p>
+                        </div>
+                    )}
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
@@ -155,6 +220,9 @@ function WritePageContent() {
                                 readOnly={!!user}
                                 required
                             />
+                            {!user && (
+                                <p className="mt-1 text-xs text-gray-500">* 자동 생성된 익명 닉네임입니다. 원하시면 수정 가능합니다.</p>
+                            )}
                         </div>
                         {!user && (
                             <div>

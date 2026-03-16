@@ -9,7 +9,7 @@ import Link from "next/link";
 const boardTypeNames = {
     job: "구인구직",
     support: "지원사업",
-    free: "자유게시판",
+    free: "톡톡",
     ai: "AI허브",
 };
 
@@ -21,6 +21,21 @@ function MyPageContent() {
     const searchParams = useSearchParams();
     const router = useRouter();
     const currentTab = searchParams.get("tab") || "posts";
+
+    // 비밀번호 변경 상태
+    const [showPasswordModal, setShowPasswordModal] = useState(false);
+    const [currentPassword, setCurrentPassword] = useState("");
+    const [newPassword, setNewPassword] = useState("");
+    const [confirmNewPassword, setConfirmNewPassword] = useState("");
+    const [passwordMessage, setPasswordMessage] = useState("");
+    const [passwordLoading, setPasswordLoading] = useState(false);
+
+    // 회원 탈퇴 상태
+    const [showWithdrawModal, setShowWithdrawModal] = useState(false);
+    const [withdrawPassword, setWithdrawPassword] = useState("");
+    const [withdrawConfirm, setWithdrawConfirm] = useState("");
+    const [withdrawMessage, setWithdrawMessage] = useState("");
+    const [withdrawLoading, setWithdrawLoading] = useState(false);
 
     useEffect(() => {
         async function fetchData() {
@@ -68,10 +83,131 @@ function MyPageContent() {
         router.push("/");
     };
 
+    // 비밀번호 변경
+    const handlePasswordChange = async () => {
+        setPasswordMessage("");
+        setPasswordLoading(true);
+
+        if (!currentPassword) {
+            setPasswordMessage("현재 비밀번호를 입력해주세요.");
+            setPasswordLoading(false);
+            return;
+        }
+
+        if (!newPassword || newPassword.length < 6) {
+            setPasswordMessage("새 비밀번호는 6자 이상이어야 합니다.");
+            setPasswordLoading(false);
+            return;
+        }
+
+        if (newPassword !== confirmNewPassword) {
+            setPasswordMessage("새 비밀번호가 일치하지 않습니다.");
+            setPasswordLoading(false);
+            return;
+        }
+
+        // 현재 비밀번호 확인
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+            email: user.email,
+            password: currentPassword,
+        });
+
+        if (signInError) {
+            setPasswordMessage("현재 비밀번호가 올바르지 않습니다.");
+            setPasswordLoading(false);
+            return;
+        }
+
+        // 비밀번호 변경
+        const { error } = await supabase.auth.updateUser({
+            password: newPassword
+        });
+
+        if (error) {
+            setPasswordMessage("비밀번호 변경 실패: " + error.message);
+        } else {
+            setPasswordMessage("비밀번호가 성공적으로 변경되었습니다.");
+            setCurrentPassword("");
+            setNewPassword("");
+            setConfirmNewPassword("");
+            setTimeout(() => {
+                setShowPasswordModal(false);
+                setPasswordMessage("");
+            }, 1500);
+        }
+        setPasswordLoading(false);
+    };
+
+    // 회원 탈퇴
+    const handleWithdraw = async () => {
+        setWithdrawMessage("");
+        setWithdrawLoading(true);
+
+        if (!withdrawPassword) {
+            setWithdrawMessage("비밀번호를 입력해주세요.");
+            setWithdrawLoading(false);
+            return;
+        }
+
+        if (withdrawConfirm !== "탈퇴합니다") {
+            setWithdrawMessage("'탈퇴합니다'를 정확히 입력해주세요.");
+            setWithdrawLoading(false);
+            return;
+        }
+
+        // 비밀번호 확인
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+            email: user.email,
+            password: withdrawPassword,
+        });
+
+        if (signInError) {
+            setWithdrawMessage("비밀번호가 올바르지 않습니다.");
+            setWithdrawLoading(false);
+            return;
+        }
+
+        try {
+            const username = user.user_metadata?.username;
+
+            // 1. bw_usernames에서 삭제
+            if (username) {
+                await supabase
+                    .from("bw_usernames")
+                    .delete()
+                    .eq("username", username);
+            }
+
+            // 2. 사용자의 게시글에서 user_id 제거 (게시글은 유지, 작성자 표시는 유지)
+            await supabase
+                .from("bw_posts")
+                .update({ user_id: null })
+                .eq("user_id", user.id);
+
+            // 3. 사용자의 댓글에서 user_id 제거
+            await supabase
+                .from("bw_comments")
+                .update({ user_id: null })
+                .eq("user_id", user.id);
+
+            // 4. Supabase Auth에서 로그아웃
+            await supabase.auth.signOut();
+
+            alert("회원 탈퇴가 완료되었습니다. 이용해주셔서 감사합니다.");
+            router.push("/");
+        } catch (error) {
+            console.error("Withdraw error:", error);
+            setWithdrawMessage("탈퇴 처리 중 오류가 발생했습니다.");
+        }
+
+        setWithdrawLoading(false);
+    };
+
     if (loading) return <div className="p-10 text-center">로딩 중...</div>;
     if (!user) return null;
 
     const nickname = user.user_metadata?.nickname || "사용자";
+    const username = user.user_metadata?.username || "";
 
     return (
         <main className="min-h-screen bg-white">
@@ -89,6 +225,43 @@ function MyPageContent() {
             </header>
 
             <section className="max-w-4xl mx-auto px-4 py-8">
+                {/* 계정 정보 카드 */}
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-6 mb-8">
+                    <h3 className="text-sm font-bold text-gray-700 mb-4">계정 정보</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                        <div>
+                            <span className="text-gray-500">아이디:</span>
+                            <span className="ml-2 font-medium">{username}</span>
+                        </div>
+                        <div>
+                            <span className="text-gray-500">닉네임:</span>
+                            <span className="ml-2 font-medium">{nickname}</span>
+                        </div>
+                        <div>
+                            <span className="text-gray-500">이메일:</span>
+                            <span className="ml-2 font-medium">{user.email}</span>
+                        </div>
+                        <div>
+                            <span className="text-gray-500">가입일:</span>
+                            <span className="ml-2 font-medium">{new Date(user.created_at).toLocaleDateString()}</span>
+                        </div>
+                    </div>
+                    <div className="mt-6 flex flex-wrap gap-3">
+                        <button
+                            onClick={() => setShowPasswordModal(true)}
+                            className="px-4 py-2 text-xs font-medium bg-[#355E3B] text-white rounded hover:bg-[#2A4A2E]"
+                        >
+                            비밀번호 변경
+                        </button>
+                        <button
+                            onClick={() => setShowWithdrawModal(true)}
+                            className="px-4 py-2 text-xs font-medium bg-white text-red-500 border border-red-300 rounded hover:bg-red-50"
+                        >
+                            회원 탈퇴
+                        </button>
+                    </div>
+                </div>
+
                 {/* Tabs */}
                 <div className="flex border-b border-gray-200 mb-6">
                     <button
@@ -179,6 +352,137 @@ function MyPageContent() {
                     </div>
                 )}
             </section>
+
+            {/* 비밀번호 변경 모달 */}
+            {showPasswordModal && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+                    <div className="bg-white rounded-lg p-6 max-w-sm w-full shadow-2xl">
+                        <h4 className="text-lg font-bold mb-4">비밀번호 변경</h4>
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">현재 비밀번호</label>
+                                <input
+                                    type="password"
+                                    value={currentPassword}
+                                    onChange={(e) => setCurrentPassword(e.target.value)}
+                                    className="w-full px-3 py-2 border border-gray-200 rounded text-sm focus:outline-none focus:border-[#355E3B]"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">새 비밀번호</label>
+                                <input
+                                    type="password"
+                                    value={newPassword}
+                                    onChange={(e) => setNewPassword(e.target.value)}
+                                    className="w-full px-3 py-2 border border-gray-200 rounded text-sm focus:outline-none focus:border-[#355E3B]"
+                                    placeholder="6자 이상"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">새 비밀번호 확인</label>
+                                <input
+                                    type="password"
+                                    value={confirmNewPassword}
+                                    onChange={(e) => setConfirmNewPassword(e.target.value)}
+                                    className="w-full px-3 py-2 border border-gray-200 rounded text-sm focus:outline-none focus:border-[#355E3B]"
+                                />
+                            </div>
+                        </div>
+                        {passwordMessage && (
+                            <div className={`mt-4 p-2 rounded text-xs text-center ${
+                                passwordMessage.includes("성공") ? "bg-green-50 text-green-600" : "bg-red-50 text-red-600"
+                            }`}>
+                                {passwordMessage}
+                            </div>
+                        )}
+                        <div className="flex space-x-2 mt-6">
+                            <button
+                                onClick={() => {
+                                    setShowPasswordModal(false);
+                                    setPasswordMessage("");
+                                    setCurrentPassword("");
+                                    setNewPassword("");
+                                    setConfirmNewPassword("");
+                                }}
+                                className="flex-1 py-2 text-sm text-gray-500 hover:bg-gray-50 rounded border border-gray-200"
+                            >
+                                취소
+                            </button>
+                            <button
+                                onClick={handlePasswordChange}
+                                disabled={passwordLoading}
+                                className={`flex-1 py-2 text-sm bg-[#355E3B] text-white rounded hover:bg-[#2A4A2E] ${passwordLoading ? "opacity-50" : ""}`}
+                            >
+                                {passwordLoading ? "처리 중..." : "변경하기"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* 회원 탈퇴 모달 */}
+            {showWithdrawModal && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+                    <div className="bg-white rounded-lg p-6 max-w-sm w-full shadow-2xl">
+                        <h4 className="text-lg font-bold text-red-600 mb-4">회원 탈퇴</h4>
+                        <div className="bg-red-50 border border-red-200 rounded p-3 mb-4">
+                            <p className="text-xs text-red-600">
+                                탈퇴 시 계정 정보가 삭제됩니다.<br/>
+                                작성하신 게시글과 댓글은 유지되지만, 회원 정보와의 연결이 해제됩니다.<br/>
+                                이 작업은 되돌릴 수 없습니다.
+                            </p>
+                        </div>
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">비밀번호 확인</label>
+                                <input
+                                    type="password"
+                                    value={withdrawPassword}
+                                    onChange={(e) => setWithdrawPassword(e.target.value)}
+                                    className="w-full px-3 py-2 border border-gray-200 rounded text-sm focus:outline-none focus:border-red-500"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    확인을 위해 <span className="text-red-600 font-bold">'탈퇴합니다'</span>를 입력하세요
+                                </label>
+                                <input
+                                    type="text"
+                                    value={withdrawConfirm}
+                                    onChange={(e) => setWithdrawConfirm(e.target.value)}
+                                    className="w-full px-3 py-2 border border-gray-200 rounded text-sm focus:outline-none focus:border-red-500"
+                                    placeholder="탈퇴합니다"
+                                />
+                            </div>
+                        </div>
+                        {withdrawMessage && (
+                            <div className="mt-4 p-2 rounded text-xs text-center bg-red-50 text-red-600">
+                                {withdrawMessage}
+                            </div>
+                        )}
+                        <div className="flex space-x-2 mt-6">
+                            <button
+                                onClick={() => {
+                                    setShowWithdrawModal(false);
+                                    setWithdrawMessage("");
+                                    setWithdrawPassword("");
+                                    setWithdrawConfirm("");
+                                }}
+                                className="flex-1 py-2 text-sm text-gray-500 hover:bg-gray-50 rounded border border-gray-200"
+                            >
+                                취소
+                            </button>
+                            <button
+                                onClick={handleWithdraw}
+                                disabled={withdrawLoading}
+                                className={`flex-1 py-2 text-sm bg-red-500 text-white rounded hover:bg-red-600 ${withdrawLoading ? "opacity-50" : ""}`}
+                            >
+                                {withdrawLoading ? "처리 중..." : "탈퇴하기"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             <footer className="mt-10 border-t border-gray-200 bg-gray-50 py-10">
                 <div className="max-w-4xl mx-auto px-4 text-center text-xs text-gray-400">
