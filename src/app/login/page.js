@@ -281,22 +281,37 @@ export default function LoginPage() {
         setLoading(false);
     };
 
-    // 아이디 찾기
+    // 아이디 찾기 (매직 링크 - 이메일 로그인 방식)
     const handleFindId = async (e) => {
         e.preventDefault();
         setLoading(true);
         setMessage("");
 
-        const { data, error } = await supabase
+        // 1. 해당 이메일로 가입된 계정이 있는지 확인
+        const { data: userData, error: lookupError } = await supabase
             .from("bw_usernames")
             .select("username")
             .eq("email", email.toLowerCase())
             .single();
 
-        if (error || !data) {
+        if (lookupError || !userData) {
             setMessage("해당 이메일로 가입된 계정이 없습니다.");
+            setLoading(false);
+            return;
+        }
+
+        // 2. 매직 링크(OTP) 발송
+        const { error } = await supabase.auth.signInWithOtp({
+            email: email.toLowerCase(),
+            options: {
+                emailRedirectTo: window.location.origin,
+            }
+        });
+
+        if (error) {
+            setMessage("링크 발송 실패: " + error.message);
         } else {
-            setMessage(`가입하신 아이디는 [ ${data.username} ] 입니다. 이 아이디로 로그인을 시도해주세요.`);
+            setMessage("로그인 링크가 포함된 보안 이메일을 발송했습니다. 이메일함(또는 스팸함)을 확인해주세요. 링크를 누르면 즉시 로그인되며 아이디를 확인하실 수 있습니다.");
         }
         setLoading(false);
     };
