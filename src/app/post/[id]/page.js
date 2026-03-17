@@ -339,7 +339,18 @@ export default function PostDetailPage() {
                     <div className="flex justify-between items-center text-sm text-gray-600">
                         <span className="font-bold">
                             {post.author}
-                            {post.user_id && <span className="ml-1 text-green-500 text-xs" title="회원">✓</span>}
+                            {post.user_id && (
+                  <span
+                    className="ml-1 text-green-500 text-xs font-bold"
+                    style={{
+                      textShadow: '0 1px 0 rgba(255,255,255,0.5), 0 -1px 0 rgba(0,0,0,0.3)',
+                      filter: 'drop-shadow(0 1px 1px rgba(0,0,0,0.2))'
+                    }}
+                    title="회원"
+                  >
+                    ✓
+                  </span>
+                )}
                         </span>
                         <div className="space-x-4 text-gray-400 text-xs">
                             <span>조회 {post.view_count || 0}</span>
@@ -372,7 +383,7 @@ export default function PostDetailPage() {
                     `}</style>
                     <div className="post-content whitespace-pre-wrap mb-10 overflow-x-auto" dangerouslySetInnerHTML={{ __html: post.content }}></div>
 
-                    {post.source_url && (
+                    {post.source_url && post.board_type === "support" && (
                         <div className="mt-10 pt-6 border-t border-gray-100 flex flex-col space-y-2">
                             <a
                                 href={post.source_url}
@@ -396,12 +407,23 @@ export default function PostDetailPage() {
                             const isReply = comment.content?.startsWith('@');
                             return (
                             <div key={comment.id} className={`p-4 rounded border ${comment.is_hidden ? 'bg-gray-200 border-gray-300' : 'bg-gray-50 border-gray-100'} ${isReply ? 'ml-6 md:ml-10 border-l-4 border-l-[#355E3B]' : ''}`}>
-                                {isReply && <span className="text-[#355E3B] font-bold text-sm mr-2">ㄴ</span>}
                                 <div className="flex justify-between items-center mb-2">
                                     <div className="flex items-center gap-2">
+                                        {isReply && <span className="text-[#355E3B] font-bold text-sm mr-1">ㄴ</span>}
                                         <span className="text-xs font-bold text-gray-700">
                                             {comment.author}
-                                            {comment.user_id && <span className="ml-0.5 text-green-500" title="회원">✓</span>}
+                                            {comment.user_id && (
+                  <span
+                    className="ml-0.5 text-green-500 font-bold"
+                    style={{
+                      textShadow: '0 1px 0 rgba(255,255,255,0.5), 0 -1px 0 rgba(0,0,0,0.3)',
+                      filter: 'drop-shadow(0 1px 1px rgba(0,0,0,0.2))'
+                    }}
+                    title="회원"
+                  >
+                    ✓
+                  </span>
+                )}
                                         </span>
                                         {comment.is_hidden && <span className="text-[10px] text-red-500">(숨김)</span>}
                                     </div>

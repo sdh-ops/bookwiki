@@ -31,7 +31,7 @@ function WritePageContent() {
     const [title, setTitle] = useState("");
     const [content, setContent] = useState("");
     const [boardType, setBoardType] = useState("free");
-    const [freeCategory, setFreeCategory] = useState(""); // 톡톡 카테고리
+    const [freeCategory, setFreeCategory] = useState("잡담"); // 톡톡 카테고리 (기본값: 잡담)
     const [author, setAuthor] = useState("");
     const [password, setPassword] = useState("");
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -131,7 +131,6 @@ function WritePageContent() {
         ? [
             { name: "톡톡", id: "free" },
             { name: "구인구직", id: "job" },
-            { name: "지원사업", id: "support" },
         ]
         : [
             { name: "톡톡", id: "free" },
@@ -214,14 +213,13 @@ function WritePageContent() {
                             <input
                                 type="text"
                                 value={author}
-                                onChange={(e) => !user && setAuthor(e.target.value)}
-                                className={`w-full px-3 py-2 border border-gray-200 rounded text-sm focus:outline-none focus:border-[#355E3B] ${user ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                                className="w-full px-3 py-2 border border-gray-200 rounded text-sm bg-gray-100 cursor-not-allowed"
                                 placeholder="공개될 이름을 입력하세요"
-                                readOnly={!!user}
+                                readOnly
                                 required
                             />
                             {!user && (
-                                <p className="mt-1 text-xs text-gray-500">* 자동 생성된 익명 닉네임입니다. 원하시면 수정 가능합니다.</p>
+                                <p className="mt-1 text-xs text-gray-500">* 자동 생성된 임시 닉네임입니다. (수정 불가)</p>
                             )}
                         </div>
                         {!user && (

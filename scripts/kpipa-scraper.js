@@ -64,6 +64,19 @@ async function scrapeKPIPA() {
                         continue;
                     }
 
+                    // RE: 제목 필터링 (답글 제외)
+                    const titleLower = link.title.toLowerCase();
+                    if (titleLower.startsWith('re:') || titleLower.startsWith('re ')) {
+                        console.log(`  ⏭ Skipping RE: ${link.title.substring(0, 30)}...`);
+                        continue;
+                    }
+
+                    // 공지 제외
+                    if (link.title.includes('공지')) {
+                        console.log(`  ⏭ Skipping notice: ${link.title.substring(0, 30)}...`);
+                        continue;
+                    }
+
                     // Remove scripts/styles
                     $('script, style, noscript').remove();
 

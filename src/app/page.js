@@ -351,8 +351,15 @@ function PostList() {
             ) : (
               <Link href="/login" className="hidden md:block text-sm border border-white/30 px-3 py-1 rounded hover:bg-white/10">로그인</Link>
             )}
-            {/* 모바일 로그인/회원가입 버튼 */}
-            {!user && (
+            {/* 모바일 로그인/로그아웃 버튼 */}
+            {user ? (
+              <button
+                onClick={handleLogout}
+                className="md:hidden text-xs border border-white/30 px-2 py-1 rounded hover:bg-white/10"
+              >
+                로그아웃
+              </button>
+            ) : (
               <Link href="/login" className="md:hidden text-xs border border-white/30 px-2 py-1 rounded hover:bg-white/10">
                 로그인
               </Link>
@@ -456,12 +463,6 @@ function PostList() {
               {currentBoard === "job" && (
                 <div className="flex border border-gray-300 rounded overflow-hidden text-xs">
                   <button
-                    onClick={() => router.push("/?board=job")}
-                    className={`px-3 py-1 ${jobFilter === "all" ? "bg-[#355E3B] text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
-                  >
-                    전체
-                  </button>
-                  <button
                     onClick={() => router.push("/?board=job&filter=hiring")}
                     className={`px-3 py-1 ${jobFilter === "hiring" ? "bg-[#355E3B] text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
                   >
@@ -472,6 +473,12 @@ function PostList() {
                     className={`px-3 py-1 ${jobFilter === "seeking" ? "bg-[#355E3B] text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
                   >
                     구직
+                  </button>
+                  <button
+                    onClick={() => router.push("/?board=job")}
+                    className={`px-3 py-1 ${jobFilter === "all" ? "bg-[#355E3B] text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
+                  >
+                    전체
                   </button>
                 </div>
               )}
@@ -645,7 +652,18 @@ function PostList() {
                         </td>
                         <td className="px-2 py-2 text-xs text-gray-600 truncate max-w-[80px]">
                           {post.author}
-                          {post.user_id && <span className="ml-0.5 text-green-500" title="회원">✓</span>}
+                          {post.user_id && (
+                            <span
+                              className="ml-0.5 text-green-500 font-bold"
+                              style={{
+                                textShadow: '0 1px 0 rgba(255,255,255,0.5), 0 -1px 0 rgba(0,0,0,0.3)',
+                                filter: 'drop-shadow(0 1px 1px rgba(0,0,0,0.2))'
+                              }}
+                              title="회원"
+                            >
+                              ✓
+                            </span>
+                          )}
                         </td>
                         <td className="px-2 py-2 text-xs text-gray-400 text-center">{new Date(post.created_at).toLocaleDateString().slice(5)}</td>
                         <td className="px-2 py-2 text-xs text-gray-400 text-center">{post.view_count}</td>
@@ -667,7 +685,18 @@ function PostList() {
                         </td>
                         <td className="px-2 py-2 text-xs text-gray-600 truncate max-w-[80px]">
                           {post.author}
-                          {post.user_id && <span className="ml-0.5 text-green-500" title="회원">✓</span>}
+                          {post.user_id && (
+                            <span
+                              className="ml-0.5 text-green-500 font-bold"
+                              style={{
+                                textShadow: '0 1px 0 rgba(255,255,255,0.5), 0 -1px 0 rgba(0,0,0,0.3)',
+                                filter: 'drop-shadow(0 1px 1px rgba(0,0,0,0.2))'
+                              }}
+                              title="회원"
+                            >
+                              ✓
+                            </span>
+                          )}
                         </td>
                         <td className="px-2 py-2 text-xs text-gray-400 text-center">{new Date(post.created_at).toLocaleDateString().slice(5)}</td>
                         <td className="px-2 py-2 text-xs text-gray-400 text-center">{post.view_count}</td>
@@ -689,7 +718,18 @@ function PostList() {
                         </td>
                         <td className="px-2 py-2 text-xs text-gray-600 truncate max-w-[80px]">
                           {post.author}
-                          {post.user_id && <span className="ml-0.5 text-green-500" title="회원">✓</span>}
+                          {post.user_id && (
+                            <span
+                              className="ml-0.5 text-green-500 font-bold"
+                              style={{
+                                textShadow: '0 1px 0 rgba(255,255,255,0.5), 0 -1px 0 rgba(0,0,0,0.3)',
+                                filter: 'drop-shadow(0 1px 1px rgba(0,0,0,0.2))'
+                              }}
+                              title="회원"
+                            >
+                              ✓
+                            </span>
+                          )}
                         </td>
                         <td className="px-2 py-2 text-xs text-gray-400 text-center">{new Date(post.created_at).toLocaleDateString().slice(5)}</td>
                         <td className="px-2 py-2 text-xs text-gray-400 text-center">{post.view_count}</td>
