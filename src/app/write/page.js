@@ -40,6 +40,12 @@ function WritePageContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
 
+    // 구인구직 추가 필드
+    const [jobCategory, setJobCategory] = useState("");
+    const [experienceLevel, setExperienceLevel] = useState("");
+    const [deadline, setDeadline] = useState("");
+    const [contactInfo, setContactInfo] = useState("");
+
     // URL에서 게시판 파라미터 읽어서 기본값 설정
     useEffect(() => {
         const boardParam = searchParams.get("board");
@@ -97,6 +103,26 @@ function WritePageContent() {
             return;
         }
 
+        // 구인구직 게시판 필수 필드 확인
+        if (boardType === "job") {
+            if (!jobCategory) {
+                alert("직군을 선택해주세요.");
+                return;
+            }
+            if (!experienceLevel) {
+                alert("경력을 선택해주세요.");
+                return;
+            }
+            if (!deadline) {
+                alert("마감일을 선택해주세요.");
+                return;
+            }
+            if (!contactInfo) {
+                alert("연락처를 입력해주세요.");
+                return;
+            }
+        }
+
         setIsSubmitting(true);
 
         // 톡톡 게시판인 경우 제목 앞에 카테고리 추가
@@ -113,6 +139,14 @@ function WritePageContent() {
             user_id: user ? user.id : null,
             password: user ? null : password
         };
+
+        // 구인구직 게시판의 경우 추가 필드
+        if (boardType === "job") {
+            postData.job_category = jobCategory;
+            postData.experience_level = experienceLevel;
+            postData.deadline = deadline === "충원시" ? null : deadline;
+            postData.contact_info = contactInfo;
+        }
 
         const { error } = await supabase.from("bw_posts").insert([postData]);
 
@@ -202,6 +236,99 @@ function WritePageContent() {
                                 ))}
                             </div>
                             <p className="mt-1 text-xs text-gray-500">* 모집: 스터디/모임, 후기: 책/이벤트 후기, 잡담: 자유로운 이야기</p>
+                        </div>
+                    )}
+
+                    {/* 구인구직 게시판 추가 필드 */}
+                    {boardType === "job" && (
+                        <div className="space-y-4 bg-blue-50 p-4 rounded border border-blue-200">
+                            <h3 className="text-sm font-bold text-gray-700 mb-3">📋 채용 정보</h3>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {/* 직군 */}
+                                <div>
+                                    <label className="block text-sm font-bold text-gray-700 mb-2">
+                                        직군 <span className="text-red-500">*</span>
+                                    </label>
+                                    <select
+                                        value={jobCategory}
+                                        onChange={(e) => setJobCategory(e.target.value)}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:border-[#355E3B]"
+                                        required
+                                    >
+                                        <option value="">선택하세요</option>
+                                        <option value="editing">편집</option>
+                                        <option value="marketing">마케팅</option>
+                                        <option value="design">디자이너</option>
+                                        <option value="production">제작</option>
+                                        <option value="sales">영업</option>
+                                        <option value="writer">작가</option>
+                                        <option value="other">기타</option>
+                                    </select>
+                                </div>
+
+                                {/* 경력 */}
+                                <div>
+                                    <label className="block text-sm font-bold text-gray-700 mb-2">
+                                        경력 <span className="text-red-500">*</span>
+                                    </label>
+                                    <select
+                                        value={experienceLevel}
+                                        onChange={(e) => setExperienceLevel(e.target.value)}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:border-[#355E3B]"
+                                        required
+                                    >
+                                        <option value="">선택하세요</option>
+                                        <option value="entry">신입</option>
+                                        <option value="1-3">1-3년</option>
+                                        <option value="3-5">3-5년</option>
+                                        <option value="5-10">5-10년</option>
+                                        <option value="10+">10년 이상</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            {/* 마감일 */}
+                            <div>
+                                <label className="block text-sm font-bold text-gray-700 mb-2">
+                                    접수 마감일 <span className="text-red-500">*</span>
+                                </label>
+                                <div className="flex gap-2">
+                                    <input
+                                        type="date"
+                                        value={deadline === "충원시" ? "" : deadline}
+                                        onChange={(e) => setDeadline(e.target.value)}
+                                        min={new Date().toISOString().split('T')[0]}
+                                        className="flex-1 px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:border-[#355E3B]"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setDeadline("충원시")}
+                                        className={`px-4 py-2 text-sm rounded border ${deadline === "충원시" ? "bg-[#355E3B] text-white border-[#355E3B]" : "bg-white text-gray-600 border-gray-300 hover:border-[#355E3B]"}`}
+                                    >
+                                        충원시
+                                    </button>
+                                </div>
+                                {deadline === "충원시" && (
+                                    <p className="mt-1 text-xs text-blue-600">✓ 충원시까지로 설정되었습니다</p>
+                                )}
+                            </div>
+
+                            {/* 연락처 */}
+                            <div>
+                                <label className="block text-sm font-bold text-gray-700 mb-2">
+                                    연락처 <span className="text-red-500">*</span>
+                                </label>
+                                <input
+                                    type="text"
+                                    value={contactInfo}
+                                    onChange={(e) => setContactInfo(e.target.value)}
+                                    placeholder="이메일 또는 전화번호"
+                                    className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:border-[#355E3B]"
+                                    required
+                                />
+                                <p className="mt-1 text-xs text-gray-500">* 지원자가 연락할 수 있는 이메일 또는 전화번호를 입력해주세요</p>
+                            </div>
                         </div>
                     )}
 

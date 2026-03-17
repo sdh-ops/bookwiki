@@ -383,6 +383,61 @@ export default function PostDetailPage() {
                     `}</style>
                     <div className="post-content whitespace-pre-wrap mb-10 overflow-x-auto" dangerouslySetInnerHTML={{ __html: post.content }}></div>
 
+                    {/* 구인구직 채용 정보 */}
+                    {post.board_type === "job" && (post.job_category || post.experience_level || post.deadline || post.contact_info) && (
+                        <div className="mt-6 mb-10 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                            <h3 className="text-sm font-bold text-gray-800 mb-3 flex items-center">
+                                <span className="text-lg mr-2">📋</span> 채용 정보
+                            </h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                                {post.job_category && (
+                                    <div>
+                                        <span className="font-bold text-gray-700">직군:</span>
+                                        <span className="ml-2 text-gray-600">
+                                            {{
+                                                editing: "편집",
+                                                marketing: "마케팅",
+                                                design: "디자이너",
+                                                production: "제작",
+                                                sales: "영업",
+                                                writer: "작가",
+                                                other: "기타"
+                                            }[post.job_category] || post.job_category}
+                                        </span>
+                                    </div>
+                                )}
+                                {post.experience_level && (
+                                    <div>
+                                        <span className="font-bold text-gray-700">경력:</span>
+                                        <span className="ml-2 text-gray-600">
+                                            {{
+                                                entry: "신입",
+                                                "1-3": "1-3년",
+                                                "3-5": "3-5년",
+                                                "5-10": "5-10년",
+                                                "10+": "10년 이상"
+                                            }[post.experience_level] || post.experience_level}
+                                        </span>
+                                    </div>
+                                )}
+                                {(post.deadline || post.deadline === null) && (
+                                    <div>
+                                        <span className="font-bold text-gray-700">마감일:</span>
+                                        <span className="ml-2 text-gray-600">
+                                            {post.deadline ? new Date(post.deadline).toLocaleDateString() : "충원시"}
+                                        </span>
+                                    </div>
+                                )}
+                                {post.contact_info && (
+                                    <div>
+                                        <span className="font-bold text-gray-700">연락처:</span>
+                                        <span className="ml-2 text-blue-600 font-medium">{post.contact_info}</span>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
                     {post.source_url && post.board_type === "support" && (
                         <div className="mt-10 pt-6 border-t border-gray-100 flex flex-col space-y-2">
                             <a

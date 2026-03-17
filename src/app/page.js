@@ -295,18 +295,28 @@ function PostList() {
 
   const filteredPosts = getFilteredPosts();
 
-  // 게시물 검색
+  // 게시물 검색 (현재 게시판 내에서만)
   const handleSearch = async () => {
     if (!searchQuery.trim()) {
       setShowSearchResults(false);
       return;
     }
-    const { data } = await supabase
+
+    let query = supabase
       .from("bw_posts")
       .select("id, title, board_type, created_at")
       .ilike("title", `%${searchQuery}%`)
+      .eq("is_deleted", false); // soft delete 필터
+
+    // 현재 게시판만 검색 (전체/HOT 제외)
+    if (currentBoard !== "all" && currentBoard !== "hot") {
+      query = query.eq("board_type", currentBoard);
+    }
+
+    const { data } = await query
       .order("created_at", { ascending: false })
-      .limit(10);
+      .limit(20);
+
     setSearchResults(data || []);
     setShowSearchResults(true);
   };
@@ -364,39 +374,6 @@ function PostList() {
                 로그인
               </Link>
             )}
-            <div className="relative">
-              <input
-                type="text"
-                placeholder="게시물 찾기"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-                className="bg-[#2A4A2E] text-xs px-3 py-1.5 rounded w-28 md:w-48 outline-none placeholder:text-gray-300"
-              />
-              <button onClick={handleSearch} className="absolute right-2 top-1/2 -translate-y-1/2 text-white/60 hover:text-white">
-                🔍
-              </button>
-              {/* 검색 결과 드롭다운 */}
-              {showSearchResults && searchResults.length > 0 && (
-                <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded shadow-lg z-50 max-h-64 overflow-y-auto">
-                  {searchResults.map((result) => (
-                    <Link
-                      key={result.id}
-                      href={`/post/${result.id}`}
-                      onClick={() => setShowSearchResults(false)}
-                      className="block px-3 py-2 text-xs text-gray-700 hover:bg-gray-100 border-b border-gray-100 last:border-0"
-                    >
-                      <span className="text-[#355E3B] font-bold">[{boardTypeNames[result.board_type]}]</span> {result.title}
-                    </Link>
-                  ))}
-                </div>
-              )}
-              {showSearchResults && searchResults.length === 0 && searchQuery && (
-                <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded shadow-lg z-50 px-3 py-2 text-xs text-gray-500">
-                  검색 결과가 없습니다.
-                </div>
-              )}
-            </div>
           </div>
         </div>
         {/* 모바일 메뉴 드롭다운 */}
@@ -834,6 +811,55 @@ function PostList() {
                 </>
               )}
             </div>
+          </div>
+
+          {/* 페이지별 검색 */}
+          <div className="mt-8 mb-4">
+            <div className="relative max-w-md mx-auto">
+              <input
+                type="text"
+                placeholder={`${boardTypeNames[currentBoard] || '전체'}에서 검색`}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-[#355E3B]"
+              />
+              <button
+                onClick={handleSearch}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-[#355E3B]"
+              >
+                🔍
+              </button>
+            </div>
+
+            {/* 검색 결과 */}
+            {showSearchResults && searchResults.length > 0 && (
+              <div className="mt-4 max-w-md mx-auto bg-white border border-gray-200 rounded-lg shadow-lg">
+                <div className="p-3 bg-gray-50 border-b border-gray-200">
+                  <span className="text-sm font-bold text-gray-700">검색 결과 ({searchResults.length}개)</span>
+                </div>
+                {searchResults.map((result) => (
+                  <Link
+                    key={result.id}
+                    href={`/post/${result.id}`}
+                    onClick={() => setShowSearchResults(false)}
+                    className="block px-4 py-3 text-sm hover:bg-gray-50 border-b border-gray-100 last:border-0"
+                  >
+                    <span className="text-[#355E3B] font-bold text-xs">[{boardTypeNames[result.board_type]}]</span>
+                    <span className="ml-2 text-gray-700">{result.title}</span>
+                    <span className="block mt-1 text-xs text-gray-400">
+                      {new Date(result.created_at).toLocaleDateString()}
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            )}
+
+            {showSearchResults && searchResults.length === 0 && searchQuery && (
+              <div className="mt-4 max-w-md mx-auto bg-white border border-gray-200 rounded-lg shadow-lg px-4 py-3 text-sm text-gray-500">
+                검색 결과가 없습니다.
+              </div>
+            )}
           </div>
 
           {/* Pagination */}
