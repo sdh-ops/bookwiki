@@ -47,13 +47,14 @@ export default function LoginPage() {
 
         setCheckingNickname(true);
 
-        const { data: existingPosts } = await supabase
-            .from("bw_posts")
-            .select("author")
-            .eq("author", nickname)
+        // 이전에는 bw_posts를 조회했으나, 이제 profiles 테이블을 조회하여 중복 체크
+        const { data: existingProfile } = await supabase
+            .from("profiles")
+            .select("nickname")
+            .eq("nickname", nickname)
             .limit(1);
 
-        if (existingPosts && existingPosts.length > 0) {
+        if (existingProfile && existingProfile.length > 0) {
             setNicknameAvailable(false);
             setMessage("이미 사용 중인 닉네임입니다.");
         } else {
@@ -146,7 +147,7 @@ export default function LoginPage() {
         });
 
         if (error) {
-            setMessage("로그인 실패: 비밀번호를 확인해주세요.");
+            setMessage("로그인 실패: 비밀번호 또는 정보를 확인해주세요.");
         } else {
             window.location.href = "/";
         }
@@ -165,7 +166,7 @@ export default function LoginPage() {
         }
 
         if (usernameAvailable !== true) {
-            setMessage("아이디 중복확인을 해주세요.");
+            setMessage("아이디 중복확인을 완료해주세요.");
             setLoading(false);
             return;
         }
@@ -184,7 +185,13 @@ export default function LoginPage() {
         }
 
         if (nicknameAvailable !== true) {
-            setMessage("닉네임 중복확인을 해주세요.");
+            setMessage("닉네임 중복확인을 완료해주세요.");
+            setLoading(false);
+            return;
+        }
+
+        if (emailAvailable !== true) {
+            setMessage("이메일 중복확인을 완료해주세요.");
             setLoading(false);
             return;
         }
@@ -201,15 +208,27 @@ export default function LoginPage() {
             return;
         }
 
-        // 이메일 중복 최종 체크
-        const { data: existingEmail } = await supabase
+        // 최종 중복 검증 (Race Condition 방지)
+        const { data: finalCheck } = await supabase
             .from("bw_usernames")
-            .select("email")
-            .eq("email", email.toLowerCase())
+            .select("username, email")
+            .or(`username.eq.${username.toLowerCase()},email.eq.${email.toLowerCase()}`)
             .limit(1);
 
-        if (existingEmail && existingEmail.length > 0) {
-            setMessage("이미 가입된 이메일입니다. 1개의 이메일로 1개의 계정만 가입 가능합니다.");
+        if (finalCheck && finalCheck.length > 0) {
+            setMessage("중복된 아이디 또는 이메일이 이미 존재합니다.");
+            setLoading(false);
+            return;
+        }
+
+        const { data: finalNickCheck } = await supabase
+            .from("profiles")
+            .select("nickname")
+            .eq("nickname", nickname)
+            .limit(1);
+
+        if (finalNickCheck && finalNickCheck.length > 0) {
+            setMessage("중복된 닉네임이 이미 존재합니다.");
             setLoading(false);
             return;
         }
@@ -240,19 +259,7 @@ export default function LoginPage() {
         }
 
         if (data?.user) {
-            // 아이디-이메일 매핑 저장
-            const { error: usernameError } = await supabase
-                .from("bw_usernames")
-                .insert([{
-                    username: username.toLowerCase(),
-                    email: email.toLowerCase()
-                }]);
-
-            if (usernameError) {
-                console.error("Username mapping error:", usernameError);
-            }
-
-            // 회원가입 성공 시 바로 홈으로 이동
+            // DB 트리거가 insert를 처리하겠지만, 클라이언트 사이드에서도 확인 또는 즉시 이동
             window.location.href = "/";
         }
         setLoading(false);
@@ -273,7 +280,7 @@ export default function LoginPage() {
         if (error || !data) {
             setMessage("해당 이메일로 가입된 계정이 없습니다.");
         } else {
-            setMessage(`찾은 아이디: ${data.username}`);
+            setMessage(`가입하신 아이디는 [ ${data.username} ] 입니다. 이 아이디로 로그인을 시도해주세요.`);
         }
         setLoading(false);
     };
