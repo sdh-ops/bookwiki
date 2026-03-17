@@ -259,7 +259,23 @@ export default function LoginPage() {
         }
 
         if (data?.user) {
-            // DB 트리거가 insert를 처리하겠지만, 클라이언트 사이드에서도 확인 또는 즉시 이동
+            // DB 트리거가 insert를 처리하겠지만, 클라이언트 사이드에서도 안전하게 한 번 더 처리 (Fallback)
+            try {
+                await supabase.from("bw_usernames").upsert({
+                    id: data.user.id,
+                    username: username.toLowerCase(),
+                    email: email.toLowerCase()
+                }, { onConflict: 'username' });
+
+                await supabase.from("profiles").upsert({
+                    id: data.user.id,
+                    nickname: nickname
+                });
+            } catch (err) {
+                console.error("Manual sync error:", err);
+            }
+
+            // 회원가입 성공 시 바로 홈으로 이동
             window.location.href = "/";
         }
         setLoading(false);
