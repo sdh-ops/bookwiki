@@ -75,6 +75,7 @@ function PostList() {
       const { data: hotPosts } = await supabase
         .from("bw_posts")
         .select("id, title, view_count, comment_count, board_type, created_at")
+        .eq("is_deleted", false)
         .gte("created_at", oneWeekAgo.toISOString())
         .order("view_count", { ascending: false })
         .limit(50);
@@ -98,32 +99,38 @@ function PostList() {
         query = supabase
           .from("bw_posts")
           .select("*")
+          .eq("is_deleted", false)
           .gte("created_at", oneWeekAgo.toISOString())
           .order("view_count", { ascending: false })
           .range(offset, offset + POSTS_PER_PAGE - 1);
         countQuery = supabase
           .from("bw_posts")
           .select("*", { count: "exact", head: true })
+          .eq("is_deleted", false)
           .gte("created_at", oneWeekAgo.toISOString());
       } else if (currentBoard === "all") {
         query = supabase
           .from("bw_posts")
           .select("*")
+          .eq("is_deleted", false)
           .order("created_at", { ascending: false })
           .range(offset, offset + POSTS_PER_PAGE - 1);
         countQuery = supabase
           .from("bw_posts")
-          .select("*", { count: "exact", head: true });
+          .select("*", { count: "exact", head: true })
+          .eq("is_deleted", false);
       } else {
         query = supabase
           .from("bw_posts")
           .select("*")
+          .eq("is_deleted", false)
           .eq("board_type", currentBoard)
           .order("created_at", { ascending: false })
           .range(offset, offset + POSTS_PER_PAGE - 1);
         countQuery = supabase
           .from("bw_posts")
           .select("*", { count: "exact", head: true })
+          .eq("is_deleted", false)
           .eq("board_type", currentBoard);
       }
 

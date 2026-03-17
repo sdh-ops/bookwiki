@@ -37,6 +37,14 @@ function MyPageContent() {
     const [withdrawMessage, setWithdrawMessage] = useState("");
     const [withdrawLoading, setWithdrawLoading] = useState(false);
 
+    // 닉네임 변경 상태
+    const [showNicknameModal, setShowNicknameModal] = useState(false);
+    const [newNickname, setNewNickname] = useState("");
+    const [canChangeNickname, setCanChangeNickname] = useState(false);
+    const [nicknameChangeDate, setNicknameChangeDate] = useState(null);
+    const [nicknameMessage, setNicknameMessage] = useState("");
+    const [nicknameLoading, setNicknameLoading] = useState(false);
+
     useEffect(() => {
         async function fetchData() {
             setLoading(true);
@@ -70,6 +78,23 @@ function MyPageContent() {
                     .order("created_at", { ascending: false });
 
                 if (commentsData) setComments(commentsData);
+            }
+
+            // Check nickname change eligibility
+            const { data: profileData } = await supabase
+                .from("profiles")
+                .select("nickname_updated_at")
+                .eq("id", user.id)
+                .maybeSingle();
+
+            if (!profileData?.nickname_updated_at) {
+                setCanChangeNickname(true);
+            } else {
+                const lastChange = new Date(profileData.nickname_updated_at);
+                const now = new Date();
+                const daysSince = (now - lastChange) / (1000 * 60 * 60 * 24);
+                setCanChangeNickname(daysSince >= 30);
+                setNicknameChangeDate(lastChange);
             }
 
             setLoading(false);
@@ -136,6 +161,85 @@ function MyPageContent() {
             }, 1500);
         }
         setPasswordLoading(false);
+    };
+
+    // 닉네임 변경
+    const handleNicknameChange = async () => {
+        setNicknameMessage("");
+        setNicknameLoading(true);
+
+        if (!newNickname || newNickname.trim().length < 2) {
+            setNicknameMessage("닉네임은 2자 이상이어야 합니다.");
+            setNicknameLoading(false);
+            return;
+        }
+
+        if (newNickname.trim().length > 20) {
+            setNicknameMessage("닉네임은 20자 이하여야 합니다.");
+            setNicknameLoading(false);
+            return;
+        }
+
+        if (!canChangeNickname) {
+            setNicknameMessage("닉네임은 30일에 한 번만 변경할 수 있습니다.");
+            setNicknameLoading(false);
+            return;
+        }
+
+        const trimmedNickname = newNickname.trim();
+
+        // Check if nickname is already taken
+        const { data: existingProfile } = await supabase
+            .from("profiles")
+            .select("id")
+            .eq("nickname", trimmedNickname)
+            .neq("id", user.id)
+            .maybeSingle();
+
+        if (existingProfile) {
+            setNicknameMessage("이미 사용 중인 닉네임입니다.");
+            setNicknameLoading(false);
+            return;
+        }
+
+        const oldNickname = user.user_metadata?.nickname;
+
+        try {
+            // Save nickname history
+            await supabase.from("bw_nickname_history").insert({
+                user_id: user.id,
+                old_nickname: oldNickname,
+                new_nickname: trimmedNickname
+            });
+
+            // Update profiles table
+            await supabase
+                .from("profiles")
+                .update({
+                    nickname: trimmedNickname,
+                    nickname_updated_at: new Date().toISOString()
+                })
+                .eq("id", user.id);
+
+            // Update auth metadata
+            const { error } = await supabase.auth.updateUser({
+                data: { nickname: trimmedNickname }
+            });
+
+            if (error) {
+                setNicknameMessage("닉네임 변경 실패: " + error.message);
+            } else {
+                setNicknameMessage("닉네임이 성공적으로 변경되었습니다. 페이지를 새로고침합니다.");
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1500);
+            }
+        } catch (error) {
+            console.error("Nickname change error:", error);
+            setNicknameMessage("닉네임 변경 중 오류가 발생했습니다.");
+        }
+
+        setNicknameLoading(false);
     };
 
     // 회원 탈퇴
@@ -248,6 +352,12 @@ function MyPageContent() {
                     </div>
                     <div className="mt-6 flex flex-wrap gap-3">
                         <button
+                            onClick={() => setShowNicknameModal(true)}
+                            className="px-4 py-2 text-xs font-medium bg-blue-500 text-white rounded hover:bg-blue-600"
+                        >
+                            닉네임 변경 {!canChangeNickname && "(30일 후 가능)"}
+                        </button>
+                        <button
                             onClick={() => setShowPasswordModal(true)}
                             className="px-4 py-2 text-xs font-medium bg-[#355E3B] text-white rounded hover:bg-[#2A4A2E]"
                         >
@@ -352,6 +462,73 @@ function MyPageContent() {
                     </div>
                 )}
             </section>
+
+            {/* 닉네임 변경 모달 */}
+            {showNicknameModal && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+                    <div className="bg-white rounded-lg p-6 max-w-sm w-full shadow-2xl">
+                        <h4 className="text-lg font-bold mb-4">닉네임 변경</h4>
+                        {!canChangeNickname && nicknameChangeDate && (
+                            <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded">
+                                <p className="text-xs text-yellow-700">
+                                    마지막 변경: {nicknameChangeDate.toLocaleDateString()}<br/>
+                                    다음 변경 가능일: {new Date(nicknameChangeDate.getTime() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString()}
+                                </p>
+                            </div>
+                        )}
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">현재 닉네임</label>
+                                <input
+                                    type="text"
+                                    value={nickname}
+                                    disabled
+                                    className="w-full px-3 py-2 border border-gray-200 rounded text-sm bg-gray-100 cursor-not-allowed"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">새 닉네임</label>
+                                <input
+                                    type="text"
+                                    value={newNickname}
+                                    onChange={(e) => setNewNickname(e.target.value)}
+                                    disabled={!canChangeNickname}
+                                    className="w-full px-3 py-2 border border-gray-200 rounded text-sm focus:outline-none focus:border-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                                    placeholder="새 닉네임 (2-20자)"
+                                    maxLength={20}
+                                />
+                                <p className="mt-1 text-xs text-gray-500">* 닉네임은 30일에 한 번만 변경할 수 있습니다.</p>
+                            </div>
+                        </div>
+                        {nicknameMessage && (
+                            <div className={`mt-4 p-2 rounded text-xs text-center ${
+                                nicknameMessage.includes("성공") ? "bg-green-50 text-green-600" : "bg-red-50 text-red-600"
+                            }`}>
+                                {nicknameMessage}
+                            </div>
+                        )}
+                        <div className="flex space-x-2 mt-6">
+                            <button
+                                onClick={() => {
+                                    setShowNicknameModal(false);
+                                    setNicknameMessage("");
+                                    setNewNickname("");
+                                }}
+                                className="flex-1 py-2 text-sm text-gray-500 hover:bg-gray-50 rounded border border-gray-200"
+                            >
+                                취소
+                            </button>
+                            <button
+                                onClick={handleNicknameChange}
+                                disabled={nicknameLoading || !canChangeNickname}
+                                className={`flex-1 py-2 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 ${(nicknameLoading || !canChangeNickname) ? "opacity-50 cursor-not-allowed" : ""}`}
+                            >
+                                {nicknameLoading ? "처리 중..." : "변경하기"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* 비밀번호 변경 모달 */}
             {showPasswordModal && (

@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
+import Editor from "@/components/Editor";
 
 export default function EditPage() {
     const { id } = useParams();
@@ -145,13 +146,10 @@ export default function EditPage() {
 
                     <div>
                         <label className="block text-sm font-bold text-gray-700 mb-2">내용</label>
-                        <textarea
-                            value={content}
-                            onChange={(e) => setContent(e.target.value)}
-                            className="w-full h-80 px-3 py-2 border border-gray-200 rounded text-sm focus:outline-none focus:border-[#355E3B] resize-none"
-                            placeholder="내용을 작성해주세요"
-                            required
-                        ></textarea>
+                        <Editor
+                            content={content}
+                            onChange={setContent}
+                        />
                     </div>
 
                     <div className="flex justify-end space-x-3 pt-4 border-t border-gray-100">

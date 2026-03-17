@@ -17,12 +17,19 @@ export default function AdminPostsPage() {
     const [filter, setFilter] = useState("all"); // all, notice, normal
     const [boardFilter, setBoardFilter] = useState("all");
     const [searchQuery, setSearchQuery] = useState("");
+    const [user, setUser] = useState(null);
 
     const fetchPosts = async () => {
         setLoading(true);
+
+        // Get current user
+        const { data: { user: currentUser } } = await supabase.auth.getUser();
+        setUser(currentUser);
+
         let query = supabase
             .from("bw_posts")
             .select("id, title, author, board_type, is_notice, is_auto, created_at, view_count")
+            .eq("is_deleted", false)
             .order("created_at", { ascending: false })
             .limit(100);
 
@@ -64,17 +71,22 @@ export default function AdminPostsPage() {
     };
 
     const deletePost = async (postId) => {
-        if (!confirm("정말 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.")) return;
+        if (!confirm("정말 삭제하시겠습니까?")) return;
 
-        // Delete comments first
-        await supabase.from("bw_comments").delete().eq("post_id", postId);
-
-        // Delete post
-        const { error } = await supabase.from("bw_posts").delete().eq("id", postId);
+        // Soft delete - mark as deleted
+        const { error } = await supabase
+            .from("bw_posts")
+            .update({
+                is_deleted: true,
+                deleted_at: new Date().toISOString(),
+                deleted_by: user?.email || "unknown"
+            })
+            .eq("id", postId);
 
         if (error) {
             alert("삭제 실패: " + error.message);
         } else {
+            alert("삭제되었습니다.");
             setPosts(posts.filter(p => p.id !== postId));
         }
     };

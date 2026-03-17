@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import DOMPurify from "isomorphic-dompurify";
 
 // Board type to Korean name mapping
 const boardTypeNames = {
@@ -381,7 +382,7 @@ export default function PostDetailPage() {
                             display: block;
                         }
                     `}</style>
-                    <div className="post-content whitespace-pre-wrap mb-10 overflow-x-auto" dangerouslySetInnerHTML={{ __html: post.content }}></div>
+                    <div className="post-content whitespace-pre-wrap mb-10 overflow-x-auto" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(post.content) }}></div>
 
                     {/* 구인구직 채용 정보 */}
                     {post.board_type === "job" && (post.job_category || post.experience_level || post.deadline || post.contact_info) && (
