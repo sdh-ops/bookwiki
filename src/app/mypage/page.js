@@ -80,7 +80,7 @@ function MyPageContent() {
 
     const handleLogout = async () => {
         await supabase.auth.signOut();
-        router.push("/");
+        window.location.href = "/";
     };
 
     // 비밀번호 변경
