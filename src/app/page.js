@@ -33,7 +33,7 @@ function PostList() {
   const [totalCount, setTotalCount] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
   const [supportView, setSupportView] = useState("list"); // list or calendar
-  const [jobFilter, setJobFilter] = useState("all"); // all, hiring, seeking
+  const [jobFilter, setJobFilter] = useState("hiring"); // all, hiring, seeking
   const [freeFilter, setFreeFilter] = useState("all"); // 톡톡 카테고리 필터
   const [calendarEvents, setCalendarEvents] = useState([]);
   const [calendarDate, setCalendarDate] = useState(new Date());

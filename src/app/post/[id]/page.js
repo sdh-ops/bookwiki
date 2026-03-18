@@ -37,6 +37,82 @@ const generateAnonNickname = () => {
     return `${adj}${noun}${num}`;
 };
 
+// Comment Item Component (recursive)
+function CommentItem({ comment, depth, handleReply, handleCommentAction }) {
+    const isReply = depth > 0;
+    const marginLeft = depth > 0 ? 'ml-6 md:ml-10' : '';
+
+    return (
+        <div className="space-y-4">
+            <div className={`p-4 rounded border ${comment.is_hidden ? 'bg-gray-200 border-gray-300' : 'bg-gray-50 border-gray-100'} ${isReply ? `${marginLeft} border-l-4 border-l-[#355E3B]` : ''}`}>
+                <div className="flex justify-between items-center mb-2">
+                    <div className="flex items-center gap-2">
+                        {isReply && <span className="text-[#355E3B] font-bold text-sm mr-1">ㄴ</span>}
+                        <span className="text-xs font-bold text-gray-700">
+                            {comment.author}
+                            {comment.user_id && (
+                                <span
+                                    className="ml-0.5 text-green-500 font-bold"
+                                    style={{
+                                        textShadow: '0 1px 0 rgba(255,255,255,0.5), 0 -1px 0 rgba(0,0,0,0.3)',
+                                        filter: 'drop-shadow(0 1px 1px rgba(0,0,0,0.2))'
+                                    }}
+                                    title="회원"
+                                >
+                                    ✓
+                                </span>
+                            )}
+                        </span>
+                        {comment.is_hidden && <span className="text-[10px] text-red-500">(숨김)</span>}
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <span className="text-[10px] text-gray-400">{new Date(comment.created_at).toLocaleString()}</span>
+                        <div className="flex gap-1 text-[10px]">
+                            <button
+                                onClick={() => handleReply(comment.id, comment.author)}
+                                className="text-blue-500 hover:underline"
+                            >
+                                답글
+                            </button>
+                            <button
+                                onClick={() => handleCommentAction('hide', comment)}
+                                className="text-yellow-600 hover:underline"
+                            >
+                                {comment.is_hidden ? '보이기' : '숨기기'}
+                            </button>
+                            <button
+                                onClick={() => handleCommentAction('delete', comment)}
+                                className="text-red-500 hover:underline"
+                            >
+                                삭제
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <p className={`text-sm whitespace-pre-wrap ${comment.is_hidden ? 'text-gray-500 italic' : 'text-gray-700'}`}>
+                    {comment.is_hidden ? '숨겨진 댓글입니다.' : comment.content}
+                </p>
+            </div>
+
+            {/* Render replies */}
+            {comment.replies && comment.replies.length > 0 && (
+                <div className="space-y-4">
+                    {comment.replies.map((reply) => (
+                        <CommentItem
+                            key={reply.id}
+                            comment={reply}
+                            depth={depth + 1}
+                            handleReply={handleReply}
+                            handleCommentAction={handleCommentAction}
+                        />
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+}
+
 export default function PostDetailPage() {
     const { id } = useParams();
     const [post, setPost] = useState(null);
@@ -56,6 +132,8 @@ export default function PostDetailPage() {
     // Comment management states
     const [commentModal, setCommentModal] = useState({ show: false, type: '', commentId: null });
     const [commentTempPassword, setCommentTempPassword] = useState("");
+    const [replyToId, setReplyToId] = useState(null);
+    const [replyToAuthor, setReplyToAuthor] = useState('');
     const commentInputRef = useRef(null);
 
     useEffect(() => {
@@ -155,7 +233,8 @@ export default function PostDetailPage() {
             post_id: id,
             content: newComment,
             author: commentAuthor,
-            is_hidden: false
+            is_hidden: false,
+            parent_id: replyToId // 대댓글이면 parent_id 저장
         };
         // 회원이면 user_id 저장, 비회원이면 password 저장
         if (user) {
@@ -170,6 +249,8 @@ export default function PostDetailPage() {
         } else {
             setNewComment("");
             setCommentPassword("");
+            setReplyToId(null);
+            setReplyToAuthor('');
             await refreshComments();
 
             // Update comment count on post
@@ -181,10 +262,34 @@ export default function PostDetailPage() {
         setSubmitting(false);
     };
 
-    // Reply to comment (add @mention)
-    const handleReply = (authorName) => {
-        setNewComment(`@${authorName} `);
+    // Reply to comment
+    const handleReply = (commentId, authorName) => {
+        setReplyToId(commentId);
+        setReplyToAuthor(authorName);
+        setNewComment('');
         commentInputRef.current?.focus();
+    };
+
+    // Organize comments hierarchically
+    const organizeComments = (comments) => {
+        const commentMap = {};
+        const rootComments = [];
+
+        // Create a map of all comments
+        comments.forEach(comment => {
+            commentMap[comment.id] = { ...comment, replies: [] };
+        });
+
+        // Organize into hierarchy
+        comments.forEach(comment => {
+            if (comment.parent_id && commentMap[comment.parent_id]) {
+                commentMap[comment.parent_id].replies.push(commentMap[comment.id]);
+            } else {
+                rootComments.push(commentMap[comment.id]);
+            }
+        });
+
+        return rootComments;
     };
 
     // Comment management
@@ -429,12 +534,6 @@ export default function PostDetailPage() {
                                         </span>
                                     </div>
                                 )}
-                                {post.contact_info && (
-                                    <div>
-                                        <span className="font-bold text-gray-700">연락처:</span>
-                                        <span className="ml-2 text-blue-600 font-medium">{post.contact_info}</span>
-                                    </div>
-                                )}
                             </div>
                         </div>
                     )}
@@ -459,63 +558,35 @@ export default function PostDetailPage() {
                     </h3>
 
                     <div className="space-y-4 mb-10">
-                        {comments.map((comment) => {
-                            const isReply = comment.content?.startsWith('@');
-                            return (
-                            <div key={comment.id} className={`p-4 rounded border ${comment.is_hidden ? 'bg-gray-200 border-gray-300' : 'bg-gray-50 border-gray-100'} ${isReply ? 'ml-6 md:ml-10 border-l-4 border-l-[#355E3B]' : ''}`}>
-                                <div className="flex justify-between items-center mb-2">
-                                    <div className="flex items-center gap-2">
-                                        {isReply && <span className="text-[#355E3B] font-bold text-sm mr-1">ㄴ</span>}
-                                        <span className="text-xs font-bold text-gray-700">
-                                            {comment.author}
-                                            {comment.user_id && (
-                  <span
-                    className="ml-0.5 text-green-500 font-bold"
-                    style={{
-                      textShadow: '0 1px 0 rgba(255,255,255,0.5), 0 -1px 0 rgba(0,0,0,0.3)',
-                      filter: 'drop-shadow(0 1px 1px rgba(0,0,0,0.2))'
-                    }}
-                    title="회원"
-                  >
-                    ✓
-                  </span>
-                )}
-                                        </span>
-                                        {comment.is_hidden && <span className="text-[10px] text-red-500">(숨김)</span>}
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        <span className="text-[10px] text-gray-400">{new Date(comment.created_at).toLocaleString()}</span>
-                                        <div className="flex gap-1 text-[10px]">
-                                            <button
-                                                onClick={() => handleReply(comment.author)}
-                                                className="text-blue-500 hover:underline"
-                                            >
-                                                답글
-                                            </button>
-                                            <button
-                                                onClick={() => handleCommentAction('hide', comment)}
-                                                className="text-yellow-600 hover:underline"
-                                            >
-                                                {comment.is_hidden ? '보이기' : '숨기기'}
-                                            </button>
-                                            <button
-                                                onClick={() => handleCommentAction('delete', comment)}
-                                                className="text-red-500 hover:underline"
-                                            >
-                                                삭제
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <p className={`text-sm whitespace-pre-wrap ${comment.is_hidden ? 'text-gray-500 italic' : 'text-gray-700'}`}>
-                                    {comment.is_hidden ? '숨겨진 댓글입니다.' : comment.content}
-                                </p>
-                            </div>
-                        )})}
+                        {organizeComments(comments).map((comment) => (
+                            <CommentItem
+                                key={comment.id}
+                                comment={comment}
+                                depth={0}
+                                handleReply={handleReply}
+                                handleCommentAction={handleCommentAction}
+                            />
+                        ))}
                     </div>
 
                     <form onSubmit={handleCommentSubmit} className="bg-white border border-gray-200 rounded p-4">
+                        {replyToId && (
+                            <div className="mb-3 p-2 bg-blue-50 border border-blue-200 rounded flex items-center justify-between">
+                                <span className="text-xs text-blue-700">
+                                    <span className="font-bold">{replyToAuthor}</span>님에게 답글 작성 중
+                                </span>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setReplyToId(null);
+                                        setReplyToAuthor('');
+                                    }}
+                                    className="text-xs text-blue-500 hover:text-blue-700"
+                                >
+                                    취소
+                                </button>
+                            </div>
+                        )}
                         <div className="flex gap-2 mb-3 flex-wrap">
                             <input
                                 type="text"
@@ -542,7 +613,7 @@ export default function PostDetailPage() {
                         </div>
                         <textarea
                             ref={commentInputRef}
-                            placeholder="댓글을 남겨보세요 (다른 댓글을 클릭하면 @태그로 답글)"
+                            placeholder={replyToId ? `${replyToAuthor}님에게 답글을 작성하세요...` : "댓글을 남겨보세요"}
                             value={newComment}
                             onChange={(e) => setNewComment(e.target.value)}
                             className="w-full h-24 px-3 py-2 border border-gray-200 rounded text-sm focus:outline-none focus:border-[#355E3B] resize-none mb-3"
@@ -554,7 +625,7 @@ export default function PostDetailPage() {
                                 disabled={submitting}
                                 className={`bg-[#355E3B] text-white px-6 py-2 rounded text-xs transition hover:bg-[#2A4A2E] ${submitting ? "opacity-50" : ""}`}
                             >
-                                댓글 등록
+                                {replyToId ? '답글 등록' : '댓글 등록'}
                             </button>
                         </div>
                     </form>
