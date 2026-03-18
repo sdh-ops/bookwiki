@@ -490,7 +490,7 @@ export default function PostDetailPage() {
                     <div className="post-content whitespace-pre-wrap mb-10 overflow-x-auto" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(post.content) }}></div>
 
                     {/* 구인구직 채용 정보 */}
-                    {post.board_type === "job" && (post.job_category || post.experience_level || post.deadline || post.contact_info) && (
+                    {post.board_type === "job" && (post.job_category || post.experience_level || post.deadline) && (
                         <div className="mt-6 mb-10 p-4 bg-blue-50 rounded-lg border border-blue-200">
                             <h3 className="text-sm font-bold text-gray-800 mb-3 flex items-center">
                                 <span className="text-lg mr-2">📋</span> 채용 정보
@@ -538,18 +538,6 @@ export default function PostDetailPage() {
                         </div>
                     )}
 
-                    {post.source_url && post.board_type === "support" && (
-                        <div className="mt-10 pt-6 border-t border-gray-100 flex flex-col space-y-2">
-                            <a
-                                href={post.source_url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center text-sm font-bold text-[#355E3B] border border-[#355E3B] px-4 py-2 rounded hover:bg-[#355E3B] hover:text-white transition w-fit"
-                            >
-                                원문 보기 →
-                            </a>
-                        </div>
-                    )}
                 </div>
 
                 <div className="border-t border-gray-200 pt-8">

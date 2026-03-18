@@ -118,10 +118,6 @@ function WritePageContent() {
                 alert("마감일을 선택해주세요.");
                 return;
             }
-            if (!contactInfo) {
-                alert("연락처를 입력해주세요.");
-                return;
-            }
         }
 
         setIsSubmitting(true);
@@ -146,7 +142,6 @@ function WritePageContent() {
             postData.job_category = jobCategory;
             postData.experience_level = experienceLevel;
             postData.deadline = deadline === "충원시" ? null : deadline;
-            postData.contact_info = contactInfo;
         }
 
         const { error } = await supabase.from("bw_posts").insert([postData]);
@@ -313,22 +308,6 @@ function WritePageContent() {
                                 {deadline === "충원시" && (
                                     <p className="mt-1 text-xs text-blue-600">✓ 충원시까지로 설정되었습니다</p>
                                 )}
-                            </div>
-
-                            {/* 연락처 */}
-                            <div>
-                                <label className="block text-sm font-bold text-gray-700 mb-2">
-                                    연락처 <span className="text-red-500">*</span>
-                                </label>
-                                <input
-                                    type="text"
-                                    value={contactInfo}
-                                    onChange={(e) => setContactInfo(e.target.value)}
-                                    placeholder="이메일 또는 전화번호"
-                                    className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:border-[#355E3B]"
-                                    required
-                                />
-                                <p className="mt-1 text-xs text-gray-500">* 지원자가 연락할 수 있는 이메일 또는 전화번호를 입력해주세요</p>
                             </div>
                         </div>
                     )}
