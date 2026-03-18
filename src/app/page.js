@@ -54,7 +54,7 @@ function PostList() {
     if (viewParam === "calendar") setSupportView("calendar");
     else setSupportView("list");
     if (filterParam) setJobFilter(filterParam);
-    else setJobFilter("all");
+    else setJobFilter("hiring"); // 디폴트를 구인으로 설정
     if (categoryParam) setFreeFilter(categoryParam);
     else setFreeFilter("all");
     if (searchQueryParam) setSearchQuery(searchQueryParam);
@@ -496,7 +496,7 @@ function PostList() {
                 </div>
               )}
             </div>
-            {currentBoard !== "ai" && currentBoard !== "hot" && currentBoard !== "all" && (
+            {currentBoard !== "ai" && currentBoard !== "hot" && currentBoard !== "all" && currentBoard !== "support" && (
               <Link href={`/write?board=${currentBoard}`} className="text-xs bg-[#355E3B] text-white px-3 py-1 rounded">글쓰기</Link>
             )}
             {(currentBoard === "all" || currentBoard === "hot") && (
@@ -765,7 +765,7 @@ function PostList() {
                         )}
                       </h3>
                       <div className="flex items-center text-[10px] text-gray-400 gap-2">
-                        <span>{post.author}{post.user_id && <span className="text-green-500 ml-0.5">✓</span>}</span>
+                        <span>{post.author}{post.user_id && <span className="text-green-500 ml-0.5 font-bold" style={{textShadow: '0 1px 0 rgba(255,255,255,0.5), 0 -1px 0 rgba(0,0,0,0.3)', filter: 'drop-shadow(0 1px 1px rgba(0,0,0,0.2))'}} title="회원">✓</span>}</span>
                         <span>·</span>
                         <span>{new Date(post.created_at).toLocaleDateString().slice(5)}</span>
                         <span>·</span>
@@ -794,7 +794,7 @@ function PostList() {
                         )}
                       </h3>
                       <div className="flex items-center text-[10px] text-gray-400 gap-2">
-                        <span>{post.author}{post.user_id && <span className="text-green-500 ml-0.5">✓</span>}</span>
+                        <span>{post.author}{post.user_id && <span className="text-green-500 ml-0.5 font-bold" style={{textShadow: '0 1px 0 rgba(255,255,255,0.5), 0 -1px 0 rgba(0,0,0,0.3)', filter: 'drop-shadow(0 1px 1px rgba(0,0,0,0.2))'}} title="회원">✓</span>}</span>
                         <span>·</span>
                         <span>{new Date(post.created_at).toLocaleDateString().slice(5)}</span>
                         <span>·</span>
@@ -822,7 +822,7 @@ function PostList() {
                         )}
                       </h3>
                       <div className="flex items-center text-[10px] text-gray-400 gap-2">
-                        <span>{post.author}{post.user_id && <span className="text-green-500 ml-0.5">✓</span>}</span>
+                        <span>{post.author}{post.user_id && <span className="text-green-500 ml-0.5 font-bold" style={{textShadow: '0 1px 0 rgba(255,255,255,0.5), 0 -1px 0 rgba(0,0,0,0.3)', filter: 'drop-shadow(0 1px 1px rgba(0,0,0,0.2))'}} title="회원">✓</span>}</span>
                         <span>·</span>
                         <span>{new Date(post.created_at).toLocaleDateString().slice(5)}</span>
                         <span>·</span>
