@@ -39,8 +39,6 @@ function PostList() {
   const [calendarDate, setCalendarDate] = useState(new Date());
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState([]);
-  const [showSearchResults, setShowSearchResults] = useState(false);
   const searchParams = useSearchParams();
   const router = useRouter();
   const currentBoard = searchParams.get("board") || "all";
@@ -48,6 +46,7 @@ function PostList() {
   const viewParam = searchParams.get("view");
   const filterParam = searchParams.get("filter");
   const categoryParam = searchParams.get("category");
+  const searchQueryParam = searchParams.get("q");
 
   useEffect(() => {
     const page = parseInt(pageParam) || 1;
@@ -58,12 +57,37 @@ function PostList() {
     else setJobFilter("all");
     if (categoryParam) setFreeFilter(categoryParam);
     else setFreeFilter("all");
-  }, [pageParam, viewParam, filterParam, categoryParam]);
+    if (searchQueryParam) setSearchQuery(searchQueryParam);
+    else setSearchQuery("");
+  }, [pageParam, viewParam, filterParam, categoryParam, searchQueryParam]);
 
   useEffect(() => {
     async function fetchData() {
       setLoading(true);
       const offset = (currentPage - 1) * POSTS_PER_PAGE;
+
+      // 검색 모드일 때
+      if (searchQueryParam) {
+        let searchQuery = supabase
+          .from("bw_posts")
+          .select("*", { count: "exact" })
+          .ilike("title", `%${searchQueryParam}%`)
+          .eq("is_deleted", false);
+
+        // 현재 게시판만 검색 (전체/HOT 제외)
+        if (currentBoard !== "all" && currentBoard !== "hot") {
+          searchQuery = searchQuery.eq("board_type", currentBoard);
+        }
+
+        const { data: searchData, count: searchCount } = await searchQuery
+          .order("created_at", { ascending: false })
+          .range(offset, offset + POSTS_PER_PAGE - 1);
+
+        setPosts(searchData || []);
+        setTotalCount(searchCount || 0);
+        setLoading(false);
+        return;
+      }
 
       // Calculate one week ago for HOT posts
       const oneWeekAgo = new Date();
@@ -156,7 +180,7 @@ function PostList() {
       setLoading(false);
     }
     fetchData();
-  }, [currentBoard, currentPage]);
+  }, [currentBoard, currentPage, searchQueryParam]);
 
   // Load calendar events for support board
   useEffect(() => {
@@ -303,29 +327,20 @@ function PostList() {
   const filteredPosts = getFilteredPosts();
 
   // 게시물 검색 (현재 게시판 내에서만)
-  const handleSearch = async () => {
+  const handleSearch = () => {
     if (!searchQuery.trim()) {
-      setShowSearchResults(false);
       return;
     }
 
-    let query = supabase
-      .from("bw_posts")
-      .select("id, title, board_type, created_at")
-      .ilike("title", `%${searchQuery}%`)
-      .eq("is_deleted", false); // soft delete 필터
-
-    // 현재 게시판만 검색 (전체/HOT 제외)
-    if (currentBoard !== "all" && currentBoard !== "hot") {
-      query = query.eq("board_type", currentBoard);
+    // Navigate to search results page
+    const params = new URLSearchParams();
+    params.set("q", searchQuery);
+    if (currentBoard !== "all") {
+      params.set("board", currentBoard);
     }
+    params.set("page", "1");
 
-    const { data } = await query
-      .order("created_at", { ascending: false })
-      .limit(20);
-
-    setSearchResults(data || []);
-    setShowSearchResults(true);
+    router.push(`/?${params.toString()}`);
   };
 
   return (
@@ -839,32 +854,25 @@ function PostList() {
               </button>
             </div>
 
-            {/* 검색 결과 */}
-            {showSearchResults && searchResults.length > 0 && (
-              <div className="mt-4 max-w-md mx-auto bg-white border border-gray-200 rounded-lg shadow-lg">
-                <div className="p-3 bg-gray-50 border-b border-gray-200">
-                  <span className="text-sm font-bold text-gray-700">검색 결과 ({searchResults.length}개)</span>
-                </div>
-                {searchResults.map((result) => (
-                  <Link
-                    key={result.id}
-                    href={`/post/${result.id}`}
-                    onClick={() => setShowSearchResults(false)}
-                    className="block px-4 py-3 text-sm hover:bg-gray-50 border-b border-gray-100 last:border-0"
-                  >
-                    <span className="text-[#355E3B] font-bold text-xs">[{boardTypeNames[result.board_type]}]</span>
-                    <span className="ml-2 text-gray-700">{result.title}</span>
-                    <span className="block mt-1 text-xs text-gray-400">
-                      {new Date(result.created_at).toLocaleDateString()}
-                    </span>
-                  </Link>
-                ))}
-              </div>
-            )}
-
-            {showSearchResults && searchResults.length === 0 && searchQuery && (
-              <div className="mt-4 max-w-md mx-auto bg-white border border-gray-200 rounded-lg shadow-lg px-4 py-3 text-sm text-gray-500">
-                검색 결과가 없습니다.
+            {/* 검색 모드 표시 */}
+            {searchQueryParam && (
+              <div className="mt-4 max-w-md mx-auto flex items-center justify-between bg-blue-50 border border-blue-200 rounded-lg px-4 py-2">
+                <span className="text-sm text-blue-700">
+                  <span className="font-bold">'{searchQueryParam}'</span> 검색 결과 ({totalCount}개)
+                </span>
+                <button
+                  onClick={() => {
+                    setSearchQuery("");
+                    const params = new URLSearchParams();
+                    if (currentBoard !== "all") {
+                      params.set("board", currentBoard);
+                    }
+                    router.push(`/?${params.toString()}`);
+                  }}
+                  className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+                >
+                  검색 취소
+                </button>
               </div>
             )}
           </div>

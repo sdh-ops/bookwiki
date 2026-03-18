@@ -1,6 +1,6 @@
 -- Add parent_id to comments for proper threading
 ALTER TABLE bw_comments
-ADD COLUMN IF NOT EXISTS parent_id BIGINT REFERENCES bw_comments(id) ON DELETE CASCADE;
+ADD COLUMN IF NOT EXISTS parent_id UUID REFERENCES bw_comments(id) ON DELETE CASCADE;
 
 -- Create index for faster queries
 CREATE INDEX IF NOT EXISTS idx_bw_comments_parent_id ON bw_comments(parent_id);
