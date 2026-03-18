@@ -68,17 +68,14 @@ function MyPageContent() {
 
             if (postsData) setPosts(postsData);
 
-            // Fetch user's comments with post info (by nickname)
-            const nickname = user.user_metadata?.nickname;
-            if (nickname) {
-                const { data: commentsData } = await supabase
-                    .from("bw_comments")
-                    .select("*, bw_posts(id, title)")
-                    .eq("author", nickname)
-                    .order("created_at", { ascending: false });
+            // Fetch user's comments with post info (by user_id)
+            const { data: commentsData } = await supabase
+                .from("bw_comments")
+                .select("*, bw_posts(id, title)")
+                .eq("user_id", user.id)
+                .order("created_at", { ascending: false });
 
-                if (commentsData) setComments(commentsData);
-            }
+            if (commentsData) setComments(commentsData);
 
             // Check nickname change eligibility
             const { data: profileData } = await supabase
