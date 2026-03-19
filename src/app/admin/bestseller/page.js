@@ -134,40 +134,47 @@ export default function AdminBestsellerDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 md:p-6">
+    <div className="min-h-screen bg-gray-50 p-3 md:p-6">
       {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">베스트셀러 현황</h1>
-        <p className="text-sm text-gray-600">5개 서점 베스트셀러 · {new Date().toLocaleDateString('ko-KR')}</p>
+      <div className="mb-4 md:mb-6">
+        <h1 className="text-xl md:text-3xl font-bold text-gray-900 mb-1 md:mb-2">베스트셀러 현황</h1>
+        <p className="text-xs md:text-sm text-gray-600">5개 서점 베스트셀러 · {new Date().toLocaleDateString('ko-KR')}</p>
       </div>
 
       {/* Category Filter */}
-      <div className="mb-6 flex gap-2 overflow-x-auto pb-2">
-        {CATEGORIES.map(cat => (
-          <button
-            key={cat}
-            onClick={() => setSelectedCategory(cat)}
-            className={`px-4 py-2 rounded-lg text-sm font-semibold transition whitespace-nowrap ${
-              selectedCategory === cat
-                ? "bg-gray-900 text-white shadow-md"
-                : "bg-white text-gray-600 hover:bg-gray-100 border border-gray-200"
-            }`}
-          >
-            {cat}
-          </button>
-        ))}
+      <div className="mb-4 md:mb-6">
+        <div className="flex gap-2 overflow-x-auto pb-2 -mx-3 px-3 md:mx-0 md:px-0">
+          {CATEGORIES.map(cat => (
+            <button
+              key={cat}
+              onClick={() => setSelectedCategory(cat)}
+              className={`px-3 md:px-4 py-2 rounded-lg text-xs md:text-sm font-semibold transition whitespace-nowrap ${
+                selectedCategory === cat
+                  ? "bg-gray-900 text-white shadow-md"
+                  : "bg-white text-gray-600 hover:bg-gray-100 border border-gray-200"
+              }`}
+            >
+              {cat}
+            </button>
+          ))}
+        </div>
       </div>
 
-      {/* Platform Cards Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5 gap-4">
+      {/* Scroll Hint */}
+      <div className="mb-2 md:hidden">
+        <p className="text-xs text-gray-500 text-center">← 좌우로 스크롤하여 모든 서점 확인 →</p>
+      </div>
+
+      {/* Platform Cards - Horizontal Scroll */}
+      <div className="flex gap-3 md:gap-4 overflow-x-auto pb-4 -mx-3 px-3 md:mx-0 md:px-0 snap-x snap-mandatory scrollbar-hide">
         {PLATFORMS.map(platform => {
           const books = platformData[platform.id] || [];
 
           return (
-            <div key={platform.id} className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+            <div key={platform.id} className="flex-shrink-0 w-[260px] md:w-[300px] lg:w-[280px] xl:w-[300px] bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden snap-start">
               {/* Platform Header */}
               <div
-                className="px-4 py-3 text-white font-bold text-base"
+                className="px-3 md:px-4 py-2 md:py-3 text-white font-bold text-sm md:text-base"
                 style={{ backgroundColor: platform.color }}
               >
                 {platform.name}
@@ -180,15 +187,15 @@ export default function AdminBestsellerDashboard() {
                     <div
                       key={idx}
                       onClick={() => handleBookClick(book, platform.name)}
-                      className="flex items-center gap-3 p-3 hover:bg-gray-50 cursor-pointer transition"
+                      className="flex items-center gap-2 md:gap-3 p-2 md:p-3 hover:bg-gray-50 cursor-pointer transition"
                     >
                       {/* Rank Badge */}
-                      <div className="flex-shrink-0 w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center text-xs font-bold text-gray-700">
+                      <div className="flex-shrink-0 w-5 h-5 md:w-6 md:h-6 rounded-full bg-gray-100 flex items-center justify-center text-xs font-bold text-gray-700">
                         {book.rank}
                       </div>
 
                       {/* Cover Image */}
-                      <div className="flex-shrink-0 w-10 h-14 bg-gray-100 rounded overflow-hidden">
+                      <div className="flex-shrink-0 w-9 h-12 md:w-10 md:h-14 bg-gray-100 rounded overflow-hidden">
                         {book.bw_books.cover_url ? (
                           <img
                             src={book.bw_books.cover_url}
@@ -204,10 +211,10 @@ export default function AdminBestsellerDashboard() {
 
                       {/* Book Info */}
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-gray-900 truncate mb-0.5">
+                        <p className="text-xs md:text-sm font-semibold text-gray-900 truncate mb-0.5 leading-tight">
                           {book.bw_books.title}
                         </p>
-                        <p className="text-xs text-gray-500 truncate">
+                        <p className="text-[10px] md:text-xs text-gray-500 truncate">
                           {book.bw_books.author}
                         </p>
                       </div>
@@ -242,15 +249,15 @@ export default function AdminBestsellerDashboard() {
       {/* Book Details Modal */}
       {selectedBook && (
         <div
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-3 md:p-4 z-50"
           onClick={closeModal}
         >
           <div
             className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="sticky top-0 bg-gray-900 text-white px-6 py-4 flex items-center justify-between">
-              <h2 className="text-lg font-bold">도서 상세정보</h2>
+            <div className="sticky top-0 bg-gray-900 text-white px-4 md:px-6 py-3 md:py-4 flex items-center justify-between">
+              <h2 className="text-base md:text-lg font-bold">도서 상세정보</h2>
               <button
                 onClick={closeModal}
                 className="text-white hover:text-gray-300 text-2xl"
@@ -259,7 +266,7 @@ export default function AdminBestsellerDashboard() {
               </button>
             </div>
 
-            <div className="p-6">
+            <div className="p-4 md:p-6">
               {loadingDetails ? (
                 <div className="text-center py-12">
                   <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-gray-700 mx-auto mb-4"></div>
@@ -267,10 +274,10 @@ export default function AdminBestsellerDashboard() {
                 </div>
               ) : bookDetails ? (
                 <div>
-                  <div className="flex gap-6 mb-6">
+                  <div className="flex flex-col md:flex-row gap-4 md:gap-6 mb-6">
                     {/* Cover Image */}
-                    <div className="flex-shrink-0">
-                      <div className="w-40 h-56 bg-gray-100 rounded-lg overflow-hidden shadow-md">
+                    <div className="flex-shrink-0 mx-auto md:mx-0">
+                      <div className="w-32 h-44 md:w-40 md:h-56 bg-gray-100 rounded-lg overflow-hidden shadow-md">
                         {bookDetails.cover_url ? (
                           <img
                             src={bookDetails.cover_url}
@@ -278,7 +285,7 @@ export default function AdminBestsellerDashboard() {
                             className="w-full h-full object-cover"
                           />
                         ) : (
-                          <div className="w-full h-full flex items-center justify-center text-gray-400 text-4xl">
+                          <div className="w-full h-full flex items-center justify-center text-gray-400 text-3xl md:text-4xl">
                             📚
                           </div>
                         )}
@@ -287,7 +294,7 @@ export default function AdminBestsellerDashboard() {
 
                     {/* Book Info */}
                     <div className="flex-1">
-                      <h3 className="text-xl font-bold text-gray-900 mb-2">{bookDetails.title}</h3>
+                      <h3 className="text-lg md:text-xl font-bold text-gray-900 mb-2 md:mb-2">{bookDetails.title}</h3>
 
                       <div className="space-y-2 text-sm">
                         {bookDetails.author && (
