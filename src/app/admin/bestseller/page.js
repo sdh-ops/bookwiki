@@ -84,12 +84,22 @@ export default function AdminBestsellerPage() {
       .eq("snapshot_date", today)
       .order("rank", { ascending: true });
 
-    // Group by platform
+    // Group by platform and remove duplicates
     const grouped = {};
     PLATFORMS.forEach(p => {
-      grouped[p.id] = (data || [])
-        .filter(item => item.platform === p.id)
-        .slice(0, 20);
+      const platformBooks = (data || []).filter(item => item.platform === p.id);
+
+      // 중복 제거: 같은 rank에 여러 책이 있으면 첫 번째만 유지
+      const seenRanks = new Set();
+      const uniqueBooks = platformBooks.filter(book => {
+        if (seenRanks.has(book.rank)) {
+          return false; // 이미 본 rank면 제외
+        }
+        seenRanks.add(book.rank);
+        return true;
+      });
+
+      grouped[p.id] = uniqueBooks.slice(0, 20);
     });
 
     setPlatformData(grouped);
@@ -307,7 +317,7 @@ export default function AdminBestsellerPage() {
       {/* Header */}
       <div className="mb-4 md:mb-6">
         <h1 className="text-xl md:text-3xl font-bold text-gray-900 mb-1 md:mb-2">베스트셀러</h1>
-        <p className="text-xs md:text-sm text-gray-600">5개 서점 베스트셀러 현황 및 트렌드 분석</p>
+        <p className="text-xs md:text-sm text-gray-600">4개 서점 베스트셀러 현황 및 트렌드 분석 (교보/예스24/알라딘/리디)</p>
       </div>
 
       {/* Tab Switcher */}
@@ -365,17 +375,17 @@ export default function AdminBestsellerPage() {
           </div>
 
           {/* Scroll Hint */}
-          <div className="mb-2 md:hidden">
+          <div className="mb-2 lg:hidden">
             <p className="text-xs text-gray-500 text-center">← 좌우로 스크롤하여 모든 서점 확인 →</p>
           </div>
 
           {/* Platform Cards */}
-          <div className="flex gap-3 md:gap-4 overflow-x-auto pb-4 -mx-3 px-3 md:mx-0 md:px-0 snap-x snap-mandatory scrollbar-hide">
-            {PLATFORMS.map(platform => {
+          <div className="flex lg:grid lg:grid-cols-4 gap-3 md:gap-4 overflow-x-auto lg:overflow-visible pb-4 -mx-3 px-3 md:mx-0 md:px-0 snap-x snap-mandatory lg:snap-none scrollbar-hide">
+            {PLATFORMS.filter(p => p.id !== 'millie').map(platform => {
               const books = platformData[platform.id] || [];
 
               return (
-                <div key={platform.id} className="flex-shrink-0 w-[260px] md:w-[300px] lg:w-[280px] xl:w-[300px] bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden snap-start">
+                <div key={platform.id} className="flex-shrink-0 lg:flex-shrink w-[260px] md:w-[300px] lg:w-auto bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden snap-start lg:snap-align-none">
                   <div
                     className="px-3 md:px-4 py-2 md:py-3 text-white font-bold text-sm md:text-base"
                     style={{ backgroundColor: platform.color }}
