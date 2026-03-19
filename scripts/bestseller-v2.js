@@ -505,6 +505,29 @@ async function sync(platform, books, categoryName) {
   console.log(`  ✅ Successfully synced ${successCount}/${books.length} books`);
 }
 
+// 누락된 순위 확인 함수
+async function checkMissingRanks(platform, categoryName) {
+  const today = new Date().toISOString().split('T')[0];
+
+  const { data } = await supabase
+    .from('bw_bestseller_snapshots')
+    .select('rank')
+    .eq('platform', platform)
+    .eq('common_category', categoryName)
+    .eq('snapshot_date', today);
+
+  const ranks = data.map(d => d.rank);
+  const missing = [];
+
+  for (let i = 1; i <= 20; i++) {
+    if (!ranks.includes(i)) {
+      missing.push(i);
+    }
+  }
+
+  return missing;
+}
+
 async function run() {
   console.log('\n╔═══════════════════════════════════════════════╗');
   console.log('║  베스트셀러 스크레이퍼 V2 - 완전 개선판  ║');
@@ -515,12 +538,23 @@ async function run() {
 
   await initBrowser();
 
+  const missingReport = {}; // 최종 누락 리포트
+
   try {
     for (let i = 0; i < COMMON_CATEGORIES.length; i++) {
       const cat = COMMON_CATEGORIES[i];
-      console.log(`\n[${ i + 1}/${COMMON_CATEGORIES.length}] 📖 CATEGORY: ${cat.name}`);
+      console.log(`\n[${i + 1}/${COMMON_CATEGORIES.length}] 📖 CATEGORY: ${cat.name}`);
       console.log('─'.repeat(50));
 
+      const platformScrapers = {
+        kyobo: scrapeKyobo,
+        yes24: scrapeYes24,
+        aladdin: scrapeAladdin,
+        ridi: scrapeRidi,
+        millie: scrapeMillie
+      };
+
+      // 1차 수집
       const [yes24, aladdin, kyobo, ridi, millie] = await Promise.all([
         scrapeYes24(cat),
         scrapeAladdin(cat),
@@ -529,12 +563,45 @@ async function run() {
         scrapeMillie(cat)
       ]);
 
+      const results = {
+        kyobo,
+        yes24,
+        aladdin,
+        ridi,
+        millie
+      };
+
       // Kyobo 먼저 실행 (ISBN 제공하므로)
-      await sync('kyobo', kyobo, cat.name);
-      await sync('yes24', yes24, cat.name);
-      await sync('aladdin', aladdin, cat.name);
-      await sync('ridi', ridi, cat.name);
-      await sync('millie', millie, cat.name);
+      for (const [platform, books] of Object.entries(results)) {
+        await sync(platform, books, cat.name);
+
+        // 누락 확인
+        const missing = await checkMissingRanks(platform, cat.name);
+
+        if (missing.length > 0) {
+          console.log(`  ⚠️  ${platform}: 누락 순위 ${missing.join(', ')}위 - 재시도 중...`);
+
+          // 재시도 (최대 2회)
+          for (let retry = 1; retry <= 2; retry++) {
+            await new Promise(r => setTimeout(r, 2000));
+            const retryBooks = await platformScrapers[platform](cat);
+            await sync(platform, retryBooks, cat.name);
+
+            const stillMissing = await checkMissingRanks(platform, cat.name);
+
+            if (stillMissing.length === 0) {
+              console.log(`  ✅ ${platform}: 재시도 성공! 모든 순위 수집 완료`);
+              break;
+            } else if (retry === 2) {
+              console.log(`  ⚠️  ${platform}: 재시도 후에도 누락 ${stillMissing.join(', ')}위`);
+              const key = `${cat.name}-${platform}`;
+              missingReport[key] = stillMissing;
+            }
+          }
+        } else {
+          console.log(`  ✅ ${platform}: 1-20위 모두 수집 완료`);
+        }
+      }
 
       console.log(`✅ Category "${cat.name}" complete\n`);
       await new Promise(r => setTimeout(r, 2000));
@@ -548,6 +615,31 @@ async function run() {
   console.log('\n╔═══════════════════════════════════════════════╗');
   console.log('║           🎉 All Done! 🎉                    ║');
   console.log('╚═══════════════════════════════════════════════╝\n');
+
+  // 최종 누락 리포트
+  if (Object.keys(missingReport).length > 0) {
+    console.log('\n⚠️  최종 누락 순위 리포트:');
+    console.log('─'.repeat(50));
+    for (const [key, missing] of Object.entries(missingReport)) {
+      console.log(`  ${key}: ${missing.join(', ')}위`);
+    }
+    console.log('');
+  } else {
+    console.log('✅ 모든 플랫폼/카테고리에서 1-20위 완벽 수집!\n');
+  }
 }
 
-run();
+// Export functions for reuse
+module.exports = {
+  kyobo: scrapeKyobo,
+  yes24: scrapeYes24,
+  aladdin: scrapeAladdin,
+  ridi: scrapeRidi,
+  millie: scrapeMillie,
+  run
+};
+
+// Run if called directly
+if (require.main === module) {
+  run();
+}
