@@ -7,11 +7,11 @@ import {
 } from 'recharts';
 
 const PLATFORMS = [
-  { id: "kyobo", name: "교보문고", color: "#2C3E50" },
-  { id: "yes24", name: "예스24", color: "#34495E" },
-  { id: "aladdin", name: "알라딘", color: "#455A64" },
-  { id: "ridi", name: "리디북스", color: "#546E7A" },
-  { id: "millie", name: "밀리의서재", color: "#607D8B" },
+  { id: "kyobo", name: "교보문고", color: "#1E40AF" },
+  { id: "yes24", name: "예스24", color: "#FF6B00" },
+  { id: "aladdin", name: "알라딘", color: "#E62312" },
+  { id: "ridi", name: "리디북스", color: "#5B4FFF" },
+  { id: "millie", name: "밀리의서재", color: "#00C73C" },
 ];
 
 const CATEGORIES = ["종합", "소설", "에세이/시", "인문", "경제경영", "자기계발"];
@@ -317,7 +317,7 @@ export default function AdminBestsellerPage() {
       {/* Header */}
       <div className="mb-4 md:mb-6">
         <h1 className="text-xl md:text-3xl font-bold text-gray-900 mb-1 md:mb-2">베스트셀러</h1>
-        <p className="text-xs md:text-sm text-gray-600">4개 서점 베스트셀러 현황 및 트렌드 분석 (교보/예스24/알라딘/리디)</p>
+        <p className="text-xs md:text-sm text-gray-600">5개 서점 베스트셀러 현황 및 트렌드 분석 (교보/예스24/알라딘/리디/밀리)</p>
       </div>
 
       {/* Tab Switcher */}
@@ -380,8 +380,8 @@ export default function AdminBestsellerPage() {
           </div>
 
           {/* Platform Cards */}
-          <div className="flex lg:grid lg:grid-cols-4 gap-3 md:gap-4 overflow-x-auto lg:overflow-visible pb-4 -mx-3 px-3 md:mx-0 md:px-0 snap-x snap-mandatory lg:snap-none scrollbar-hide">
-            {PLATFORMS.filter(p => p.id !== 'millie').map(platform => {
+          <div className="flex lg:grid lg:grid-cols-5 gap-3 md:gap-4 overflow-x-auto lg:overflow-visible pb-4 -mx-3 px-3 md:mx-0 md:px-0 snap-x snap-mandatory lg:snap-none scrollbar-hide">
+            {PLATFORMS.map(platform => {
               const books = platformData[platform.id] || [];
 
               return (
