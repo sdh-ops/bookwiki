@@ -49,11 +49,19 @@ export default function EditPage() {
                 return;
             }
 
-            // Permission check: admin, owner, or guest post (handled via password in detail page)
+            // Permission check: owner or guest post only (admin cannot edit others' posts)
             const isOwner = user && data.user_id === user.id;
             const isGuestPost = !data.user_id;
 
-            if (!adminStatus && !isOwner && !isGuestPost) {
+            // 관리자는 본인 글이 아니면 수정 불가
+            if (adminStatus && !isOwner) {
+                alert("관리자는 다른 사용자의 게시글을 수정할 수 없습니다. 삭제만 가능합니다.");
+                router.push(`/post/${id}`);
+                return;
+            }
+
+            // 본인 글이거나 비회원 글이어야 수정 가능
+            if (!isOwner && !isGuestPost) {
                 alert("수정 권한이 없습니다.");
                 router.push(`/post/${id}`);
                 return;

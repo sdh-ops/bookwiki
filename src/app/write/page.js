@@ -42,6 +42,7 @@ function WritePageContent() {
     const searchParams = useSearchParams();
 
     // 구인구직 추가 필드
+    const [jobType, setJobType] = useState("hiring"); // 구인/구직 타입 (기본값: 구인)
     const [jobCategory, setJobCategory] = useState("");
     const [experienceLevel, setExperienceLevel] = useState("");
     const [deadline, setDeadline] = useState("");
@@ -139,6 +140,7 @@ function WritePageContent() {
 
         // 구인구직 게시판의 경우 추가 필드
         if (boardType === "job") {
+            postData.job_type = jobType; // 구인/구직 타입
             postData.job_category = jobCategory;
             postData.experience_level = experienceLevel;
             postData.deadline = deadline === "충원시" ? null : deadline;
@@ -239,6 +241,40 @@ function WritePageContent() {
                     {boardType === "job" && (
                         <div className="space-y-4 bg-blue-50 p-4 rounded border border-blue-200">
                             <h3 className="text-sm font-bold text-gray-700 mb-3">📋 채용 정보</h3>
+
+                            {/* 구인/구직 선택 */}
+                            <div>
+                                <label className="block text-sm font-bold text-gray-700 mb-2">
+                                    분류 <span className="text-red-500">*</span>
+                                </label>
+                                <div className="flex gap-3">
+                                    <button
+                                        type="button"
+                                        onClick={() => setJobType("hiring")}
+                                        className={`flex-1 px-4 py-2 text-sm rounded border transition-colors ${
+                                            jobType === "hiring"
+                                                ? "bg-blue-500 text-white border-blue-500 font-bold"
+                                                : "bg-white text-gray-600 border-gray-300 hover:border-blue-500"
+                                        }`}
+                                    >
+                                        <span className="font-bold">구인</span> <span className="text-xs">(채용 공고)</span>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setJobType("seeking")}
+                                        className={`flex-1 px-4 py-2 text-sm rounded border transition-colors ${
+                                            jobType === "seeking"
+                                                ? "bg-green-500 text-white border-green-500 font-bold"
+                                                : "bg-white text-gray-600 border-gray-300 hover:border-green-500"
+                                        }`}
+                                    >
+                                        <span className="font-bold">구직</span> <span className="text-xs">(지원 희망)</span>
+                                    </button>
+                                </div>
+                                <p className="mt-1 text-xs text-gray-500">
+                                    * 구인: 회사/출판사에서 사람을 찾는 채용 공고 | 구직: 개인이 일자리를 찾는 게시글
+                                </p>
+                            </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 {/* 직군 */}

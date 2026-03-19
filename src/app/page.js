@@ -13,7 +13,7 @@ const boardTypeNames = {
   ai: "AI허브",
 };
 
-const POSTS_PER_PAGE = 50;
+const POSTS_PER_PAGE = 20;
 
 // 톡톡 게시판 카테고리
 const freeBoardCategories = [
@@ -308,6 +308,11 @@ function PostList() {
     // 구인구직 필터
     if (currentBoard === "job" && jobFilter !== "all") {
       filtered = filtered.filter(post => {
+        // job_type 필드가 있으면 사용 (마이그레이션 후)
+        if (post.job_type) {
+          return post.job_type === jobFilter;
+        }
+        // 없으면 제목 기반 폴백 (구 데이터 호환성)
         const isHiring = isHiringPost(post.title);
         return jobFilter === "hiring" ? isHiring : !isHiring;
       });
@@ -474,7 +479,7 @@ function PostList() {
                     구직
                   </button>
                   <button
-                    onClick={() => router.push("/?board=job")}
+                    onClick={() => router.push("/?board=job&filter=all")}
                     className={`px-3 py-1 ${jobFilter === "all" ? "bg-[#355E3B] text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
                   >
                     전체
@@ -756,9 +761,9 @@ function PostList() {
                     >
                       <div className="flex items-start gap-2 mb-1">
                         <span className="text-[10px] bg-blue-500 text-white px-1.5 py-0.5 rounded font-bold shrink-0">공지</span>
-                        <span className="text-[10px] text-[#355E3B] font-bold shrink-0">[{boardTypeNames[post.board_type]}]</span>
                       </div>
                       <h3 className="text-sm font-bold text-gray-900 mb-2 line-clamp-2">
+                        <span className="text-[10px] text-[#355E3B] font-bold mr-1">[{boardTypeNames[post.board_type]}]</span>
                         {post.title}
                         {post.comment_count > 0 && (
                           <span className="text-red-500 ml-1 text-[10px]">[{post.comment_count}]</span>
@@ -785,9 +790,9 @@ function PostList() {
                         {hotPostIds.includes(post.id) && (
                           <span className="text-[10px] bg-red-500 text-white px-1.5 py-0.5 rounded font-bold shrink-0">HOT</span>
                         )}
-                        <span className="text-[10px] text-[#355E3B] font-bold shrink-0">[{boardTypeNames[post.board_type]}]</span>
                       </div>
                       <h3 className="text-sm font-medium text-gray-800 mb-2 line-clamp-2">
+                        <span className="text-[10px] text-[#355E3B] font-bold mr-1">[{boardTypeNames[post.board_type]}]</span>
                         {post.title}
                         {post.comment_count > 0 && (
                           <span className="text-red-500 ml-1 text-[10px]">[{post.comment_count}]</span>
@@ -813,9 +818,9 @@ function PostList() {
                         {hotPostIds.includes(post.id) && (
                           <span className="text-[10px] bg-red-500 text-white px-1.5 py-0.5 rounded font-bold shrink-0">HOT</span>
                         )}
-                        <span className="text-[10px] text-[#355E3B] font-bold shrink-0">[{boardTypeNames[post.board_type]}]</span>
                       </div>
                       <h3 className="text-sm font-medium text-gray-800 mb-2 line-clamp-2">
+                        <span className="text-[10px] text-[#355E3B] font-bold mr-1">[{boardTypeNames[post.board_type]}]</span>
                         {post.title}
                         {post.comment_count > 0 && (
                           <span className="text-red-500 ml-1 text-[10px]">[{post.comment_count}]</span>

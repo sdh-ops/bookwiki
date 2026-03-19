@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabase";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import DOMPurify from "isomorphic-dompurify";
+import MentionInput from "@/components/MentionInput";
 
 // Board type to Korean name mapping
 const boardTypeNames = {
@@ -42,6 +43,24 @@ function CommentItem({ comment, depth, handleReply, handleCommentAction }) {
     const isReply = depth > 0;
     const marginLeft = depth > 0 ? 'ml-6 md:ml-10' : '';
 
+    // @mention 강조 표시
+    const renderContentWithMentions = (content) => {
+        const mentionRegex = /@(\S+)/g;
+        const parts = content.split(mentionRegex);
+
+        return parts.map((part, idx) => {
+            if (idx % 2 === 1) {
+                // mention 부분
+                return (
+                    <span key={idx} className="text-blue-500 font-medium">
+                        @{part}
+                    </span>
+                );
+            }
+            return part;
+        });
+    };
+
     return (
         <div className="space-y-4">
             <div className={`p-4 rounded border ${comment.is_hidden ? 'bg-gray-200 border-gray-300' : 'bg-gray-50 border-gray-100'} ${isReply ? `${marginLeft} border-l-4 border-l-[#355E3B]` : ''}`}>
@@ -63,7 +82,6 @@ function CommentItem({ comment, depth, handleReply, handleCommentAction }) {
                                 </span>
                             )}
                         </span>
-                        {comment.is_hidden && <span className="text-[10px] text-red-500">(숨김)</span>}
                     </div>
                     <div className="flex items-center gap-2">
                         <span className="text-[10px] text-gray-400">{new Date(comment.created_at).toLocaleString()}</span>
@@ -75,12 +93,6 @@ function CommentItem({ comment, depth, handleReply, handleCommentAction }) {
                                 답글
                             </button>
                             <button
-                                onClick={() => handleCommentAction('hide', comment)}
-                                className="text-yellow-600 hover:underline"
-                            >
-                                {comment.is_hidden ? '보이기' : '숨기기'}
-                            </button>
-                            <button
                                 onClick={() => handleCommentAction('delete', comment)}
                                 className="text-red-500 hover:underline"
                             >
@@ -90,8 +102,8 @@ function CommentItem({ comment, depth, handleReply, handleCommentAction }) {
                     </div>
                 </div>
 
-                <p className={`text-sm whitespace-pre-wrap ${comment.is_hidden ? 'text-gray-500 italic' : 'text-gray-700'}`}>
-                    {comment.is_hidden ? '숨겨진 댓글입니다.' : comment.content}
+                <p className="text-sm whitespace-pre-wrap text-gray-700">
+                    {renderContentWithMentions(comment.content)}
                 </p>
             </div>
 
@@ -179,11 +191,12 @@ export default function PostDetailPage() {
 
             setPost({ ...postData, view_count: newViewCount });
 
-            // Fetch comments
+            // Fetch comments (삭제되지 않은 댓글만)
             const { data: commentData } = await supabase
                 .from("bw_comments")
                 .select("*")
                 .eq("post_id", id)
+                .eq("is_deleted", false)
                 .order("created_at", { ascending: true });
 
             if (commentData) {
@@ -233,7 +246,7 @@ export default function PostDetailPage() {
             post_id: id,
             content: newComment,
             author: commentAuthor,
-            is_hidden: false,
+            is_deleted: false,
             parent_id: replyToId // 대댓글이면 parent_id 저장
         };
         // 회원이면 user_id 저장, 비회원이면 password 저장
@@ -242,23 +255,58 @@ export default function PostDetailPage() {
         } else {
             commentData.password = commentPassword;
         }
-        const { error } = await supabase.from("bw_comments").insert([commentData]);
+
+        // 1. 댓글 저장
+        const { data: insertedComment, error } = await supabase
+            .from("bw_comments")
+            .insert([commentData])
+            .select()
+            .single();
 
         if (error) {
             alert("댓글 작성 실패: " + error.message);
-        } else {
-            setNewComment("");
-            setCommentPassword("");
-            setReplyToId(null);
-            setReplyToAuthor('');
-            await refreshComments();
-
-            // Update comment count on post
-            await supabase
-                .from("bw_posts")
-                .update({ comment_count: comments.length + 1 })
-                .eq("id", id);
+            setSubmitting(false);
+            return;
         }
+
+        // 2. @mention 파싱 및 저장
+        const mentionRegex = /@(\S+)/g;
+        const foundMentions = [...newComment.matchAll(mentionRegex)].map(m => m[1]);
+
+        if (foundMentions.length > 0 && user) {
+            // 멘션된 사용자 조회
+            const { data: mentionedUsers } = await supabase
+                .from('bw_comments')
+                .select('author, user_id')
+                .eq('post_id', id)
+                .in('author', foundMentions)
+                .not('user_id', 'is', null); // 회원만
+
+            if (mentionedUsers && mentionedUsers.length > 0) {
+                // bw_comment_mentions에 저장
+                const mentionData = mentionedUsers.map(mu => ({
+                    comment_id: insertedComment.id,
+                    mentioned_user_id: mu.user_id,
+                    mentioned_username: mu.author
+                }));
+
+                await supabase.from('bw_comment_mentions').insert(mentionData);
+            }
+        }
+
+        // 3. UI 업데이트
+        setNewComment("");
+        setCommentPassword("");
+        setReplyToId(null);
+        setReplyToAuthor('');
+        await refreshComments();
+
+        // Update comment count on post
+        await supabase
+            .from("bw_posts")
+            .update({ comment_count: comments.length + 1 })
+            .eq("id", id);
+
         setSubmitting(false);
     };
 
@@ -295,11 +343,9 @@ export default function PostDetailPage() {
     // Comment management
     const handleCommentAction = (type, comment) => {
         if (isAdmin) {
-            // Admin can do anything without password
+            // Admin can delete without password
             if (type === 'delete') {
-                if (confirm("댓글을 삭제하시겠습니까?")) executeCommentDelete(comment.id);
-            } else if (type === 'hide') {
-                executeCommentHide(comment.id, !comment.is_hidden);
+                if (confirm("댓글을 삭제하시겠습니까? (복원 가능)")) executeCommentDelete(comment.id);
             }
         } else {
             // Need password verification
@@ -308,7 +354,18 @@ export default function PostDetailPage() {
     };
 
     const executeCommentDelete = async (commentId) => {
-        const { error } = await supabase.from("bw_comments").delete().eq("id", commentId);
+        const { data: { user: currentUser } } = await supabase.auth.getUser();
+
+        // 소프트 삭제: is_deleted = true로 설정
+        const { error } = await supabase
+            .from("bw_comments")
+            .update({
+                is_deleted: true,
+                deleted_at: new Date().toISOString(),
+                deleted_by: currentUser?.email || (isAdmin ? "admin" : "user")
+            })
+            .eq("id", commentId);
+
         if (error) {
             alert("삭제 실패: " + error.message);
         } else {
@@ -321,26 +378,12 @@ export default function PostDetailPage() {
         }
     };
 
-    const executeCommentHide = async (commentId, hidden) => {
-        const { error } = await supabase
-            .from("bw_comments")
-            .update({ is_hidden: hidden })
-            .eq("id", commentId);
-        if (error) {
-            alert("숨기기 실패: " + error.message);
-        } else {
-            await refreshComments();
-        }
-    };
-
     const handleCommentPasswordConfirm = async () => {
         const { type, comment } = commentModal;
 
         if (commentTempPassword === comment.password) {
             if (type === 'delete') {
                 await executeCommentDelete(comment.id);
-            } else if (type === 'hide') {
-                await executeCommentHide(comment.id, !comment.is_hidden);
             }
         } else {
             alert("비밀번호가 틀렸습니다.");
@@ -352,12 +395,26 @@ export default function PostDetailPage() {
     const handleManagement = (type) => {
         if (!post) return;
 
-        // If Admin or Owner (user_id match)
-        if (isAdmin || (user && post.user_id === user.id)) {
+        // 관리자는 다른 사용자 글 수정 불가
+        if (isAdmin && type === 'edit' && post.user_id !== user?.id) {
+            alert("관리자는 다른 사용자의 게시글을 수정할 수 없습니다.");
+            return;
+        }
+
+        // If Owner (user_id match)
+        if (user && post.user_id === user.id) {
             if (type === 'delete') {
                 if (confirm("정말로 삭제하시겠습니까?")) executeDelete();
             } else {
                 router.push(`/post/${id}/edit`);
+            }
+            return;
+        }
+
+        // If Admin (delete only)
+        if (isAdmin) {
+            if (type === 'delete') {
+                if (confirm("정말로 삭제하시겠습니까?")) executeDelete();
             }
             return;
         }
@@ -372,9 +429,21 @@ export default function PostDetailPage() {
     };
 
     const executeDelete = async () => {
-        const { error } = await supabase.from("bw_posts").delete().eq("id", id);
-        if (error) alert("삭제 실패: " + error.message);
-        else {
+        const { data: { user: currentUser } } = await supabase.auth.getUser();
+
+        // 소프트 삭제: is_deleted = true로 설정
+        const { error } = await supabase
+            .from("bw_posts")
+            .update({
+                is_deleted: true,
+                deleted_at: new Date().toISOString(),
+                deleted_by: currentUser?.email || (isAdmin ? "admin" : "user")
+            })
+            .eq("id", id);
+
+        if (error) {
+            alert("삭제 실패: " + error.message);
+        } else {
             alert("삭제되었습니다.");
             router.push("/");
         }
@@ -436,7 +505,10 @@ export default function PostDetailPage() {
                         </div>
                         {canManage && (
                             <div className="flex space-x-2 text-[10px] text-gray-400 font-bold">
-                                <button onClick={() => handleManagement('edit')} className="hover:text-black">수정</button>
+                                {/* 관리자가 다른 사용자 글일 때 수정 버튼 숨김 */}
+                                {(!isAdmin || (user && post.user_id === user.id)) && (
+                                    <button onClick={() => handleManagement('edit')} className="hover:text-black">수정</button>
+                                )}
                                 <button onClick={() => handleManagement('delete')} className="hover:text-red-500">삭제</button>
                             </div>
                         )}
@@ -490,12 +562,24 @@ export default function PostDetailPage() {
                     <div className="post-content whitespace-pre-wrap mb-10 overflow-x-auto" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(post.content) }}></div>
 
                     {/* 구인구직 채용 정보 */}
-                    {post.board_type === "job" && (post.job_category || post.experience_level || post.deadline) && (
+                    {post.board_type === "job" && (post.job_type || post.job_category || post.experience_level || post.deadline) && (
                         <div className="mt-6 mb-10 p-4 bg-blue-50 rounded-lg border border-blue-200">
                             <h3 className="text-sm font-bold text-gray-800 mb-3 flex items-center">
                                 <span className="text-lg mr-2">📋</span> 채용 정보
                             </h3>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                                {post.job_type && (
+                                    <div>
+                                        <span className="font-bold text-gray-700">분류:</span>
+                                        <span className={`ml-2 px-2 py-1 rounded text-xs font-bold ${
+                                            post.job_type === 'hiring'
+                                                ? 'bg-blue-100 text-blue-700'
+                                                : 'bg-green-100 text-green-700'
+                                        }`}>
+                                            {post.job_type === 'hiring' ? '구인 (채용)' : '구직 (지원 희망)'}
+                                        </span>
+                                    </div>
+                                )}
                                 {post.job_category && (
                                     <div>
                                         <span className="font-bold text-gray-700">직군:</span>
@@ -599,14 +683,13 @@ export default function PostDetailPage() {
                                 <span className="text-[10px] text-green-600 flex items-center">✓ 회원</span>
                             )}
                         </div>
-                        <textarea
-                            ref={commentInputRef}
-                            placeholder={replyToId ? `${replyToAuthor}님에게 답글을 작성하세요...` : "댓글을 남겨보세요"}
+                        <MentionInput
                             value={newComment}
-                            onChange={(e) => setNewComment(e.target.value)}
+                            onChange={setNewComment}
+                            placeholder={replyToId ? `${replyToAuthor}님에게 답글을 작성하세요... (@로 태그)` : "댓글을 남겨보세요 (@로 태그 가능)"}
                             className="w-full h-24 px-3 py-2 border border-gray-200 rounded text-sm focus:outline-none focus:border-[#355E3B] resize-none mb-3"
-                            required
-                        ></textarea>
+                            postId={id}
+                        />
                         <div className="flex justify-end">
                             <button
                                 type="submit"
