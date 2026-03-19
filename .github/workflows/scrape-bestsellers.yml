@@ -1,0 +1,81 @@
+name: Scrape Bestsellers
+
+on:
+  # 수동 실행
+  workflow_dispatch:
+    inputs:
+      categories:
+        description: '수집할 카테고리 (all 또는 종합)'
+        required: false
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - 종합
+
+  # 매일 자동 실행 (한국 시간 오전 9시)
+  schedule:
+    - cron: '0 0 * * *'  # UTC 00:00 = KST 09:00
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Chromium for Puppeteer
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y chromium-browser
+          export PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+          export PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
+
+      - name: Create common.js config
+        run: |
+          cat > scripts/common.js << 'EOF'
+          const { createClient } = require('@supabase/supabase-js');
+
+          const supabase = createClient(
+            process.env.SUPABASE_URL,
+            process.env.SUPABASE_ANON_KEY
+          );
+
+          module.exports = { supabase };
+          EOF
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+
+      - name: Run scraper
+        run: node scripts/bestseller-v2.js
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          PUPPETEER_EXECUTABLE_PATH: /usr/bin/chromium-browser
+
+      - name: Check missing ranks
+        if: always()
+        run: node scripts/check-all-categories.js
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+
+      - name: Upload scraper logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scraper-logs
+          path: scripts/*.log
+          retention-days: 7
