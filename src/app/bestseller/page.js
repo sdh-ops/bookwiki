@@ -8,17 +8,16 @@ import {
 } from 'recharts';
 
 const PLATFORMS = [
-  { id: "kyobo", name: "교보문고", color: "#006633" },
-  { id: "yes24", name: "예스24", color: "#005599" },
+  { id: "kyobo", name: "교보문고", color: "#1E40AF" },
+  { id: "yes24", name: "예스24", color: "#FF6B00" },
   { id: "aladdin", name: "알라딘", color: "#E62312" },
-  { id: "ridi", name: "리디북스", color: "#1F8CE6" },
-  { id: "millie", name: "밀리의서재", color: "#FFEB00" },
+  { id: "ridi", name: "리디북스", color: "#5B4FFF" },
+  { id: "millie", name: "밀리의서재", color: "#00C73C" },
 ];
 
 const CATEGORIES = [
-  "종합", "소설", "에세이/시", "인문", "경제경영", "자기계발", 
-  "사회정치", "역사", "예술/문화", "자연과학", "IT/컴퓨터", 
-  "어린이", "유아", "청소년", "만화"
+  "종합", "소설", "에세이/시", "인문", "역사", "사회과학",
+  "경제경영", "자기계발", "과학", "어린이/청소년"
 ];
 
 const PERIODS = [
@@ -76,7 +75,7 @@ export default function BestsellerPage() {
       setLoading(false);
     }
     fetchBestsellers();
-  }, [selectedPlatform, selectedPeriod]);
+  }, [selectedPlatform, selectedPeriod, selectedCategory]);
 
   const fetchTrend = async (bookId) => {
     const { data } = await supabase
@@ -171,7 +170,7 @@ export default function BestsellerPage() {
             <p className="text-gray-300 text-xs mt-1">스크래퍼를 실행하여 데이터를 수집해주세요.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
             {snapshots.map((item, idx) => (
               <div 
                 key={idx} 
