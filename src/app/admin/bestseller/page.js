@@ -78,6 +78,7 @@ export default function AdminBestsellerPage() {
         rank_change,
         platform,
         snapshot_date,
+        is_ebook,
         bw_books!inner (
           id,
           isbn,
@@ -407,13 +408,19 @@ export default function AdminBestsellerPage() {
                         <div
                           key={idx}
                           onClick={() => handleBookClick(book, platform.name)}
-                          className="flex items-center gap-2 md:gap-3 p-2 md:p-3 hover:bg-gray-50 cursor-pointer transition"
+                          className={`flex items-center gap-2 md:gap-3 p-2 md:p-3 hover:bg-gray-50 cursor-pointer transition ${
+                            book.is_ebook ? 'opacity-60' : ''
+                          }`}
                         >
-                          <div className="flex-shrink-0 w-5 h-5 md:w-6 md:h-6 rounded-full bg-gray-100 flex items-center justify-center text-xs font-bold text-gray-700">
+                          <div className={`flex-shrink-0 rounded-full bg-gray-100 flex items-center justify-center font-bold text-gray-700 ${
+                            book.is_ebook ? 'w-4 h-4 md:w-5 md:h-5 text-[10px]' : 'w-5 h-5 md:w-6 md:h-6 text-xs'
+                          }`}>
                             {book.rank}
                           </div>
 
-                          <div className="flex-shrink-0 w-9 h-12 md:w-10 md:h-14 bg-gray-100 rounded overflow-hidden">
+                          <div className={`flex-shrink-0 bg-gray-100 rounded overflow-hidden ${
+                            book.is_ebook ? 'w-7 h-10 md:w-8 md:h-11' : 'w-9 h-12 md:w-10 md:h-14'
+                          }`}>
                             {book.bw_books.cover_url ? (
                               <img
                                 src={book.bw_books.cover_url}
@@ -428,10 +435,15 @@ export default function AdminBestsellerPage() {
                           </div>
 
                           <div className="flex-1 min-w-0">
-                            <p className="text-xs md:text-sm font-semibold text-gray-900 truncate mb-0.5 leading-tight">
+                            <p className={`font-semibold text-gray-900 truncate mb-0.5 leading-tight ${
+                              book.is_ebook ? 'text-[10px] md:text-xs' : 'text-xs md:text-sm'
+                            }`}>
                               {book.bw_books.title}
+                              {book.is_ebook && <span className="ml-1 text-[9px] text-gray-400">[전자책]</span>}
                             </p>
-                            <p className="text-[10px] md:text-xs text-gray-500 truncate">
+                            <p className={`text-gray-500 truncate ${
+                              book.is_ebook ? 'text-[9px] md:text-[10px]' : 'text-[10px] md:text-xs'
+                            }`}>
                               {book.bw_books.author}
                             </p>
                           </div>

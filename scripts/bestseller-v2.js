@@ -264,10 +264,7 @@ async function scrapeKyobo(category, retries = 3) {
 
       if (apiResponse && apiResponse.data.bestSeller) {
         const books = apiResponse.data.bestSeller
-          .filter(item => {
-            // 전자책(EBK) 제외 - 물리책과 중복이고 저자 정보 부정확
-            return item.saleCmdtDvsnCode !== 'EBK';
-          })
+          // 전자책 포함 (누락 순위 채우기 위해)
           .slice(0, 20)
           .map((item, idx) => {
             // imgPath가 비어있으면 ISBN으로 이미지 URL 생성
@@ -282,7 +279,8 @@ async function scrapeKyobo(category, retries = 3) {
               author: cleanAuthor(item.chrcName),
               publisher: cleanPublisher(item.pbcmName),
               cover_url: coverUrl,
-              isbn: item.cmdtCode || null
+              isbn: item.cmdtCode || null,
+              is_ebook: item.saleCmdtDvsnCode === 'EBK' // 전자책 여부
             };
           });
         console.log(`  [✓] Found ${books.length} books`);
@@ -452,10 +450,25 @@ async function sync(platform, books, categoryName) {
             .single();
 
           if (insertError) {
-            console.error(`    [!] Insert failed for "${book.title}": ${insertError.message}`);
-            continue;
+            // INSERT failed, likely duplicate title+author with different ISBN
+            // Try to find existing book by title+author
+            const { data: existingByTitle } = await supabase
+              .from('bw_books')
+              .select('*')
+              .eq('title', book.title)
+              .eq('author', book.author)
+              .maybeSingle();
+
+            if (existingByTitle) {
+              console.log(`    [i] Found existing "${book.title}" by title+author (different ISBN)`);
+              record = existingByTitle;
+            } else {
+              console.error(`    [!] Insert failed for "${book.title}": ${insertError.message}`);
+              continue;
+            }
+          } else {
+            record = inserted;
           }
-          record = inserted;
         }
       } else {
         // 2. No ISBN, use title+author matching
@@ -487,7 +500,8 @@ async function sync(platform, books, categoryName) {
           period_type: 'daily',
           rank: book.rank,
           common_category: categoryName,
-          snapshot_date: today
+          snapshot_date: today,
+          is_ebook: book.is_ebook || false
         }, {
           onConflict: 'book_id,platform,period_type,snapshot_date,common_category'
         });
@@ -636,6 +650,8 @@ module.exports = {
   aladdin: scrapeAladdin,
   ridi: scrapeRidi,
   millie: scrapeMillie,
+  initBrowser,
+  sync,
   run
 };
 
