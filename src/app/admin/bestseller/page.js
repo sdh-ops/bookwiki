@@ -43,6 +43,14 @@ export default function AdminBestsellerPage() {
   // Trend analysis states
   const [searchType, setSearchType] = useState("book");
   const [searchQuery, setSearchQuery] = useState("");
+
+  // 검색 타입 변경시 검색어 초기화
+  const handleSearchTypeChange = (newType) => {
+    setSearchType(newType);
+    setSearchQuery("");
+    setAutocompleteSuggestions([]);
+    setShowAutocomplete(false);
+  };
   const [searchResults, setSearchResults] = useState([]);
   const [autocompleteSuggestions, setAutocompleteSuggestions] = useState([]);
   const [showAutocomplete, setShowAutocomplete] = useState(false);
@@ -559,7 +567,7 @@ export default function AdminBestsellerPage() {
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 md:p-6 mb-6">
             <div className="flex gap-4 mb-4">
               <button
-                onClick={() => setSearchType("book")}
+                onClick={() => handleSearchTypeChange("book")}
                 className={`px-4 py-2 rounded-lg font-semibold text-sm transition ${
                   searchType === "book"
                     ? "bg-gray-900 text-white"
@@ -569,7 +577,7 @@ export default function AdminBestsellerPage() {
                 📚 도서명 검색
               </button>
               <button
-                onClick={() => setSearchType("publisher")}
+                onClick={() => handleSearchTypeChange("publisher")}
                 className={`px-4 py-2 rounded-lg font-semibold text-sm transition ${
                   searchType === "publisher"
                     ? "bg-gray-900 text-white"
@@ -604,10 +612,39 @@ export default function AdminBestsellerPage() {
                       autocompleteSuggestions.map((book, idx) => (
                         <div
                           key={idx}
-                          onClick={() => {
-                            setSearchQuery(book.title);
+                          onClick={async () => {
                             setShowAutocomplete(false);
-                            handleSearch();
+                            setTrendLoading(true);
+
+                            // 선택한 책의 모든 변종 찾기
+                            const { data } = await supabase
+                              .from("bw_books")
+                              .select("*")
+                              .eq("id", book.id);
+
+                            if (data && data.length > 0) {
+                              const selectedBook = data[0];
+                              // 같은 책의 다른 변종들 찾기
+                              const normalizedKey = normalizeTitle(selectedBook.title);
+                              const { data: allVariants } = await supabase
+                                .from("bw_books")
+                                .select("*")
+                                .limit(50);
+
+                              const variants = (allVariants || []).filter(b =>
+                                normalizeTitle(b.title) === normalizedKey
+                              );
+
+                              const bookWithVariants = {
+                                ...selectedBook,
+                                _variants: variants,
+                                _variantCount: variants.length
+                              };
+
+                              await loadBookTrend(bookWithVariants);
+                            }
+
+                            setTrendLoading(false);
                           }}
                           className="flex items-center gap-3 p-3 hover:bg-gray-50 cursor-pointer border-b last:border-b-0"
                         >
@@ -775,13 +812,14 @@ export default function AdminBestsellerPage() {
               {/* Trend Chart */}
               {trendData.length > 0 ? (
                 <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                  <h3 className="text-lg font-bold text-gray-900 mb-4">순위 추이</h3>
-                  <ResponsiveContainer width="100%" height={400}>
-                    <LineChart data={trendData}>
-                      <CartesianGrid strokeDasharray="3 3" />
+                  <h3 className="text-lg font-bold text-gray-900 mb-4">📈 베스트셀러 순위 추이 차트</h3>
+                  <p className="text-xs text-gray-500 mb-4">* 순위가 낮을수록(1위에 가까울수록) 그래프가 위로 올라갑니다</p>
+                  <ResponsiveContainer width="100%" height={450}>
+                    <LineChart data={trendData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                       <XAxis
                         dataKey="date"
-                        tick={{ fontSize: 12 }}
+                        tick={{ fontSize: 11 }}
                         angle={-45}
                         textAnchor="end"
                         height={80}
@@ -789,11 +827,22 @@ export default function AdminBestsellerPage() {
                       <YAxis
                         reversed
                         domain={[1, 20]}
+                        ticks={[1, 5, 10, 15, 20]}
                         tick={{ fontSize: 12 }}
-                        label={{ value: '순위', angle: -90, position: 'insideLeft' }}
+                        label={{ value: '순위 (낮을수록 상위)', angle: -90, position: 'insideLeft', style: { fontSize: 12 } }}
                       />
-                      <Tooltip />
-                      <Legend />
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: 'white',
+                          border: '1px solid #e5e7eb',
+                          borderRadius: '8px',
+                          padding: '8px 12px'
+                        }}
+                      />
+                      <Legend
+                        wrapperStyle={{ paddingTop: '20px' }}
+                        iconType="line"
+                      />
                       {PLATFORMS.map((platform) => (
                         <Line
                           key={platform.id}
@@ -801,8 +850,9 @@ export default function AdminBestsellerPage() {
                           dataKey={platform.id}
                           name={platform.name}
                           stroke={platform.color}
-                          strokeWidth={2}
-                          dot={{ r: 4 }}
+                          strokeWidth={3}
+                          dot={{ r: 5, fill: platform.color, strokeWidth: 2, stroke: 'white' }}
+                          activeDot={{ r: 7 }}
                           connectNulls
                         />
                       ))}
