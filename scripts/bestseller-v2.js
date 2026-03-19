@@ -69,6 +69,8 @@ function cleanAuthor(author) {
     .replace(/감수자|감수/g, '')
     .replace(/그림|그린이/g, '')
     .replace(/엮은이|엮음|편집|편저|편/g, '')
+    // "외" 제거 (번역자 표시이므로)
+    .replace(/\s*외\s*$/g, '')
     // 여러 저자 중 첫 번째만
     .split(',')[0]
     .split('/')[0]
@@ -79,12 +81,6 @@ function cleanAuthor(author) {
     // 공백 정리
     .replace(/\s+/g, ' ')
     .trim();
-
-  // "외" (and others)로 끝나는 경우 번역자/편집자인 경우가 많으므로 제외
-  // 예: "강동혁 외" -> 알수없음
-  if (cleaned.endsWith(' 외') || cleaned === '외') {
-    return '알수없음';
-  }
 
   return cleaned || '알수없음';
 }
@@ -106,10 +102,19 @@ function cleanTitle(title) {
 // 출판사 정규화 함수
 function cleanPublisher(publisher) {
   if (!publisher) return '알수없음';
-  return publisher
+
+  let cleaned = publisher
     .replace(/주식회사|㈜|\(주\)/g, '')
+    // 괄호 내용 제거 (예: "알에이치코리아(RHK)" -> "알에이치코리아")
+    .replace(/\([^)]*\)/g, '')
+    .replace(/\[[^\]]*\]/g, '')
+    // "알에치코리아"를 "알에이치코리아"로 통일
+    .replace(/알에치코리아/g, '알에이치코리아')
+    // 공백 정리
     .replace(/\s+/g, ' ')
-    .trim() || '알수없음';
+    .trim();
+
+  return cleaned || '알수없음';
 }
 
 // 예스24 - Axios 방식 (셀렉터 개선)
@@ -258,22 +263,28 @@ async function scrapeKyobo(category, retries = 3) {
       await page.close();
 
       if (apiResponse && apiResponse.data.bestSeller) {
-        const books = apiResponse.data.bestSeller.slice(0, 20).map((item, idx) => {
-          // imgPath가 비어있으면 ISBN으로 이미지 URL 생성
-          let coverUrl = item.imgPath;
-          if (!coverUrl && item.cmdtCode) {
-            coverUrl = `https://contents.kyobobook.co.kr/sih/fit-in/458x0/pdt/${item.cmdtCode}.jpg`;
-          }
+        const books = apiResponse.data.bestSeller
+          .filter(item => {
+            // 전자책(EBK) 제외 - 물리책과 중복이고 저자 정보 부정확
+            return item.saleCmdtDvsnCode !== 'EBK';
+          })
+          .slice(0, 20)
+          .map((item, idx) => {
+            // imgPath가 비어있으면 ISBN으로 이미지 URL 생성
+            let coverUrl = item.imgPath;
+            if (!coverUrl && item.cmdtCode) {
+              coverUrl = `https://contents.kyobobook.co.kr/sih/fit-in/458x0/pdt/${item.cmdtCode}.jpg`;
+            }
 
-          return {
-            rank: item.prstRnkn || (idx + 1),
-            title: cleanTitle(item.cmdtName),
-            author: cleanAuthor(item.chrcName),
-            publisher: cleanPublisher(item.pbcmName),
-            cover_url: coverUrl,
-            isbn: item.cmdtCode || null
-          };
-        });
+            return {
+              rank: item.prstRnkn || (idx + 1),
+              title: cleanTitle(item.cmdtName),
+              author: cleanAuthor(item.chrcName),
+              publisher: cleanPublisher(item.pbcmName),
+              cover_url: coverUrl,
+              isbn: item.cmdtCode || null
+            };
+          });
         console.log(`  [✓] Found ${books.length} books`);
         return books;
       }
@@ -518,9 +529,10 @@ async function run() {
         scrapeMillie(cat)
       ]);
 
+      // Kyobo 먼저 실행 (ISBN 제공하므로)
+      await sync('kyobo', kyobo, cat.name);
       await sync('yes24', yes24, cat.name);
       await sync('aladdin', aladdin, cat.name);
-      await sync('kyobo', kyobo, cat.name);
       await sync('ridi', ridi, cat.name);
       await sync('millie', millie, cat.name);
 
