@@ -67,8 +67,7 @@ export default function AdminLayout({ children }) {
                         <Link href="/admin/posts" onClick={() => setMenuOpen(false)} className="block px-4 py-2 text-sm rounded hover:bg-[#34495e] transition">게시물 관리</Link>
                         <Link href="/admin/deleted-posts" onClick={() => setMenuOpen(false)} className="block px-4 py-2 text-sm rounded hover:bg-[#34495e] transition">삭제된 게시물</Link>
                         <Link href="/admin/users" onClick={() => setMenuOpen(false)} className="block px-4 py-2 text-sm rounded hover:bg-[#34495e] transition">운영자 관리</Link>
-                        <Link href="/admin/bestseller" onClick={() => setMenuOpen(false)} className="block px-4 py-2 text-sm rounded hover:bg-[#34495e] transition">베스트셀러 대시보드</Link>
-                        <Link href="/admin/analytics" onClick={() => setMenuOpen(false)} className="block px-4 py-2 text-sm rounded hover:bg-[#34495e] transition">트렌드 분석</Link>
+                        <Link href="/admin/bestseller" onClick={() => setMenuOpen(false)} className="block px-4 py-2 text-sm rounded hover:bg-[#34495e] transition">베스트셀러</Link>
                         <div className="pt-4 border-t border-[#34495e] mt-4">
                             <Link href="/" className="block px-4 py-2 text-sm text-gray-400 hover:text-white transition">메인으로 가기</Link>
                         </div>
@@ -87,8 +86,7 @@ export default function AdminLayout({ children }) {
                     <Link href="/admin/posts" className="block px-4 py-2 text-sm rounded hover:bg-[#34495e] transition">게시물 관리</Link>
                     <Link href="/admin/deleted-posts" className="block px-4 py-2 text-sm rounded hover:bg-[#34495e] transition">삭제된 게시물</Link>
                     <Link href="/admin/users" className="block px-4 py-2 text-sm rounded hover:bg-[#34495e] transition">운영자 관리</Link>
-                    <Link href="/admin/bestseller" className="block px-4 py-2 text-sm rounded hover:bg-[#34495e] transition">베스트셀러 대시보드</Link>
-                    <Link href="/admin/analytics" className="block px-4 py-2 text-sm rounded hover:bg-[#34495e] transition">트렌드 분석</Link>
+                    <Link href="/admin/bestseller" className="block px-4 py-2 text-sm rounded hover:bg-[#34495e] transition">베스트셀러</Link>
                     <div className="pt-4 border-t border-[#34495e] mt-4">
                         <Link href="/" className="block px-4 py-2 text-sm text-gray-400 hover:text-white transition">메인으로 가기</Link>
                     </div>

@@ -2,6 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import {
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
+} from 'recharts';
 
 const PLATFORMS = [
   { id: "kyobo", name: "교보문고", color: "#2C3E50" },
@@ -13,7 +16,23 @@ const PLATFORMS = [
 
 const CATEGORIES = ["종합", "소설", "에세이/시", "인문", "경제경영", "자기계발"];
 
-export default function AdminBestsellerDashboard() {
+// 제목 정규화 함수 (중복 제거용)
+function normalizeTitle(title) {
+  if (!title) return '';
+  return title
+    .replace(/\([^)]*\)/g, '')  // 괄호 제거
+    .replace(/\[[^\]]*\]/g, '')  // 대괄호 제거
+    .replace(/[^\w\sㄱ-ㅎㅏ-ㅣ가-힣]/g, '')  // 특수문자 제거
+    .replace(/\s+/g, ' ')  // 연속 공백 정리
+    .trim()
+    .toLowerCase();
+}
+
+export default function AdminBestsellerPage() {
+  // Tab state
+  const [activeTab, setActiveTab] = useState("current"); // current | trend
+
+  // Current dashboard states
   const [loading, setLoading] = useState(true);
   const [platformData, setPlatformData] = useState({});
   const [selectedCategory, setSelectedCategory] = useState("종합");
@@ -21,10 +40,25 @@ export default function AdminBestsellerDashboard() {
   const [bookDetails, setBookDetails] = useState(null);
   const [loadingDetails, setLoadingDetails] = useState(false);
 
-  useEffect(() => {
-    fetchAllData();
-  }, [selectedCategory]);
+  // Trend analysis states
+  const [searchType, setSearchType] = useState("book");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState([]);
+  const [autocompleteSuggestions, setAutocompleteSuggestions] = useState([]);
+  const [showAutocomplete, setShowAutocomplete] = useState(false);
+  const [selectedTrendBook, setSelectedTrendBook] = useState(null);
+  const [selectedBookGroup, setSelectedBookGroup] = useState(null); // 같은 책의 모든 변종
+  const [trendData, setTrendData] = useState([]);
+  const [trendLoading, setTrendLoading] = useState(false);
+  const [period, setPeriod] = useState("30");
 
+  useEffect(() => {
+    if (activeTab === "current") {
+      fetchAllData();
+    }
+  }, [selectedCategory, activeTab]);
+
+  // === CURRENT TAB FUNCTIONS ===
   async function fetchAllData() {
     setLoading(true);
     const today = new Date().toISOString().split('T')[0];
@@ -55,7 +89,7 @@ export default function AdminBestsellerDashboard() {
     PLATFORMS.forEach(p => {
       grouped[p.id] = (data || [])
         .filter(item => item.platform === p.id)
-        .slice(0, 20); // Top 20 per platform
+        .slice(0, 20);
     });
 
     setPlatformData(grouped);
@@ -68,7 +102,6 @@ export default function AdminBestsellerDashboard() {
     setBookDetails(null);
 
     try {
-      // First, try to fetch missing cover from Aladin if needed
       let coverUrl = book.bw_books.cover_url;
 
       if (!coverUrl && book.bw_books.isbn) {
@@ -77,7 +110,6 @@ export default function AdminBestsellerDashboard() {
           const coverData = await coverResponse.json();
           if (coverData.cover) {
             coverUrl = coverData.cover;
-            // Update cover in database
             await supabase
               .from('bw_books')
               .update({ cover_url: coverUrl })
@@ -86,7 +118,6 @@ export default function AdminBestsellerDashboard() {
         }
       }
 
-      // Fetch book details from Aladin API
       if (book.bw_books.isbn) {
         const response = await fetch(`/api/aladin/lookup?isbn=${book.bw_books.isbn}`);
         if (response.ok) {
@@ -94,7 +125,6 @@ export default function AdminBestsellerDashboard() {
           setBookDetails({ ...data, cover_url: coverUrl || data.cover });
         }
       } else {
-        // If no ISBN, show basic info
         setBookDetails({
           title: book.bw_books.title,
           author: book.bw_books.author,
@@ -122,7 +152,146 @@ export default function AdminBestsellerDashboard() {
     setBookDetails(null);
   }
 
-  if (loading) {
+  // === TREND TAB FUNCTIONS ===
+  // 자동완성 처리
+  async function handleSearchInput(value) {
+    setSearchQuery(value);
+
+    if (value.trim().length < 2) {
+      setAutocompleteSuggestions([]);
+      setShowAutocomplete(false);
+      return;
+    }
+
+    try {
+      if (searchType === "book") {
+        const { data } = await supabase
+          .from("bw_books")
+          .select("id, title, author, publisher, cover_url")
+          .ilike("title", `%${value}%`)
+          .limit(10);
+
+        setAutocompleteSuggestions(data || []);
+        setShowAutocomplete(true);
+      } else {
+        const { data } = await supabase
+          .from("bw_books")
+          .select("publisher")
+          .ilike("publisher", `%${value}%`)
+          .limit(10);
+
+        // 출판사는 유니크하게
+        const uniquePublishers = [...new Set(data?.map(b => b.publisher) || [])];
+        setAutocompleteSuggestions(uniquePublishers.map(p => ({ publisher: p })));
+        setShowAutocomplete(true);
+      }
+    } catch (error) {
+      console.error("Autocomplete error:", error);
+    }
+  }
+
+  async function handleSearch() {
+    if (!searchQuery.trim()) return;
+
+    setTrendLoading(true);
+    setSelectedTrendBook(null);
+    setSelectedBookGroup(null);
+    setTrendData([]);
+    setShowAutocomplete(false);
+
+    try {
+      if (searchType === "book") {
+        const { data } = await supabase
+          .from("bw_books")
+          .select("*")
+          .ilike("title", `%${searchQuery}%`)
+          .limit(50);
+
+        // 정규화된 제목으로 그룹화
+        const groups = {};
+        (data || []).forEach(book => {
+          const normalizedKey = normalizeTitle(book.title);
+          if (!groups[normalizedKey]) {
+            groups[normalizedKey] = [];
+          }
+          groups[normalizedKey].push(book);
+        });
+
+        // 각 그룹의 대표 책 선택 (ISBN 있는 것 우선, 없으면 첫 번째)
+        const representatives = Object.values(groups).map(bookGroup => {
+          const withIsbn = bookGroup.find(b => b.isbn);
+          const representative = withIsbn || bookGroup[0];
+          return {
+            ...representative,
+            _variants: bookGroup,  // 같은 책의 모든 변종 저장
+            _variantCount: bookGroup.length
+          };
+        });
+
+        setSearchResults(representatives);
+      } else {
+        const { data } = await supabase
+          .from("bw_books")
+          .select("*")
+          .ilike("publisher", `%${searchQuery}%`)
+          .limit(50);
+
+        setSearchResults(data || []);
+      }
+    } catch (error) {
+      console.error("Search error:", error);
+    } finally {
+      setTrendLoading(false);
+    }
+  }
+
+  async function loadBookTrend(book) {
+    setSelectedTrendBook(book);
+    setSelectedBookGroup(book._variants || [book]);
+    setTrendLoading(true);
+
+    try {
+      const endDate = new Date();
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - parseInt(period));
+
+      // 모든 변종의 book_id 수집
+      const bookIds = (book._variants || [book]).map(b => b.id);
+
+      const { data } = await supabase
+        .from("bw_bestseller_snapshots")
+        .select("*")
+        .in("book_id", bookIds)
+        .gte("snapshot_date", startDate.toISOString().split('T')[0])
+        .lte("snapshot_date", endDate.toISOString().split('T')[0])
+        .order("snapshot_date", { ascending: true });
+
+      const groupedByDate = {};
+
+      data?.forEach(item => {
+        const date = item.snapshot_date;
+        if (!groupedByDate[date]) {
+          groupedByDate[date] = { date };
+        }
+
+        // 같은 날짜, 같은 플랫폼에서 여러 변종이 있으면 가장 높은 순위(낮은 숫자) 사용
+        const currentRank = groupedByDate[date][item.platform];
+        if (!currentRank || item.rank < currentRank) {
+          groupedByDate[date][item.platform] = item.rank;
+        }
+      });
+
+      const chartData = Object.values(groupedByDate);
+      setTrendData(chartData);
+
+    } catch (error) {
+      console.error("Trend load error:", error);
+    } finally {
+      setTrendLoading(false);
+    }
+  }
+
+  if (loading && activeTab === "current") {
     return (
       <div className="flex items-center justify-center h-screen bg-gray-50">
         <div className="text-center">
@@ -137,260 +306,517 @@ export default function AdminBestsellerDashboard() {
     <div className="min-h-screen bg-gray-50 p-3 md:p-6">
       {/* Header */}
       <div className="mb-4 md:mb-6">
-        <h1 className="text-xl md:text-3xl font-bold text-gray-900 mb-1 md:mb-2">베스트셀러 현황</h1>
-        <p className="text-xs md:text-sm text-gray-600">5개 서점 베스트셀러 · {new Date().toLocaleDateString('ko-KR')}</p>
+        <h1 className="text-xl md:text-3xl font-bold text-gray-900 mb-1 md:mb-2">베스트셀러</h1>
+        <p className="text-xs md:text-sm text-gray-600">5개 서점 베스트셀러 현황 및 트렌드 분석</p>
       </div>
 
-      {/* Category Filter */}
+      {/* Tab Switcher */}
       <div className="mb-4 md:mb-6">
-        <div className="flex gap-2 overflow-x-auto pb-2 -mx-3 px-3 md:mx-0 md:px-0">
-          {CATEGORIES.map(cat => (
-            <button
-              key={cat}
-              onClick={() => setSelectedCategory(cat)}
-              className={`px-3 md:px-4 py-2 rounded-lg text-xs md:text-sm font-semibold transition whitespace-nowrap ${
-                selectedCategory === cat
-                  ? "bg-gray-900 text-white shadow-md"
-                  : "bg-white text-gray-600 hover:bg-gray-100 border border-gray-200"
-              }`}
-            >
-              {cat}
-            </button>
-          ))}
+        <div className="flex gap-2 border-b border-gray-200">
+          <button
+            onClick={() => setActiveTab("current")}
+            className={`px-4 md:px-6 py-2 md:py-3 font-semibold text-sm md:text-base transition relative ${
+              activeTab === "current"
+                ? "text-gray-900"
+                : "text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            현황
+            {activeTab === "current" && (
+              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gray-900"></div>
+            )}
+          </button>
+          <button
+            onClick={() => setActiveTab("trend")}
+            className={`px-4 md:px-6 py-2 md:py-3 font-semibold text-sm md:text-base transition relative ${
+              activeTab === "trend"
+                ? "text-gray-900"
+                : "text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            트렌드
+            {activeTab === "trend" && (
+              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gray-900"></div>
+            )}
+          </button>
         </div>
       </div>
 
-      {/* Scroll Hint */}
-      <div className="mb-2 md:hidden">
-        <p className="text-xs text-gray-500 text-center">← 좌우로 스크롤하여 모든 서점 확인 →</p>
-      </div>
+      {/* CURRENT TAB */}
+      {activeTab === "current" && (
+        <>
+          {/* Category Filter */}
+          <div className="mb-4 md:mb-6">
+            <div className="flex gap-2 overflow-x-auto pb-2 -mx-3 px-3 md:mx-0 md:px-0">
+              {CATEGORIES.map(cat => (
+                <button
+                  key={cat}
+                  onClick={() => setSelectedCategory(cat)}
+                  className={`px-3 md:px-4 py-2 rounded-lg text-xs md:text-sm font-semibold transition whitespace-nowrap ${
+                    selectedCategory === cat
+                      ? "bg-gray-900 text-white shadow-md"
+                      : "bg-white text-gray-600 hover:bg-gray-100 border border-gray-200"
+                  }`}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
+          </div>
 
-      {/* Platform Cards - Horizontal Scroll */}
-      <div className="flex gap-3 md:gap-4 overflow-x-auto pb-4 -mx-3 px-3 md:mx-0 md:px-0 snap-x snap-mandatory scrollbar-hide">
-        {PLATFORMS.map(platform => {
-          const books = platformData[platform.id] || [];
+          {/* Scroll Hint */}
+          <div className="mb-2 md:hidden">
+            <p className="text-xs text-gray-500 text-center">← 좌우로 스크롤하여 모든 서점 확인 →</p>
+          </div>
 
-          return (
-            <div key={platform.id} className="flex-shrink-0 w-[260px] md:w-[300px] lg:w-[280px] xl:w-[300px] bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden snap-start">
-              {/* Platform Header */}
-              <div
-                className="px-3 md:px-4 py-2 md:py-3 text-white font-bold text-sm md:text-base"
-                style={{ backgroundColor: platform.color }}
-              >
-                {platform.name}
-              </div>
+          {/* Platform Cards */}
+          <div className="flex gap-3 md:gap-4 overflow-x-auto pb-4 -mx-3 px-3 md:mx-0 md:px-0 snap-x snap-mandatory scrollbar-hide">
+            {PLATFORMS.map(platform => {
+              const books = platformData[platform.id] || [];
 
-              {/* Book List */}
-              <div className="divide-y divide-gray-100">
-                {books.length > 0 ? (
-                  books.map((book, idx) => (
-                    <div
-                      key={idx}
-                      onClick={() => handleBookClick(book, platform.name)}
-                      className="flex items-center gap-2 md:gap-3 p-2 md:p-3 hover:bg-gray-50 cursor-pointer transition"
-                    >
-                      {/* Rank Badge */}
-                      <div className="flex-shrink-0 w-5 h-5 md:w-6 md:h-6 rounded-full bg-gray-100 flex items-center justify-center text-xs font-bold text-gray-700">
-                        {book.rank}
-                      </div>
+              return (
+                <div key={platform.id} className="flex-shrink-0 w-[260px] md:w-[300px] lg:w-[280px] xl:w-[300px] bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden snap-start">
+                  <div
+                    className="px-3 md:px-4 py-2 md:py-3 text-white font-bold text-sm md:text-base"
+                    style={{ backgroundColor: platform.color }}
+                  >
+                    {platform.name}
+                  </div>
 
-                      {/* Cover Image */}
-                      <div className="flex-shrink-0 w-9 h-12 md:w-10 md:h-14 bg-gray-100 rounded overflow-hidden">
-                        {book.bw_books.cover_url ? (
-                          <img
-                            src={book.bw_books.cover_url}
-                            alt={book.bw_books.title}
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">
-                            📚
+                  <div className="divide-y divide-gray-100">
+                    {books.length > 0 ? (
+                      books.map((book, idx) => (
+                        <div
+                          key={idx}
+                          onClick={() => handleBookClick(book, platform.name)}
+                          className="flex items-center gap-2 md:gap-3 p-2 md:p-3 hover:bg-gray-50 cursor-pointer transition"
+                        >
+                          <div className="flex-shrink-0 w-5 h-5 md:w-6 md:h-6 rounded-full bg-gray-100 flex items-center justify-center text-xs font-bold text-gray-700">
+                            {book.rank}
                           </div>
-                        )}
-                      </div>
 
-                      {/* Book Info */}
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs md:text-sm font-semibold text-gray-900 truncate mb-0.5 leading-tight">
-                          {book.bw_books.title}
-                        </p>
-                        <p className="text-[10px] md:text-xs text-gray-500 truncate">
-                          {book.bw_books.author}
-                        </p>
-                      </div>
+                          <div className="flex-shrink-0 w-9 h-12 md:w-10 md:h-14 bg-gray-100 rounded overflow-hidden">
+                            {book.bw_books.cover_url ? (
+                              <img
+                                src={book.bw_books.cover_url}
+                                alt={book.bw_books.title}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">
+                                📚
+                              </div>
+                            )}
+                          </div>
 
-                      {/* Rank Change Indicator */}
-                      {book.rank_change !== null && book.rank_change !== 0 && (
-                        <div className="flex-shrink-0">
-                          {book.rank_change < 0 ? (
-                            <span className="text-red-500 text-xs font-bold">
-                              ↑{Math.abs(book.rank_change)}
-                            </span>
-                          ) : (
-                            <span className="text-blue-500 text-xs font-bold">
-                              ↓{book.rank_change}
-                            </span>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs md:text-sm font-semibold text-gray-900 truncate mb-0.5 leading-tight">
+                              {book.bw_books.title}
+                            </p>
+                            <p className="text-[10px] md:text-xs text-gray-500 truncate">
+                              {book.bw_books.author}
+                            </p>
+                          </div>
+
+                          {book.rank_change !== null && book.rank_change !== 0 && (
+                            <div className="flex-shrink-0">
+                              {book.rank_change < 0 ? (
+                                <span className="text-red-500 text-xs font-bold">
+                                  ↑{Math.abs(book.rank_change)}
+                                </span>
+                              ) : (
+                                <span className="text-blue-500 text-xs font-bold">
+                                  ↓{book.rank_change}
+                                </span>
+                              )}
+                            </div>
                           )}
+                        </div>
+                      ))
+                    ) : (
+                      <div className="p-8 text-center text-gray-400 text-sm">
+                        데이터 없음
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Book Details Modal */}
+          {selectedBook && (
+            <div
+              className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-3 md:p-4 z-50"
+              onClick={closeModal}
+            >
+              <div
+                className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="sticky top-0 bg-gray-900 text-white px-4 md:px-6 py-3 md:py-4 flex items-center justify-between">
+                  <h2 className="text-base md:text-lg font-bold">도서 상세정보</h2>
+                  <button
+                    onClick={closeModal}
+                    className="text-white hover:text-gray-300 text-2xl"
+                  >
+                    ×
+                  </button>
+                </div>
+
+                <div className="p-4 md:p-6">
+                  {loadingDetails ? (
+                    <div className="text-center py-12">
+                      <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-gray-700 mx-auto mb-4"></div>
+                      <p className="text-gray-600">상세 정보 불러오는 중...</p>
+                    </div>
+                  ) : bookDetails ? (
+                    <div>
+                      <div className="flex flex-col md:flex-row gap-4 md:gap-6 mb-6">
+                        <div className="flex-shrink-0 mx-auto md:mx-0">
+                          <div className="w-32 h-44 md:w-40 md:h-56 bg-gray-100 rounded-lg overflow-hidden shadow-md">
+                            {bookDetails.cover_url ? (
+                              <img
+                                src={bookDetails.cover_url}
+                                alt={bookDetails.title}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-gray-400 text-3xl md:text-4xl">
+                                📚
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="flex-1">
+                          <h3 className="text-lg md:text-xl font-bold text-gray-900 mb-2 md:mb-2">{bookDetails.title}</h3>
+
+                          <div className="space-y-2 text-sm">
+                            {bookDetails.author && (
+                              <div className="flex">
+                                <span className="text-gray-500 w-20">저자</span>
+                                <span className="text-gray-900 font-medium">{bookDetails.author}</span>
+                              </div>
+                            )}
+                            {bookDetails.publisher && (
+                              <div className="flex">
+                                <span className="text-gray-500 w-20">출판사</span>
+                                <span className="text-gray-900">{bookDetails.publisher}</span>
+                              </div>
+                            )}
+                            {bookDetails.pubDate && (
+                              <div className="flex">
+                                <span className="text-gray-500 w-20">발행일</span>
+                                <span className="text-gray-900">{bookDetails.pubDate}</span>
+                              </div>
+                            )}
+                            {bookDetails.isbn && (
+                              <div className="flex">
+                                <span className="text-gray-500 w-20">ISBN</span>
+                                <span className="text-gray-700 font-mono text-xs">{bookDetails.isbn}</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {bookDetails.description && (
+                        <div className="border-t pt-4">
+                          <h4 className="font-bold text-gray-900 mb-2">책 소개</h4>
+                          <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-line">
+                            {bookDetails.description}
+                          </p>
                         </div>
                       )}
                     </div>
-                  ))
-                ) : (
-                  <div className="p-8 text-center text-gray-400 text-sm">
-                    데이터 없음
-                  </div>
-                )}
+                  ) : (
+                    <div className="text-center py-12 text-gray-500">
+                      정보를 불러올 수 없습니다
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
-          );
-        })}
-      </div>
+          )}
+        </>
+      )}
 
-      {/* Book Details Modal */}
-      {selectedBook && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-3 md:p-4 z-50"
-          onClick={closeModal}
-        >
-          <div
-            className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="sticky top-0 bg-gray-900 text-white px-4 md:px-6 py-3 md:py-4 flex items-center justify-between">
-              <h2 className="text-base md:text-lg font-bold">도서 상세정보</h2>
+      {/* TREND TAB */}
+      {activeTab === "trend" && (
+        <div>
+          {/* Search Box */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 md:p-6 mb-6">
+            <div className="flex gap-4 mb-4">
               <button
-                onClick={closeModal}
-                className="text-white hover:text-gray-300 text-2xl"
+                onClick={() => setSearchType("book")}
+                className={`px-4 py-2 rounded-lg font-semibold text-sm transition ${
+                  searchType === "book"
+                    ? "bg-gray-900 text-white"
+                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                }`}
               >
-                ×
+                📚 도서명 검색
+              </button>
+              <button
+                onClick={() => setSearchType("publisher")}
+                className={`px-4 py-2 rounded-lg font-semibold text-sm transition ${
+                  searchType === "publisher"
+                    ? "bg-gray-900 text-white"
+                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                }`}
+              >
+                🏢 출판사 검색
               </button>
             </div>
 
-            <div className="p-4 md:p-6">
-              {loadingDetails ? (
-                <div className="text-center py-12">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-gray-700 mx-auto mb-4"></div>
-                  <p className="text-gray-600">상세 정보 불러오는 중...</p>
-                </div>
-              ) : bookDetails ? (
-                <div>
-                  <div className="flex flex-col md:flex-row gap-4 md:gap-6 mb-6">
-                    {/* Cover Image */}
-                    <div className="flex-shrink-0 mx-auto md:mx-0">
-                      <div className="w-32 h-44 md:w-40 md:h-56 bg-gray-100 rounded-lg overflow-hidden shadow-md">
-                        {bookDetails.cover_url ? (
-                          <img
-                            src={bookDetails.cover_url}
-                            alt={bookDetails.title}
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center text-gray-400 text-3xl md:text-4xl">
-                            📚
-                          </div>
-                        )}
-                      </div>
-                    </div>
+            <div className="flex gap-2 relative">
+              <div className="flex-1 relative">
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => handleSearchInput(e.target.value)}
+                  onKeyPress={(e) => e.key === "Enter" && handleSearch()}
+                  onFocus={() => autocompleteSuggestions.length > 0 && setShowAutocomplete(true)}
+                  onBlur={() => setTimeout(() => setShowAutocomplete(false), 200)}
+                  placeholder={
+                    searchType === "book"
+                      ? "도서명을 입력하세요 (예: 트렌드 코리아)"
+                      : "출판사명을 입력하세요 (예: 위즈덤하우스)"
+                  }
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900"
+                />
 
-                    {/* Book Info */}
-                    <div className="flex-1">
-                      <h3 className="text-lg md:text-xl font-bold text-gray-900 mb-2 md:mb-2">{bookDetails.title}</h3>
-
-                      <div className="space-y-2 text-sm">
-                        {bookDetails.author && (
-                          <div className="flex">
-                            <span className="text-gray-500 w-20">저자</span>
-                            <span className="text-gray-900 font-medium">{bookDetails.author}</span>
+                {/* Autocomplete Dropdown */}
+                {showAutocomplete && autocompleteSuggestions.length > 0 && (
+                  <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-80 overflow-y-auto z-50">
+                    {searchType === "book" ? (
+                      autocompleteSuggestions.map((book, idx) => (
+                        <div
+                          key={idx}
+                          onClick={() => {
+                            setSearchQuery(book.title);
+                            setShowAutocomplete(false);
+                            handleSearch();
+                          }}
+                          className="flex items-center gap-3 p-3 hover:bg-gray-50 cursor-pointer border-b last:border-b-0"
+                        >
+                          <div className="flex-shrink-0 w-10 h-14 bg-gray-100 rounded overflow-hidden">
+                            {book.cover_url && (
+                              <img src={book.cover_url} alt={book.title} className="w-full h-full object-cover" />
+                            )}
                           </div>
-                        )}
-                        {bookDetails.publisher && (
-                          <div className="flex">
-                            <span className="text-gray-500 w-20">출판사</span>
-                            <span className="text-gray-900">{bookDetails.publisher}</span>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-sm text-gray-900 truncate">{book.title}</p>
+                            <p className="text-xs text-gray-500 truncate">{book.author}</p>
                           </div>
-                        )}
-                        {bookDetails.pubDate && (
-                          <div className="flex">
-                            <span className="text-gray-500 w-20">발행일</span>
-                            <span className="text-gray-900">{bookDetails.pubDate}</span>
-                          </div>
-                        )}
-                        {bookDetails.isbn && (
-                          <div className="flex">
-                            <span className="text-gray-500 w-20">ISBN</span>
-                            <span className="text-gray-700 font-mono text-xs">{bookDetails.isbn}</span>
-                          </div>
-                        )}
-                        {bookDetails.categoryName && (
-                          <div className="flex">
-                            <span className="text-gray-500 w-20">분류</span>
-                            <span className="text-gray-900">{bookDetails.categoryName}</span>
-                          </div>
-                        )}
-                        {bookDetails.priceStandard && (
-                          <div className="flex">
-                            <span className="text-gray-500 w-20">정가</span>
-                            <span className="text-gray-900 font-semibold">{bookDetails.priceStandard.toLocaleString()}원</span>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Current Rank Info */}
-                      <div className="mt-4 p-3 bg-gray-50 rounded-lg">
-                        <div className="flex items-center gap-2 text-sm">
-                          <span className="font-semibold text-gray-700">{selectedBook.platform}</span>
-                          <span className="text-gray-500">·</span>
-                          <span className="font-bold text-gray-900">{selectedBook.rank}위</span>
-                          {selectedBook.rank_change !== null && selectedBook.rank_change !== 0 && (
-                            <>
-                              <span className="text-gray-500">·</span>
-                              {selectedBook.rank_change < 0 ? (
-                                <span className="text-red-500 font-bold">
-                                  ↑ {Math.abs(selectedBook.rank_change)}
-                                </span>
-                              ) : (
-                                <span className="text-blue-500 font-bold">
-                                  ↓ {selectedBook.rank_change}
-                                </span>
-                              )}
-                            </>
-                          )}
                         </div>
+                      ))
+                    ) : (
+                      autocompleteSuggestions.map((item, idx) => (
+                        <div
+                          key={idx}
+                          onClick={() => {
+                            setSearchQuery(item.publisher);
+                            setShowAutocomplete(false);
+                            handleSearch();
+                          }}
+                          className="p-3 hover:bg-gray-50 cursor-pointer border-b last:border-b-0"
+                        >
+                          <p className="font-medium text-sm text-gray-900">{item.publisher}</p>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
+              <button
+                onClick={handleSearch}
+                disabled={trendLoading}
+                className="px-6 py-3 bg-gray-900 text-white rounded-lg font-semibold hover:bg-gray-800 transition disabled:opacity-50"
+              >
+                검색
+              </button>
+            </div>
+          </div>
+
+          {/* Search Results */}
+          {searchResults.length > 0 && !selectedTrendBook && (
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+              <h2 className="text-lg font-bold text-gray-900 mb-4">
+                검색 결과 ({searchResults.length}개)
+              </h2>
+              <div className="space-y-2">
+                {searchResults.map((book) => (
+                  <div
+                    key={book.id}
+                    onClick={() => loadBookTrend(book)}
+                    className="flex items-center gap-4 p-3 hover:bg-gray-50 rounded-lg cursor-pointer transition"
+                  >
+                    <div className="flex-shrink-0 w-12 h-16 bg-gray-100 rounded overflow-hidden">
+                      {book.cover_url && (
+                        <img
+                          src={book.cover_url}
+                          alt={book.title}
+                          className="w-full h-full object-cover"
+                        />
+                      )}
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="font-semibold text-gray-900 text-sm">{book.title}</p>
+                        {book._variantCount > 1 && (
+                          <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-medium rounded-full">
+                            {book._variantCount}개 버전
+                          </span>
+                        )}
                       </div>
+                      <p className="text-xs text-gray-500">{book.author}</p>
+                      <p className="text-xs text-gray-400">{book.publisher}</p>
+                    </div>
+                    <div className="text-gray-400">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
                     </div>
                   </div>
+                ))}
+              </div>
+            </div>
+          )}
 
-                  {/* Description */}
-                  {bookDetails.description && (
-                    <div className="border-t border-gray-200 pt-4">
-                      <h4 className="text-sm font-bold text-gray-900 mb-2">책 소개</h4>
-                      <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">
-                        {bookDetails.description}
-                      </p>
-                    </div>
-                  )}
+          {/* Book Trend Analysis */}
+          {selectedTrendBook && (
+            <div className="space-y-6">
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                <button
+                  onClick={() => {
+                    setSelectedTrendBook(null);
+                    setTrendData([]);
+                  }}
+                  className="mb-4 text-sm text-gray-600 hover:text-gray-900 flex items-center gap-1"
+                >
+                  ← 검색 결과로 돌아가기
+                </button>
 
-                  {/* Link to Aladin */}
-                  {bookDetails.link && (
-                    <div className="mt-4 pt-4 border-t border-gray-200">
-                      <a
-                        href={bookDetails.link}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-block px-4 py-2 bg-gray-900 text-white rounded-lg text-sm font-semibold hover:bg-gray-800 transition"
-                      >
-                        알라딘에서 보기 →
-                      </a>
+                <div className="flex gap-4 mb-4">
+                  <div className="flex-shrink-0 w-24 h-32 bg-gray-100 rounded overflow-hidden shadow-md">
+                    {selectedTrendBook.cover_url && (
+                      <img
+                        src={selectedTrendBook.cover_url}
+                        alt={selectedTrendBook.title}
+                        className="w-full h-full object-cover"
+                      />
+                    )}
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-bold text-gray-900 mb-2">{selectedTrendBook.title}</h2>
+                    <p className="text-sm text-gray-600 mb-1">저자: {selectedTrendBook.author}</p>
+                    <p className="text-sm text-gray-600">출판사: {selectedTrendBook.publisher}</p>
+                  </div>
+                </div>
+
+                {/* 변종 목록 */}
+                {selectedBookGroup && selectedBookGroup.length > 1 && (
+                  <div className="border-t pt-4">
+                    <p className="text-sm text-gray-600 mb-2">
+                      📚 이 책의 다른 버전 ({selectedBookGroup.length}개)
+                    </p>
+                    <div className="space-y-1">
+                      {selectedBookGroup.map((variant, idx) => (
+                        <div key={variant.id} className="text-xs text-gray-500 pl-4">
+                          {idx + 1}. {variant.title} {variant.isbn && `(ISBN: ${variant.isbn})`}
+                        </div>
+                      ))}
                     </div>
-                  )}
+                    <p className="text-xs text-gray-400 mt-2 pl-4">
+                      * 차트는 모든 버전의 데이터를 통합하여 표시합니다
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Period Selector */}
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+                <div className="flex gap-2">
+                  {[
+                    { value: "7", label: "최근 7일" },
+                    { value: "30", label: "최근 30일" },
+                    { value: "90", label: "최근 90일" }
+                  ].map((p) => (
+                    <button
+                      key={p.value}
+                      onClick={() => {
+                        setPeriod(p.value);
+                        loadBookTrend(selectedTrendBook);
+                      }}
+                      className={`px-4 py-2 rounded-lg text-sm font-semibold transition ${
+                        period === p.value
+                          ? "bg-gray-900 text-white"
+                          : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                      }`}
+                    >
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Trend Chart */}
+              {trendData.length > 0 ? (
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                  <h3 className="text-lg font-bold text-gray-900 mb-4">순위 추이</h3>
+                  <ResponsiveContainer width="100%" height={400}>
+                    <LineChart data={trendData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis
+                        dataKey="date"
+                        tick={{ fontSize: 12 }}
+                        angle={-45}
+                        textAnchor="end"
+                        height={80}
+                      />
+                      <YAxis
+                        reversed
+                        domain={[1, 20]}
+                        tick={{ fontSize: 12 }}
+                        label={{ value: '순위', angle: -90, position: 'insideLeft' }}
+                      />
+                      <Tooltip />
+                      <Legend />
+                      {PLATFORMS.map((platform) => (
+                        <Line
+                          key={platform.id}
+                          type="monotone"
+                          dataKey={platform.id}
+                          name={platform.name}
+                          stroke={platform.color}
+                          strokeWidth={2}
+                          dot={{ r: 4 }}
+                          connectNulls
+                        />
+                      ))}
+                    </LineChart>
+                  </ResponsiveContainer>
                 </div>
               ) : (
-                <div className="text-center py-12 text-gray-500">
-                  상세 정보를 불러올 수 없습니다.
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
+                  <p className="text-gray-500">선택한 기간에 베스트셀러 데이터가 없습니다</p>
                 </div>
               )}
             </div>
-          </div>
+          )}
+
+          {/* Empty State */}
+          {searchResults.length === 0 && !selectedTrendBook && !trendLoading && (
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
+              <div className="text-6xl mb-4">🔍</div>
+              <p className="text-gray-600 text-lg font-medium">검색어를 입력하여 분석을 시작하세요</p>
+              <p className="text-gray-400 text-sm mt-2">
+                출판사 또는 도서명으로 검색하면 순위 추이를 확인할 수 있습니다
+              </p>
+            </div>
+          )}
         </div>
       )}
     </div>
