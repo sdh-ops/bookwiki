@@ -36,6 +36,13 @@ export default function AdminBestsellerPage() {
   const [loading, setLoading] = useState(true);
   const [platformData, setPlatformData] = useState({});
   const [selectedCategory, setSelectedCategory] = useState("종합");
+  const [selectedDate, setSelectedDate] = useState(() => {
+    // 한국 시간 기준 오늘 날짜 (UTC+9)
+    const now = new Date();
+    const koreaOffset = 9 * 60; // 9시간을 분으로
+    const koreaTime = new Date(now.getTime() + koreaOffset * 60 * 1000);
+    return koreaTime.toISOString().split('T')[0];
+  });
   const [selectedBook, setSelectedBook] = useState(null);
   const [bookDetails, setBookDetails] = useState(null);
   const [loadingDetails, setLoadingDetails] = useState(false);
@@ -64,12 +71,11 @@ export default function AdminBestsellerPage() {
     if (activeTab === "current") {
       fetchAllData();
     }
-  }, [selectedCategory, activeTab]);
+  }, [selectedCategory, selectedDate, activeTab]);
 
   // === CURRENT TAB FUNCTIONS ===
   async function fetchAllData() {
     setLoading(true);
-    const today = new Date().toISOString().split('T')[0];
 
     const { data } = await supabase
       .from("bw_bestseller_snapshots")
@@ -90,7 +96,7 @@ export default function AdminBestsellerPage() {
       `)
       .eq("period_type", "daily")
       .eq("common_category", selectedCategory)
-      .eq("snapshot_date", today)
+      .eq("snapshot_date", selectedDate)
       .order("rank", { ascending: true });
 
     // Group by platform and remove duplicates
@@ -255,7 +261,27 @@ export default function AdminBestsellerPage() {
           .ilike("publisher", `%${searchQuery}%`)
           .limit(50);
 
-        setSearchResults(data || []);
+        // 출판사 검색도 동일하게 그룹화 적용
+        const groups = {};
+        (data || []).forEach(book => {
+          const normalizedKey = normalizeTitle(book.title);
+          if (!groups[normalizedKey]) {
+            groups[normalizedKey] = [];
+          }
+          groups[normalizedKey].push(book);
+        });
+
+        const representatives = Object.values(groups).map(bookGroup => {
+          const withIsbn = bookGroup.find(b => b.isbn);
+          const representative = withIsbn || bookGroup[0];
+          return {
+            ...representative,
+            _variants: bookGroup,
+            _variantCount: bookGroup.length
+          };
+        });
+
+        setSearchResults(representatives);
       }
     } catch (error) {
       console.error("Search error:", error);
@@ -265,6 +291,7 @@ export default function AdminBestsellerPage() {
   }
 
   async function loadBookTrend(book) {
+    console.log('🔍 loadBookTrend 호출:', book?.title, book?.author);
     setSelectedTrendBook(book);
     setSelectedBookGroup(book._variants || [book]);
     setTrendLoading(true);
@@ -274,16 +301,27 @@ export default function AdminBestsellerPage() {
       const startDate = new Date();
       startDate.setDate(startDate.getDate() - parseInt(period));
 
+      console.log('📅 날짜 범위:', startDate.toISOString().split('T')[0], '~', endDate.toISOString().split('T')[0]);
+
       // 모든 변종의 book_id 수집
       const bookIds = (book._variants || [book]).map(b => b.id);
+      console.log('📚 검색할 book_id:', bookIds);
 
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("bw_bestseller_snapshots")
         .select("*")
         .in("book_id", bookIds)
         .gte("snapshot_date", startDate.toISOString().split('T')[0])
         .lte("snapshot_date", endDate.toISOString().split('T')[0])
         .order("snapshot_date", { ascending: true });
+
+      if (error) {
+        console.error('❌ 쿼리 에러:', error);
+        setTrendData([]);
+        return;
+      }
+
+      console.log('✅ 스냅샷 데이터:', data?.length, '개');
 
       const groupedByDate = {};
 
@@ -301,10 +339,13 @@ export default function AdminBestsellerPage() {
       });
 
       const chartData = Object.values(groupedByDate);
+      console.log('📊 차트 데이터:', chartData.length, '개 날짜');
+      console.log('차트 데이터 상세:', JSON.stringify(chartData, null, 2));
       setTrendData(chartData);
 
     } catch (error) {
-      console.error("Trend load error:", error);
+      console.error("❌ Trend load error:", error);
+      setTrendData([]);
     } finally {
       setTrendLoading(false);
     }
@@ -364,8 +405,31 @@ export default function AdminBestsellerPage() {
       {/* CURRENT TAB */}
       {activeTab === "current" && (
         <>
-          {/* Category Filter */}
-          <div className="mb-4 md:mb-6">
+          {/* Category and Date Filter */}
+          <div className="mb-4 md:mb-6 space-y-3">
+            {/* Date Selector */}
+            <div className="flex items-center gap-3">
+              <label className="text-sm font-semibold text-gray-700">날짜:</label>
+              <input
+                type="date"
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
+              />
+              <button
+                onClick={() => {
+                  const now = new Date();
+                  const koreaOffset = 9 * 60;
+                  const koreaTime = new Date(now.getTime() + koreaOffset * 60 * 1000);
+                  setSelectedDate(koreaTime.toISOString().split('T')[0]);
+                }}
+                className="px-3 py-2 bg-gray-100 text-gray-700 text-sm rounded-lg hover:bg-gray-200 transition"
+              >
+                오늘
+              </button>
+            </div>
+
+            {/* Category Filter */}
             <div className="flex gap-2 overflow-x-auto pb-2 -mx-3 px-3 md:mx-0 md:px-0">
               {CATEGORIES.map(cat => (
                 <button
