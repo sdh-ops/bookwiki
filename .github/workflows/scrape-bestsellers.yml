@@ -65,13 +65,6 @@ jobs:
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
           PUPPETEER_EXECUTABLE_PATH: /usr/bin/chromium-browser
 
-      - name: Check missing ranks
-        if: always()
-        run: node scripts/check-all-categories.js
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
-
       - name: Upload scraper logs
         if: always()
         uses: actions/upload-artifact@v4
