@@ -63,7 +63,7 @@ function CommentItem({ comment, depth, handleReply, handleCommentAction }) {
 
     return (
         <div className="space-y-4">
-            <div className={`p-4 rounded border ${comment.is_hidden ? 'bg-gray-200 border-gray-300' : 'bg-gray-50 border-gray-100'} ${isReply ? `${marginLeft} border-l-4 border-l-[#355E3B]` : ''}`}>
+            <div className={`p-4 rounded border bg-gray-50 border-gray-100 ${isReply ? `${marginLeft} border-l-4 border-l-[#355E3B]` : ''}`}>
                 <div className="flex justify-between items-center mb-2">
                     <div className="flex items-center gap-2">
                         {isReply && <span className="text-[#355E3B] font-bold text-sm mr-1">ㄴ</span>}
