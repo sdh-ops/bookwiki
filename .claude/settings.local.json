@@ -6,7 +6,24 @@
       "Bash(git commit:*)",
       "Bash(npm install:*)",
       "Bash(npm run build:*)",
-      "Bash(psql:*)"
+      "Bash(psql:*)",
+      "Bash(node scripts/debug-scraper.js:*)",
+      "Bash(node scripts/diagnose-platforms.js:*)",
+      "Bash(node scripts/extract-next-data.js:*)",
+      "Bash(node:*)",
+      "Bash(curl:*)",
+      "Bash(git stash:*)",
+      "Bash(git stash pop:*)",
+      "WebFetch(domain:store.kyobobook.co.kr)",
+      "WebFetch(domain:www.yes24.com)",
+      "WebFetch(domain:www.aladin.co.kr)",
+      "WebFetch(domain:gist.github.com)",
+      "WebFetch(domain:journal.kci.go.kr)",
+      "WebFetch(domain:docs.google.com)",
+      "WebFetch(domain:blog.aladin.co.kr)",
+      "Bash(tee:*)",
+      "Bash(ping:*)",
+      "Bash(ls:*)"
     ]
   }
 }

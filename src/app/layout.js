@@ -15,7 +15,7 @@ export const metadata = {
   title: "북위키",
   description: "북위키는 출판업계 종사자들을 위한 정보 공유 플랫폼입니다",
   icons: {
-    icon: "/favicon.ico",
+    icon: "/icon.png",
   },
 };
 
