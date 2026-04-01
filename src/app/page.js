@@ -509,26 +509,24 @@ function PostList() {
             )}
           </div>
 
-          {/* AI Hub Card View */}
+          {/* AI Hub - Preparing Service View */}
           {currentBoard === "ai" ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {[
-                { icon: "📖", title: "원서 검토", desc: "AI가 원서의 완성도와 시장성을 분석합니다" },
-                { icon: "🌐", title: "AI 번역", desc: "출판물 전문 AI 번역 서비스" },
-                { icon: "💡", title: "마케팅 아이디어", desc: "도서 마케팅 전략을 AI가 제안합니다" },
-                { icon: "✏️", title: "제목 제안", desc: "매력적인 도서 제목을 추천받으세요" },
-                { icon: "📝", title: "카피라이팅", desc: "책 소개 문구를 AI가 작성합니다" },
-                { icon: "🎨", title: "표지 컨셉", desc: "표지 디자인 방향을 제안합니다" },
-              ].map((item, idx) => (
-                <div key={idx} className="border border-gray-200 rounded-lg p-5 hover:shadow-md transition bg-white">
-                  <div className="text-3xl mb-3">{item.icon}</div>
-                  <h3 className="font-bold text-gray-800 mb-2">{item.title}</h3>
-                  <p className="text-xs text-gray-500 mb-4">{item.desc}</p>
-                  <span className="inline-block text-[10px] bg-yellow-100 text-yellow-700 px-2 py-1 rounded font-medium">
-                    🚧 개발 중
+            <div className="bg-gray-50 rounded-xl border border-gray-100 p-10 md:p-20 text-center">
+              <div className="max-w-md mx-auto">
+                <div className="text-6xl mb-6">🏗️</div>
+                <h3 className="text-2xl font-bold text-gray-800 mb-4">AI 허브 서비스 준비 중</h3>
+                <p className="text-gray-500 mb-8 leading-relaxed">
+                  더 나은 출판 생태계를 위한 AI 기반 도구들을 개발하고 있습니다.<br />
+                  원서 검토, 번역, 마케팅 지원 등 혁신적인 기능으로 곧 찾아뵙겠습니다.
+                </p>
+                <div className="inline-flex items-center gap-2 px-4 py-2 bg-yellow-100 text-yellow-700 rounded-full text-sm font-bold">
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-yellow-500"></span>
                   </span>
+                  현재 집중 개발 중
                 </div>
-              ))}
+              </div>
             </div>
           ) : currentBoard === "support" && supportView === "calendar" ? (
             <div className="bg-white">

@@ -137,6 +137,8 @@ export default function PostDetailPage() {
     const [user, setUser] = useState(null);
     const [isAdmin, setIsAdmin] = useState(false);
     const [showPasswordModal, setShowPasswordModal] = useState(false);
+    const [showMoveModal, setShowMoveModal] = useState(false);
+    const [targetBoard, setTargetBoard] = useState("");
     const [tempPassword, setTempPassword] = useState("");
     const [managementType, setManagementType] = useState("");
     const router = useRouter();
@@ -314,7 +316,8 @@ export default function PostDetailPage() {
     const handleReply = (commentId, authorName) => {
         setReplyToId(commentId);
         setReplyToAuthor(authorName);
-        setNewComment('');
+        // 답글 작성 시 닉네임을 태그해서 입력창에 넣어줌
+        setNewComment(`@${authorName} `);
         commentInputRef.current?.focus();
     };
 
@@ -395,9 +398,20 @@ export default function PostDetailPage() {
     const handleManagement = (type) => {
         if (!post) return;
 
-        // 관리자는 다른 사용자 글 수정 불가
+        // 관리자는 다른 사용자 글 수정 불가 (게시판 이동은 가능)
         if (isAdmin && type === 'edit' && post.user_id !== user?.id) {
             alert("관리자는 다른 사용자의 게시글을 수정할 수 없습니다.");
+            return;
+        }
+
+        // 게시판 이동 (관리자 전용)
+        if (type === 'move') {
+            if (isAdmin) {
+                setTargetBoard(post.board_type);
+                setShowMoveModal(true);
+            } else {
+                alert("게시판 이동 권한이 없습니다.");
+            }
             return;
         }
 
@@ -460,6 +474,27 @@ export default function PostDetailPage() {
         setTempPassword("");
     };
 
+    const handleMovePost = async () => {
+        if (!targetBoard) return;
+        if (targetBoard === post.board_type) {
+            setShowMoveModal(false);
+            return;
+        }
+
+        const { error } = await supabase
+            .from("bw_posts")
+            .update({ board_type: targetBoard })
+            .eq("id", id);
+
+        if (error) {
+            alert("게시판 이동 실패: " + error.message);
+        } else {
+            alert(`게시글이 [${boardTypeNames[targetBoard]}] 게시판으로 이동되었습니다.`);
+            setShowMoveModal(false);
+            window.location.reload(); // 리프레시하여 변경된 헤더/게시판 명칭 반영
+        }
+    };
+
     if (loading) return <div className="p-10 text-center">로딩 중...</div>;
     if (!post) return <div className="p-10 text-center">게시글을 찾을 수 없습니다.</div>;
 
@@ -508,6 +543,9 @@ export default function PostDetailPage() {
                                 {/* 관리자가 다른 사용자 글일 때 수정 버튼 숨김 */}
                                 {(!isAdmin || (user && post.user_id === user.id)) && (
                                     <button onClick={() => handleManagement('edit')} className="hover:text-black">수정</button>
+                                )}
+                                {isAdmin && (
+                                    <button onClick={() => handleManagement('move')} className="text-blue-500 hover:underline">이동</button>
                                 )}
                                 <button onClick={() => handleManagement('delete')} className="hover:text-red-500">삭제</button>
                             </div>
@@ -665,8 +703,8 @@ export default function PostDetailPage() {
                                 placeholder="닉네임"
                                 value={commentAuthor}
                                 onChange={(e) => !user && setCommentAuthor(e.target.value)}
-                                className={`w-full md:w-auto md:flex-1 max-w-xs px-2 py-1.5 border border-gray-200 rounded text-xs focus:outline-none focus:border-[#355E3B] ${user ? 'bg-gray-100 cursor-not-allowed' : ''}`}
-                                readOnly={!!user}
+                                className={`w-full md:w-auto md:flex-1 max-w-xs px-2 py-1.5 border border-gray-200 rounded text-xs focus:outline-none focus:border-[#355E3B] ${user || !user ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                                readOnly={true}
                                 required
                             />
                             {!user && (
@@ -702,6 +740,42 @@ export default function PostDetailPage() {
                     </form>
                 </div>
             </article>
+
+            {/* Board Move Modal */}
+            {showMoveModal && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+                    <div className="bg-white rounded p-6 max-w-xs w-full shadow-2xl">
+                        <h4 className="text-sm font-bold mb-4">게시판 이동</h4>
+                        <div className="space-y-2 mb-6">
+                            {Object.entries(boardTypeNames).map(([id, name]) => (
+                                <button
+                                    key={id}
+                                    onClick={() => setTargetBoard(id)}
+                                    className={`w-full text-left px-4 py-2 text-sm rounded border ${
+                                        targetBoard === id ? "bg-[#355E3B] text-white border-[#355E3B]" : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50"
+                                    }`}
+                                >
+                                    {name}
+                                </button>
+                            ))}
+                        </div>
+                        <div className="flex space-x-2">
+                            <button
+                                onClick={() => setShowMoveModal(false)}
+                                className="flex-1 py-2 text-xs text-gray-500 hover:bg-gray-50 rounded border border-gray-100"
+                            >
+                                취소
+                            </button>
+                            <button
+                                onClick={handleMovePost}
+                                className="flex-1 py-2 text-xs bg-[#355E3B] text-white rounded hover:bg-[#2A4A2E]"
+                            >
+                                이동하기
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Post Password Modal */}
             {showPasswordModal && (

@@ -43,7 +43,6 @@ export default function MentionInput({ value, onChange, placeholder, className, 
                     .from('bw_comments')
                     .select('author, user_id')
                     .eq('post_id', postId)
-                    .not('user_id', 'is', null) // 회원만
                     .eq('is_deleted', false); // 삭제되지 않은 댓글만
 
                 if (comments) {
