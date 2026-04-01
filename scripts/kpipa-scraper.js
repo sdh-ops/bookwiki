@@ -91,15 +91,6 @@ async function scrapeKPIPA() {
                         contentParts.push(`<div style="background:#fff3cd;border:1px solid #ffc107;padding:12px 15px;margin-bottom:20px;border-radius:8px;"><strong>📅 마감일:</strong> ${deadline}</div>`);
                     }
 
-                    // 2. Get info section (담당자, 기간, 조회수 등)
-                    const infoSection = $('section#bo-v-info, .bo_v_info');
-                    if (infoSection.length > 0) {
-                        const infoText = infoSection.text().replace(/\s+/g, ' ').trim();
-                        if (infoText.length > 10) {
-                            contentParts.push(`<div style="background:#f5f5f5;padding:15px;margin-bottom:20px;border-radius:8px;font-size:14px;line-height:1.8;">${infoText}</div>`);
-                        }
-                    }
-
                     // 3. Get main content from #bo_v_con
                     const mainContent = $('#bo_v_con');
                     if (mainContent.length > 0) {
@@ -172,11 +163,29 @@ async function scrapeKPIPA() {
                             }
                         }
 
+                        // Add Image Previews
+                        const imageFiles = files.filter(f => f.name.match(/\.(png|jpe?g|gif)(\s*\(.*\))?$/i));
+                        if (imageFiles.length > 0) {
+                            for (const img of imageFiles) {
+                                contentParts.push(`<div style="margin:20px 0;text-align:center;"><img src="${img.url}" alt="${img.name}" style="max-width:100%;height:auto;border-radius:8px;border:1px solid #eee;"></div>`);
+                            }
+                        }
+
+                        // Add Office Docs Previews (Word, Excel, HWP)
+                        const officeFiles = files.filter(f => f.name.match(/\.(docx?|xlsx?|hwp)(\s*\(.*\))?$/i));
+                        if (officeFiles.length > 0) {
+                            for (const doc of officeFiles) {
+                                // Using Microsoft Office Viewer for online preview
+                                const viewerUrl = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(doc.url)}`;
+                                contentParts.push(`<div style="margin:200px 0 20px 0;border:1px solid #ddd;border-radius:8px;overflow:hidden;"><div style="background:#f1f3f4;padding:8px 12px;font-size:12px;border-bottom:1px solid #ddd;color:#5f6368;">📄 <strong>미리보기:</strong> ${doc.name}</div><iframe src="${viewerUrl}" style="width:100%;height:600px;border:none;" allowfullscreen></iframe></div>`);
+                            }
+                        }
+
                         // Add file download links
                         if (files.length > 0) {
                             let fileHtml = '<div style="background:#e3f2fd;padding:15px;border-radius:8px;margin-top:20px;"><strong>📎 첨부파일</strong><ul style="margin:10px 0 0 0;padding-left:20px;list-style:none;">';
                             for (const file of files) {
-                                const icon = file.isPdf ? '📕' : '📄';
+                                const icon = file.isPdf ? '📕' : file.name.match(/\.(png|jpe?g|gif)$/i) ? '🖼️' : '📄';
                                 fileHtml += `<li style="margin:8px 0;">${icon} <a href="${file.url}" target="_blank" style="color:#1976d2;text-decoration:none;">${file.name}</a></li>`;
                             }
                             fileHtml += '</ul></div>';

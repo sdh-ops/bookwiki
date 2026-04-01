@@ -154,11 +154,6 @@ async function scrapeBookEditor() {
                             // Fix image URLs
                             content = content.replace(/src="(?!http)([^"]+)"/g, `src="${baseUrl}/editorplaza/sub9/$1"`);
 
-                            // Add author email if found
-                            if (authorEmail && content.length > 50) {
-                                content = `<div style="background:#f5f5f5;padding:10px 15px;margin-bottom:15px;border-radius:6px;font-size:13px;"><strong>✉️ 연락처:</strong> <a href="mailto:${authorEmail}">${authorEmail}</a></div>\n${content}`;
-                            }
-
                             // Style the content for better readability
                             if (content.length > 50) {
                                 content = `<div style="line-height:1.8;font-size:14px;">${content}</div>`;
