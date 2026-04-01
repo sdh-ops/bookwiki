@@ -63,8 +63,10 @@ export default function BestsellerPage() {
       if (selectedPlatform !== "all") {
         query = query.eq("platform", selectedPlatform);
       } else {
-        // For 'all', just get current day's data
-        query = query.eq("snapshot_date", new Date().toISOString().split('T')[0]);
+        // 전일 데이터 표시 (KST 어제 = 실제 판매 데이터 날짜)
+        const kstNow = new Date(Date.now() + 9 * 60 * 60 * 1000);
+        kstNow.setDate(kstNow.getDate() - 1);
+        query = query.eq("snapshot_date", kstNow.toISOString().split('T')[0]);
       }
 
       const { data, error } = await query.limit(100);

@@ -31,6 +31,13 @@ const COMMON_CATEGORIES = [
 ];
 
 const ALADIN_API_KEY = 'ttbsdh10220011';
+
+// KST 기준 전일 날짜 반환 (실제 판매 데이터 날짜)
+function getSnapshotDate() {
+  const kstNow = new Date(Date.now() + 9 * 60 * 60 * 1000);
+  kstNow.setDate(kstNow.getDate() - 1);
+  return kstNow.toISOString().split('T')[0];
+}
 const HEADERS = {
   'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
   'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
@@ -198,7 +205,7 @@ async function scrapeAladdin(category, retries = 3) {
       const books = [];
       $('.ss_book_box').slice(0, 20).each((i, el) => {
         const title = $(el).find('.bo3').text().trim();
-        const info = $(el).find('.ss_book_list li').eq(2).text().trim();
+        const info = $(el).find('.ss_book_list li').eq(0).text().trim();
         const parts = info.split('|');
         const author = cleanAuthor(parts[0]?.trim());
         const pub = parts[1]?.trim();
@@ -244,7 +251,7 @@ async function scrapeKyobo(category, retries = 3) {
     let apiResponse = null;
 
     page.on('response', async (response) => {
-      if (response.url().includes('best-seller/online')) {
+      if (response.url().includes('best-seller/domestic')) {
         try {
           const json = await response.json();
           if (json.data && json.data.bestSeller) {
@@ -256,7 +263,7 @@ async function scrapeKyobo(category, retries = 3) {
 
     try {
       await page.setUserAgent(HEADERS['User-Agent']);
-      const url = `https://store.kyobobook.co.kr/bestseller/online/daily?dsplDvsnCode=${category.kyobo}`;
+      const url = `https://store.kyobobook.co.kr/bestseller/domestic/daily?dsplDvsnCode=${category.kyobo}`;
       await page.goto(url, { waitUntil: 'networkidle2', timeout: 60000 });
       await new Promise(r => setTimeout(r, 3000));
 
@@ -329,7 +336,7 @@ async function scrapeRidi(category, retries = 3) {
       const cleanedBooks = books.slice(0, 20).map((book, idx) => ({
         rank: idx + 1,
         title: cleanTitle(book.title?.main || book.title || ''),
-        author: cleanAuthor(book.author?.name || ''),
+        author: cleanAuthor(book.author?.name || (typeof book.author === 'string' ? book.author : '') || ''),
         publisher: '리디북스',
         cover_url: book.thumbnail?.large || book.thumbnail?.small || null
       }));
@@ -402,7 +409,7 @@ async function sync(platform, books, categoryName) {
 
   console.log(`  -> Syncing ${books.length} items for ${platform}...`);
 
-  const today = new Date().toISOString().split('T')[0];
+  const today = getSnapshotDate();
   let successCount = 0;
 
   for (const book of books) {
@@ -521,7 +528,7 @@ async function sync(platform, books, categoryName) {
 
 // 누락된 순위 확인 함수
 async function checkMissingRanks(platform, categoryName) {
-  const today = new Date().toISOString().split('T')[0];
+  const today = getSnapshotDate();
 
   const { data } = await supabase
     .from('bw_bestseller_snapshots')
