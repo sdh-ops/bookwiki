@@ -3,6 +3,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { supabase } from "@/lib/supabase";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
 } from 'recharts';
@@ -48,6 +49,12 @@ export default function BestsellerPage() {
   const [bookDetails, setBookDetails] = useState(null);
   const [loadingDetails, setLoadingDetails] = useState(false);
 
+  // Navigation states
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [user, setUser] = useState(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const router = useRouter();
+
   // Trend analysis states
   const [searchType, setSearchType] = useState("book");
   const [searchQuery, setSearchQuery] = useState("");
@@ -62,6 +69,26 @@ export default function BestsellerPage() {
   const [publisherHighlight, setPublisherHighlight] = useState("");
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
   const [publisherInsights, setPublisherInsights] = useState(null);
+
+  useEffect(() => {
+    async function checkUser() {
+      const { data: { user } } = await supabase.auth.getUser();
+      setUser(user);
+      if (user) {
+        try {
+          const { data: adminData } = await supabase
+            .from("bw_admins")
+            .select("email")
+            .eq("email", user.email)
+            .maybeSingle();
+          setIsAdmin(!!adminData);
+        } catch (e) {
+          console.log("Admin check error:", e);
+        }
+      }
+    }
+    checkUser();
+  }, []);
 
   useEffect(() => {
     if (activeTab === "current") {
@@ -275,10 +302,117 @@ export default function BestsellerPage() {
     }
   }
 
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    window.location.reload();
+  };
+
+  const boardCategories = [
+    { name: "전체", id: "all" },
+    { name: "HOT", id: "hot" },
+    { name: "구인구직", id: "job" },
+    { name: "지원사업", id: "support" },
+    { name: "톡톡", id: "free" },
+    { name: "베스트셀러", id: "bestseller", href: "/bestseller" },
+    { name: "AI허브", id: "ai" },
+  ];
+
+  const handleBoardClick = (cat) => {
+    if (cat.href) {
+      router.push(cat.href);
+      return;
+    }
+    if (cat.id === "all") {
+      router.push("/");
+    } else {
+      router.push(`/?board=${cat.id}`);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#F8F9FA] pb-20">
+      {/* Platform Navigation Header */}
+      <header className="bg-[#355E3B] text-white">
+        <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+          <div className="flex items-center space-x-6">
+            <button
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="text-2xl font-bold tracking-tighter md:pointer-events-none"
+            >
+              북위키
+            </button>
+            <nav className="hidden md:flex space-x-4 text-sm font-medium">
+              {boardCategories.map((cat) => (
+                <button
+                  key={cat.id}
+                  onClick={() => handleBoardClick(cat)}
+                  className={`hover:underline ${cat.id === "bestseller" ? "font-bold underline" : ""}`}
+                >
+                  {cat.name}
+                </button>
+              ))}
+            </nav>
+          </div>
+          <div className="flex items-center space-x-2 md:space-x-4">
+            {isAdmin && (
+              <Link href="/admin" className="hidden md:block text-xs font-bold bg-red-500 px-3 py-1.5 rounded hover:bg-red-600 transition">
+                관리자
+              </Link>
+            )}
+            {user ? (
+              <div className="hidden md:flex items-center space-x-3">
+                <span className="text-xs text-white/60">{user.user_metadata?.nickname || user.email?.split('@')[0]}</span>
+                <Link href="/mypage" className="text-xs text-white/80 hover:text-white">내 활동</Link>
+                <button onClick={handleLogout} className="text-xs text-white/70 hover:text-white">로그아웃</button>
+              </div>
+            ) : (
+              <Link href="/login" className="hidden md:block text-sm border border-white/30 px-3 py-1 rounded hover:bg-white/10">로그인</Link>
+            )}
+            {user ? (
+              <button
+                onClick={handleLogout}
+                className="md:hidden text-xs border border-white/30 px-2 py-1 rounded hover:bg-white/10"
+              >
+                로그아웃
+              </button>
+            ) : (
+              <Link href="/login" className="md:hidden text-xs border border-white/30 px-2 py-1 rounded hover:bg-white/10">
+                로그인
+              </Link>
+            )}
+          </div>
+        </div>
+        {/* Mobile Menu Dropdown */}
+        {mobileMenuOpen && (
+          <div className="md:hidden bg-[#2A4A2E] border-t border-[#355E3B]">
+            <nav className="max-w-6xl mx-auto px-4 py-2 space-y-1">
+              {boardCategories.map((cat) => (
+                <button
+                  key={cat.id}
+                  onClick={() => { handleBoardClick(cat); setMobileMenuOpen(false); }}
+                  className={`block w-full text-left px-3 py-2 text-sm rounded ${cat.id === "bestseller" ? "bg-[#355E3B] font-bold" : "hover:bg-[#355E3B]/50"}`}
+                >
+                  {cat.name}
+                </button>
+              ))}
+              <div className="border-t border-[#355E3B] pt-2 mt-2">
+                {user ? (
+                  <>
+                    <Link href="/mypage" className="block px-3 py-2 text-sm hover:bg-[#355E3B]/50 rounded">내 활동</Link>
+                    <button onClick={handleLogout} className="block w-full text-left px-3 py-2 text-sm hover:bg-[#355E3B]/50 rounded">로그아웃</button>
+                  </>
+                ) : (
+                  <Link href="/login" className="block px-3 py-2 text-sm hover:bg-[#355E3B]/50 rounded">로그인/회원가입</Link>
+                )}
+                {isAdmin && <Link href="/admin" className="block px-3 py-2 text-sm text-red-300 hover:bg-[#355E3B]/50 rounded">관리자</Link>}
+              </div>
+            </nav>
+          </div>
+        )}
+      </header>
+
       {/* Premium Header */}
-      <header className="bg-gradient-to-r from-[#355E3B] to-[#1A2F1D] text-white py-8 px-6 shadow-xl mb-8">
+      <div className="bg-gradient-to-r from-[#355E3B] to-[#1A2F1D] text-white py-8 px-6 shadow-xl mb-8">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-6">
           <div className="text-center md:text-left">
             <Link href="/" className="text-2xl md:text-3xl font-black tracking-tight flex items-center gap-2">
@@ -303,7 +437,7 @@ export default function BestsellerPage() {
             </button>
           </div>
         </div>
-      </header>
+      </div>
 
       <main className="max-w-7xl mx-auto px-4">
         {/* CURRENT TAB */}

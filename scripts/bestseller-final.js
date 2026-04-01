@@ -313,7 +313,8 @@ async function scrapeRidi(category, retries = 3) {
 
     try {
       await page.setUserAgent(HEADERS['User-Agent']);
-      const url = `https://ridibooks.com/category/bestseller/${category.ridi}`;
+      // 리디 베스트셀러 기본 URL 변경
+      const url = `https://ridibooks.com/bestsellers/${category.ridi === 'general' ? 'general' : 'category/' + category.ridi}`;
       await page.goto(url, { waitUntil: 'networkidle2', timeout: 60000 });
       await new Promise(r => setTimeout(r, 2000));
 
@@ -323,10 +324,13 @@ async function scrapeRidi(category, retries = 3) {
           if (!nextDataEl) return [];
           const data = JSON.parse(nextDataEl.textContent);
 
-          const booksData = data.props?.pageProps?.dehydratedState?.queries?.[2]?.state?.data || {};
-          const bookItems = Object.values(booksData).filter(item => item && item.book);
+          const queries = data.props?.pageProps?.dehydratedState?.queries || [];
+          const bestsellersQuery = queries.find(q => q.state?.data?.bestsellers);
+          if (!bestsellersQuery) return [];
 
-          return bookItems.slice(0, 50).map((item, idx) => {
+          const items = bestsellersQuery.state.data.bestsellers.items || [];
+
+          return items.slice(0, 50).map((item, idx) => {
             const book = item.book;
             const authors = book.authors
               ?.filter(a => ['author', 'AUTHOR', 'original_author'].includes(a.role))
@@ -337,8 +341,9 @@ async function scrapeRidi(category, retries = 3) {
               rank: idx + 1,
               title: book.title?.main || book.title,
               author: authors,
-              publisher: book.publisher?.name || book.publicationInfo?.name || '리디북스',
-              cover_url: `https://img.ridicdn.net/cover/${book.bookId || book.id}/xxlarge`
+              publisher: book.publicationInfo?.name || book.publisher?.name || '리디북스',
+              cover_url: book.thumbnail?.large || `https://img.ridicdn.net/cover/${book.bookId || book.id}/xxlarge`,
+              isbn: book.isbn || book.id
             };
           });
         } catch (e) {
@@ -348,7 +353,6 @@ async function scrapeRidi(category, retries = 3) {
 
       await page.close();
 
-      // 저자 정리 및 필터링
       const cleanedBooks = books
         .map(book => ({
           ...book,
@@ -357,16 +361,11 @@ async function scrapeRidi(category, retries = 3) {
         .filter(book => isValidBook(book.title, book.author));
 
       if (cleanedBooks.length > 0) return cleanedBooks;
-      if (attempt < retries) {
-        console.log(`  [!] Retry ${attempt}/${retries}...`);
-        await new Promise(r => setTimeout(r, 2000));
-      }
     } catch (e) {
-      console.error(`  [!] Attempt ${attempt} failed: ${e.message}`);
+      console.error(`  [!] Ridi Attempt ${attempt} failed: ${e.message}`);
       await page.close();
-      if (attempt === retries) return [];
-      await new Promise(r => setTimeout(r, 2000));
     }
+    await new Promise(r => setTimeout(r, 2000));
   }
   return [];
 }
@@ -380,127 +379,66 @@ async function scrapeMillie(category, retries = 3) {
 
     try {
       await page.setUserAgent(HEADERS['User-Agent']);
+      // 밀리 v3 종합 주소 변경
       const url = category.millie === '0'
-        ? 'https://www.millie.co.kr/v3/bestseller'
-        : `https://www.millie.co.kr/v3/rank?type=WEEKLY&category=${category.millie}`;
+        ? 'https://www.millie.co.kr/v3/today/more/best/bookstore/total?nav_hidden=y'
+        : `https://www.millie.co.kr/v3/today/more/best/bookstore/category/${category.millie}?nav_hidden=y`;
 
-      await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
-
-      // 더 긴 대기 시간과 다양한 셀렉터 시도
-      await new Promise(r => setTimeout(r, 5000));
-
-      // 여러 셀렉터 중 하나라도 나타날 때까지 기다림
-      try {
-        await Promise.race([
-          page.waitForSelector('[class*="book"]', { timeout: 30000 }),
-          page.waitForSelector('[class*="Book"]', { timeout: 30000 }),
-          page.waitForSelector('a[href*="/book/"]', { timeout: 30000 }),
-          page.waitForSelector('img[alt]', { timeout: 30000 })
-        ]);
-      } catch (e) {
-        console.log(`  [!] Selector wait timeout, trying to extract anyway...`);
-      }
+      await page.goto(url, { waitUntil: 'networkidle2', timeout: 60000 });
+      await new Promise(r => setTimeout(r, 4000));
 
       const books = await page.evaluate(() => {
-        const items = [];
+        const list = [];
+        // v3 도서 카드 셀렉터
+        const items = document.querySelectorAll('a.book-data');
+        
+        items.forEach((el, idx) => {
+          if (list.length >= 50) return;
+          
+          const pTags = Array.from(el.querySelectorAll('p'));
+          let title = '';
+          let author = '';
+          
+          // 밀리 특유의 '낭독자' 포함 구조 필터링
+          if (pTags.length >= 3) {
+            // 0: 낭독자, 1: 제목, 2: 저자
+            title = pTags[1].innerText.trim();
+            author = pTags[2].innerText.trim();
+          } else if (pTags.length === 2) {
+            // 0: 제목, 1: 저자
+            title = pTags[0].innerText.trim();
+            author = pTags[1].innerText.trim();
+          }
 
-        // 더 많은 셀렉터 전략
-        const strategies = [
-          // 전략 1: 링크 기반
-          () => {
-            const links = document.querySelectorAll('a[href*="/book/"]');
-            links.forEach((link, idx) => {
-              if (idx >= 50) return;
-              const title = link.querySelector('[class*="title"], [class*="Title"], h3, p')?.textContent?.trim();
-              const author = link.querySelector('[class*="author"], [class*="Author"]')?.textContent?.trim();
-              const img = link.querySelector('img');
-              if (title) {
-                items.push({
-                  rank: idx + 1,
-                  title,
-                  author: author || '알수없음',
-                  publisher: '밀리의서재',
-                  cover_url: img?.src || img?.dataset?.src
-                });
-              }
-            });
-          },
-          // 전략 2: BookItem 클래스
-          () => {
-            const elements = document.querySelectorAll('[class*="BookItem"], [class*="book-item"]');
-            elements.forEach((el, idx) => {
-              if (idx >= 50) return;
-              const title = el.querySelector('[class*="title"], [class*="Title"], h3')?.textContent?.trim();
-              const author = el.querySelector('[class*="author"], [class*="Author"]')?.textContent?.trim();
-              const img = el.querySelector('img');
-              if (title) {
-                items.push({
-                  rank: idx + 1,
-                  title,
-                  author: author || '알수없음',
-                  publisher: '밀리의서재',
-                  cover_url: img?.src || img?.dataset?.src
-                });
-              }
-            });
-          },
-          // 전략 3: 이미지 기반
-          () => {
-            const images = document.querySelectorAll('img[alt]');
-            images.forEach((img, idx) => {
-              if (idx >= 50 || !img.alt) return;
-              const parent = img.closest('a, div, li');
-              const title = img.alt || parent?.querySelector('[class*="title"]')?.textContent?.trim();
-              const author = parent?.querySelector('[class*="author"]')?.textContent?.trim();
-              if (title && title.length > 2) {
-                items.push({
-                  rank: idx + 1,
-                  title,
-                  author: author || '알수없음',
-                  publisher: '밀리의서재',
-                  cover_url: img.src || img.dataset?.src
-                });
-              }
+          if (title) {
+            const imgEl = el.querySelector('img');
+            list.push({
+              rank: idx + 1,
+              title,
+              author: author || '알수없음',
+              publisher: '밀리의서재',
+              cover_url: imgEl?.src || imgEl?.dataset?.src
             });
           }
-        ];
-
-        // 각 전략을 순서대로 시도
-        for (const strategy of strategies) {
-          try {
-            strategy();
-            if (items.length > 0) break;
-          } catch (e) {
-            console.error('Strategy failed:', e);
-          }
-        }
-
-        return items;
+        });
+        return list;
       });
 
       await page.close();
 
-      // 저자 정리
-      const cleanedBooks = books.map(book => ({
-        ...book,
-        author: cleanAuthor(book.author)
-      }));
+      const cleanedBooks = books
+        .map(book => ({
+          ...book,
+          author: cleanAuthor(book.author)
+        }))
+        .filter(book => isValidBook(book.title, book.author));
 
-      if (cleanedBooks.length > 0) {
-        console.log(`  [✓] Found ${cleanedBooks.length} books`);
-        return cleanedBooks;
-      }
-
-      if (attempt < retries) {
-        console.log(`  [!] Retry ${attempt}/${retries}...`);
-        await new Promise(r => setTimeout(r, 3000));
-      }
+      if (cleanedBooks.length > 0) return cleanedBooks;
     } catch (e) {
-      console.error(`  [!] Attempt ${attempt} failed: ${e.message}`);
+      console.error(`  [!] Millie Attempt ${attempt} failed: ${e.message}`);
       await page.close();
-      if (attempt === retries) return [];
-      await new Promise(r => setTimeout(r, 3000));
     }
+    await new Promise(r => setTimeout(r, 3000));
   }
 
   return [];
