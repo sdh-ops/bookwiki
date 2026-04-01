@@ -523,7 +523,7 @@ export default function BestsellerPage() {
                               <span className={`text-xs font-black w-4 text-center ${isHighlighted ? "text-[#355E3B]" : "text-gray-300 group-hover:text-[#355E3B]"}`}>{item.rank}</span>
                               <div className={`w-10 h-14 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0 shadow-sm transition-transform group-hover:scale-105 ${isHighlighted ? "ring-2 ring-[#355E3B]/30 shadow-md" : ""}`}>
                                 {item.bw_books.cover_url ? (
-                                  <img src={item.bw_books.cover_url} className="w-full h-full object-cover" alt="" />
+                                  <img src={item.bw_books.cover_url} referrerPolicy="no-referrer" className="w-full h-full object-cover" alt="" />
                                 ) : <div className="w-full h-full flex items-center justify-center text-xs">📚</div>}
                               </div>
                               <div className="flex-1 min-w-0">
@@ -591,7 +591,7 @@ export default function BestsellerPage() {
                               }}
                               className="px-8 py-4 hover:bg-[#355E3B]/5 cursor-pointer flex items-center gap-4 border-b border-gray-50 last:border-none transition-colors"
                             >
-                              {item.cover_url && <img src={item.cover_url} className="w-10 h-14 rounded-lg object-cover shadow-sm" alt="" />}
+                              {item.cover_url && <img src={item.cover_url} referrerPolicy="no-referrer" className="w-10 h-14 rounded-lg object-cover shadow-sm" alt="" />}
                               <div>
                                 <p className="font-bold text-gray-900">{item.title || item.publisher}</p>
                                 {item.author && <p className="text-xs text-gray-400">{item.author}</p>}

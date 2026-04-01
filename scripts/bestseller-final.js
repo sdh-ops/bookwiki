@@ -251,7 +251,7 @@ async function scrapeAladdin(category, retries = 3) {
         const pub = parts[1]?.trim();
         const dateStr = parts[2]?.trim(); 
         const pubDate = formatDate(dateStr);
-        const img = $(el).find('.front_cover').attr('src');
+        const img = $(el).find('img.front_cover, img.i_cover').first().attr('src');
         
         // ISBN 추출 (itemId가 보통 URL에 있음)
         const href = $(el).find('a.bo3').attr('href') || '';
@@ -317,7 +317,7 @@ async function scrapeKyobo(category, retries = 3) {
           title: item.cmdtName,
           author: cleanAuthor(item.chrcName),
           publisher: item.pbcmName || '알수없음',
-          cover_url: item.imgPath,
+          cover_url: item.cmdtImagePath || item.imgPath,
           pub_date: formatDate(item.rlseDate),
           isbn: item.cmdtCode // 교보문고는 cmdtCode가 ISBN인 경우가 많음
         })).filter(b => isValidBook(b.title, b.author));
