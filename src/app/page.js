@@ -219,14 +219,19 @@ function PostList() {
     { name: "구인구직", id: "job" },
     { name: "지원사업", id: "support" },
     { name: "톡톡", id: "free" },
+    { name: "베스트셀러", id: "bestseller", href: "/bestseller" },
     { name: "AI허브", id: "ai" },
   ];
 
-  const handleBoardClick = (id) => {
-    if (id === "all") {
+  const handleBoardClick = (cat) => {
+    if (cat.href) {
+      router.push(cat.href);
+      return;
+    }
+    if (cat.id === "all") {
       router.push("/");
     } else {
-      router.push(`/?board=${id}`);
+      router.push(`/?board=${cat.id}`);
     }
   };
 
@@ -365,7 +370,7 @@ function PostList() {
               {boardCategories.map((cat) => (
                 <button
                   key={cat.id}
-                  onClick={() => handleBoardClick(cat.id)}
+                  onClick={() => handleBoardClick(cat)}
                   className={`hover:underline ${currentBoard === cat.id ? "font-bold underline" : ""}`}
                 >
                   {cat.name}
@@ -410,7 +415,7 @@ function PostList() {
               {boardCategories.map((cat) => (
                 <button
                   key={cat.id}
-                  onClick={() => { handleBoardClick(cat.id); setMobileMenuOpen(false); }}
+                  onClick={() => { handleBoardClick(cat); setMobileMenuOpen(false); }}
                   className={`block w-full text-left px-3 py-2 text-sm rounded ${currentBoard === cat.id ? "bg-[#355E3B] font-bold" : "hover:bg-[#355E3B]/50"}`}
                 >
                   {cat.name}

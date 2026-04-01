@@ -41,7 +41,7 @@ async function initBrowser() {
 function cleanAuthor(author) {
   if (!author) return '알수없음';
 
-  // 가격 정보가 포함되어 있으면 무시
+  // 가격 정보나 불필요한 태그 제거
   if (author.includes('원') && author.includes('할인')) {
     return '알수없음';
   }
@@ -55,12 +55,37 @@ function cleanAuthor(author) {
     .replace(/\(역\)/g, '')
     .replace(/\(엮은이\)/g, '')
     .replace(/\(편저\)/g, '')
+    .replace(/\(글\)/g, '')
     .replace(/저$/g, '')
     .replace(/역$/g, '')
     .replace(/편저$/g, '')
     .split(',')[0]  // 여러 저자 중 첫 번째만
     .split('/')[0]  // 슬래시로 구분된 경우 첫 번째만
+    .split('|')[0]  // 구분자가 섞인 경우
     .trim() || '알수없음';
+}
+
+// 날짜 형식 통일 함수 (YYYY-MM-DD)
+function formatDate(dateStr) {
+  if (!dateStr) return null;
+  const cleaned = dateStr.replace(/[^0-9]/g, '');
+  if (cleaned.length === 8) {
+    return `${cleaned.substring(0, 4)}-${cleaned.substring(4, 6)}-${cleaned.substring(6, 8)}`;
+  }
+  if (cleaned.length === 6) {
+    // 2024년 3월 -> 2024-03-01
+    return `${cleaned.substring(0, 4)}-${cleaned.substring(4, 6)}-01`;
+  }
+  return null;
+}
+
+// 어제 날짜 (KST 기준) 가져오기
+function getYesterdayKST() {
+  const now = new Date();
+  const kstOffset = 9 * 60 * 60 * 1000;
+  const kstNow = new Date(now.getTime() + kstOffset);
+  kstNow.setDate(kstNow.getDate() - 1);
+  return kstNow.toISOString().split('T')[0];
 }
 
 // 예스24 - Axios 방식 (재시도 로직 포함)
@@ -68,17 +93,23 @@ async function scrapeYes24(category, retries = 3) {
   console.log(`[Yes24] ${category.name}...`);
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
-      const url = `https://www.yes24.com/Product/Category/BestSeller?categoryNumber=${category.yes24}&pageNumber=1&pageSize=24`;
+      const url = `https://www.yes24.com/Product/Category/DayBestSeller?CategoryNumber=${category.yes24}&pageNumber=1&pageSize=50`;
       const res = await axios.get(url, { headers: HEADERS, timeout: 30000 });
       const $ = cheerio.load(res.data);
 
       const books = [];
-      $('#yesBestList li, .itemUnit').slice(0, 20).each((i, el) => {
+      $('#yesBestList li, .itemUnit').slice(0, 50).each((i, el) => {
         const title = $(el).find('.gd_name').text().trim();
-        const author = cleanAuthor($(el).find('.info_auth').text().trim());
-        const pub = $(el).find('.info_pub').text().trim();
+        const author = cleanAuthor($(el).find('.info_auth, .info_pub').first().text().trim());
         const img = $(el).find('img.lazy').attr('data-original') || $(el).find('img').attr('src');
-        if (title) books.push({ rank: i + 1, title, author, publisher: pub, cover_url: img });
+        
+        // 출판사 및 출간일 추출 (info_pub 내에 있음 예: 출판사 | 2024년 03월)
+        const pubText = $(el).find('.info_pub').text().trim();
+        const pub = pubText.split('|')[0]?.trim() || '알수없음';
+        const dateMatch = pubText.match(/\d{4}년\s*\d{1,2}월/);
+        const pubDate = dateMatch ? formatDate(dateMatch[0]) : null;
+
+        if (title) books.push({ rank: i + 1, title, author, publisher: pub, cover_url: img, pub_date: pubDate });
       });
 
       if (books.length > 0) return books;
@@ -105,14 +136,17 @@ async function scrapeAladdin(category, retries = 3) {
       const $ = cheerio.load(res.data);
 
       const books = [];
-      $('.ss_book_box').slice(0, 20).each((i, el) => {
+      $('.ss_book_box').slice(0, 50).each((i, el) => {
         const title = $(el).find('.bo3').text().trim();
-        const info = $(el).find('.ss_book_list li').eq(2).text().trim();
+        // 알라딘은 보통 세 번째 li에 저자|출판사|날짜 정보가 있음
+        let info = $(el).find('.ss_book_list li').filter((idx, li) => $(li).text().includes('|')).first().text().trim();
         const parts = info.split('|');
         const author = cleanAuthor(parts[0]?.trim());
         const pub = parts[1]?.trim();
+        const dateStr = parts[2]?.trim(); // 알라딘은 보통 세 번째가 날짜
+        const pubDate = formatDate(dateStr);
         const img = $(el).find('.front_cover').attr('src');
-        if (title) books.push({ rank: i + 1, title, author, publisher: pub, cover_url: img });
+        if (title) books.push({ rank: i + 1, title, author, publisher: pub, cover_url: img, pub_date: pubDate });
       });
 
       if (books.length > 0) return books;
@@ -150,19 +184,21 @@ async function scrapeKyobo(category, retries = 3) {
 
     try {
       await page.setUserAgent(HEADERS['User-Agent']);
-      const url = `https://store.kyobobook.co.kr/bestseller/online/daily?dsplDvsnCode=${category.kyobo}`;
+      // 국내도서(domestic) 필터 추가 및 per=50 설정
+      const url = `https://store.kyobobook.co.kr/bestseller/online/daily/domestic?dsplDvsnCode=${category.kyobo}&per=50`;
       await page.goto(url, { waitUntil: 'networkidle2', timeout: 60000 });
       await new Promise(r => setTimeout(r, 3000));
 
       await page.close();
 
       if (apiResponse && apiResponse.data.bestSeller) {
-        return apiResponse.data.bestSeller.slice(0, 20).map((item, idx) => ({
+        return apiResponse.data.bestSeller.slice(0, 50).map((item, idx) => ({
           rank: item.prstRnkn || (idx + 1),
           title: item.cmdtName,
           author: cleanAuthor(item.chrcName),
           publisher: item.pbcmName || '알수없음',
-          cover_url: item.imgPath
+          cover_url: item.imgPath,
+          pub_date: formatDate(item.rlseDate)
         }));
       }
 
@@ -202,10 +238,10 @@ async function scrapeRidi(category, retries = 3) {
           const booksData = data.props?.pageProps?.dehydratedState?.queries?.[2]?.state?.data || {};
           const bookItems = Object.values(booksData).filter(item => item && item.book);
 
-          return bookItems.slice(0, 20).map((item, idx) => {
+          return bookItems.slice(0, 50).map((item, idx) => {
             const book = item.book;
             const authors = book.authors
-              ?.filter(a => a.role === 'author' || a.role === 'AUTHOR')
+              ?.filter(a => ['author', 'AUTHOR', 'original_author'].includes(a.role))
               .map(a => a.name)
               .join(', ') || '알수없음';
 
@@ -284,7 +320,7 @@ async function scrapeMillie(category, retries = 3) {
           () => {
             const links = document.querySelectorAll('a[href*="/book/"]');
             links.forEach((link, idx) => {
-              if (idx >= 20) return;
+              if (idx >= 50) return;
               const title = link.querySelector('[class*="title"], [class*="Title"], h3, p')?.textContent?.trim();
               const author = link.querySelector('[class*="author"], [class*="Author"]')?.textContent?.trim();
               const img = link.querySelector('img');
@@ -303,7 +339,7 @@ async function scrapeMillie(category, retries = 3) {
           () => {
             const elements = document.querySelectorAll('[class*="BookItem"], [class*="book-item"]');
             elements.forEach((el, idx) => {
-              if (idx >= 20) return;
+              if (idx >= 50) return;
               const title = el.querySelector('[class*="title"], [class*="Title"], h3')?.textContent?.trim();
               const author = el.querySelector('[class*="author"], [class*="Author"]')?.textContent?.trim();
               const img = el.querySelector('img');
@@ -322,7 +358,7 @@ async function scrapeMillie(category, retries = 3) {
           () => {
             const images = document.querySelectorAll('img[alt]');
             images.forEach((img, idx) => {
-              if (idx >= 20 || !img.alt) return;
+              if (idx >= 50 || !img.alt) return;
               const parent = img.closest('a, div, li');
               const title = img.alt || parent?.querySelector('[class*="title"]')?.textContent?.trim();
               const author = parent?.querySelector('[class*="author"]')?.textContent?.trim();
@@ -392,7 +428,8 @@ async function sync(platform, books, categoryName) {
           title: cleanTitle,
           author: book.author || '알수없음',
           publisher: book.publisher || '알수없음',
-          cover_url: book.cover_url
+          cover_url: book.cover_url,
+          pub_date: book.pub_date || null
         }, { onConflict: 'title,author' })
         .select().single();
 
@@ -403,7 +440,7 @@ async function sync(platform, books, categoryName) {
           period_type: 'daily',
           rank: book.rank,
           common_category: categoryName,
-          snapshot_date: new Date().toISOString().split('T')[0]
+          snapshot_date: getYesterdayKST()
         });
       }
     } catch (err) {
