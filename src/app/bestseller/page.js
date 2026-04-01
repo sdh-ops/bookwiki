@@ -217,26 +217,33 @@ export default function BestsellerPage() {
     }
   }
 
-  async function handleSearchInput(value) {
-    setSearchQuery(value);
-    if (value.trim().length < 2) {
-      setAutocompleteSuggestions([]);
-      setShowAutocomplete(false);
-      return;
-    }
+  async function handleSearchInput(value, isFocus = false) {
+    if (!isFocus) setSearchQuery(value);
+    const term = isFocus ? value.trim() : value;
 
     try {
       if (searchType === "book") {
-        const { data } = await supabase.from("bw_books").select("id, title, author, publisher, cover_url").ilike("title", `%${value}%`).limit(10);
-        setAutocompleteSuggestions(data || []);
-        setShowAutocomplete(true);
+        if (term.length < 2) {
+          const { data } = await supabase.from("bw_books").select("id, title, author, publisher, cover_url").order("id", { ascending: false }).limit(7);
+          setAutocompleteSuggestions(data || []);
+        } else {
+          const { data } = await supabase.from("bw_books").select("id, title, author, publisher, cover_url").ilike("title", `%${term}%`).limit(10);
+          setAutocompleteSuggestions(data || []);
+        }
       } else {
-        const { data } = await supabase.from("bw_books").select("publisher").ilike("publisher", `%${value}%`).limit(10);
-        const uniquePublishers = [...new Set(data?.map(b => b.publisher) || [])];
-        setAutocompleteSuggestions(uniquePublishers.map(p => ({ publisher: p })));
-        setShowAutocomplete(true);
+        if (term.length < 2) {
+          const defaultPubs = ["더난출판사", "웅진지식하우스", "문학동네", "다산북스", "김영사", "민음사", "위즈덤하우스"];
+          setAutocompleteSuggestions(defaultPubs.map(p => ({ publisher: p })));
+        } else {
+          const { data } = await supabase.from("bw_books").select("publisher").ilike("publisher", `%${term}%`).limit(15);
+          const uniquePublishers = [...new Set(data?.map(b => b.publisher) || [])];
+          setAutocompleteSuggestions(uniquePublishers.map(p => ({ publisher: p })));
+        }
       }
-    } catch (e) {}
+      setShowAutocomplete(true);
+    } catch (e) {
+      console.error(e);
+    }
   }
 
   async function handleSearch() {
@@ -566,6 +573,8 @@ export default function BestsellerPage() {
                         type="text"
                         value={searchQuery}
                         onChange={(e) => handleSearchInput(e.target.value)}
+                        onFocus={(e) => handleSearchInput(e.target.value, true)}
+                        onBlur={() => setTimeout(() => setShowAutocomplete(false), 200)}
                         onKeyPress={(e) => e.key === "Enter" && handleSearch()}
                         placeholder={searchType === "book" ? "어떤 책의 순위가 궁금하신가요?" : "어떤 출판사의 성과를 보시겠습니까?"}
                         className="w-full px-8 py-5 bg-gray-50 border-none rounded-[24px] text-lg font-medium focus:ring-4 focus:ring-[#355E3B]/10 transition-all placeholder:text-gray-300"
