@@ -411,35 +411,25 @@ export default function BestsellerPage() {
         )}
       </header>
 
-      {/* Premium Header */}
-      <div className="bg-gradient-to-r from-[#355E3B] to-[#1A2F1D] text-white py-8 px-6 shadow-xl mb-8">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-6">
-          <div className="text-center md:text-left">
-            <Link href="/" className="text-2xl md:text-3xl font-black tracking-tight flex items-center gap-2">
-              <span className="bg-white text-[#355E3B] px-2 py-0.5 rounded italic">BW</span>
-              BOOKWIKI INSIGHT
-            </Link>
-            <p className="text-sm opacity-70 mt-2 font-medium">실시간 베스트셀러 현황 및 트렌드 분석 시스템</p>
-          </div>
-          
-          <div className="flex gap-1 bg-white/10 p-1 rounded-2xl backdrop-blur-md">
+      <main className="max-w-7xl mx-auto px-4 mt-8">
+        {/* TAB CONTROLS */}
+        <div className="flex justify-center mb-8">
+          <div className="flex gap-1 bg-white p-1.5 rounded-2xl shadow-sm border border-gray-200">
             <button
               onClick={() => setActiveTab("current")}
-              className={`px-6 py-2.5 rounded-xl text-sm font-bold transition-all ${activeTab === "current" ? "bg-white text-[#355E3B] shadow-lg" : "hover:bg-white/10"}`}
+              className={`px-8 py-3 rounded-xl text-sm font-bold transition-all ${activeTab === "current" ? "bg-[#355E3B] text-white shadow-md" : "text-gray-500 hover:bg-gray-50 hover:text-gray-700"}`}
             >
               📊 현재 현황
             </button>
             <button
               onClick={() => setActiveTab("trend")}
-              className={`px-6 py-2.5 rounded-xl text-sm font-bold transition-all ${activeTab === "trend" ? "bg-white text-[#355E3B] shadow-lg" : "hover:bg-white/10"}`}
+              className={`px-8 py-3 rounded-xl text-sm font-bold transition-all ${activeTab === "trend" ? "bg-[#355E3B] text-white shadow-md" : "text-gray-500 hover:bg-gray-50 hover:text-gray-700"}`}
             >
               📈 트렌드 분석
             </button>
           </div>
         </div>
-      </div>
 
-      <main className="max-w-7xl mx-auto px-4">
         {/* CURRENT TAB */}
         {activeTab === "current" && (
           <>
