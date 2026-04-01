@@ -552,8 +552,10 @@ export default function BestsellerPage() {
         {activeTab === "trend" && (
           <div className="max-w-5xl mx-auto">
             {/* Search Dashboard */}
-            <div className="bg-white rounded-[40px] shadow-2xl border border-gray-100 p-8 mb-12 relative overflow-hidden">
-               <div className="absolute top-0 right-0 w-64 h-64 bg-[#355E3B]/5 rounded-full -mr-32 -mt-32 blur-3xl"></div>
+            <div className="bg-white rounded-[40px] shadow-2xl border border-gray-100 p-8 mb-12 relative">
+               <div className="absolute inset-0 overflow-hidden rounded-[40px] pointer-events-none">
+                 <div className="absolute top-0 right-0 w-64 h-64 bg-[#355E3B]/5 rounded-full -mr-32 -mt-32 blur-3xl"></div>
+               </div>
                <div className="relative">
                   <div className="flex gap-4 mb-6">
                     {["book", "publisher"].map(t => (
