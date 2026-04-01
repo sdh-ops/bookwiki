@@ -55,8 +55,12 @@ async function scrapeBookEditor() {
                 const tds = $list(el).find('td');
 
                 if (titleLink.length > 0 && tds.length >= 5) {
+                    // Extract real database ID from link
                     const titleText = titleLink.text().trim();
-                    const postId = parseInt($list(tds[0]).text().trim());
+                    const onclick = titleLink.attr('onclick') || '';
+                    const href = titleLink.attr('href') || '';
+                    const idMatch = (onclick + href).match(/id=(\d+)/);
+                    const postId = idMatch ? parseInt(idMatch[1]) : NaN;
 
                     // 공지, re:, Re: 등 답글 필터링
                     const lowerTitle = titleText.toLowerCase();

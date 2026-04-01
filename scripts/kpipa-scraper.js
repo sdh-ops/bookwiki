@@ -3,6 +3,7 @@
 const axios = require('axios');
 const cheerio = require('cheerio');
 const { supabase } = require('./common');
+const pdf = require('pdf-parse');
 
 const MAX_POSTS = 100;
 const START_DATE = new Date('2026-03-01');
@@ -85,10 +86,9 @@ async function scrapeKPIPA() {
 
                     // 1. Extract deadline from period info
                     let deadline = null;
-                    const periodMatch = pageText.match(/기간\s*[:\s]*(\d{4}[-.]?\d{2}[-.]?\d{2})\s*[~-]\s*(\d{4}[-.]?\d{2}[-.]?\d{2})/);
+                    const periodMatch = pageText.match(/기간\s*[:\s]*(\d{4}[-.]?\d{1,2}[-.]?\d{1,2})\s*[~-]\s*(\d{4}[-.]?\d{1,2}[-.]?\d{1,2})/);
                     if (periodMatch) {
                         deadline = periodMatch[2].replace(/\./g, '-');
-                        contentParts.push(`<div style="background:#fff3cd;border:1px solid #ffc107;padding:12px 15px;margin-bottom:20px;border-radius:8px;"><strong>📅 마감일:</strong> ${deadline}</div>`);
                     }
 
                     // 3. Get main content from #bo_v_con
@@ -129,10 +129,11 @@ async function scrapeKPIPA() {
                     }
 
                     // 5. Get attachments and PDF viewers from #bo_v_file
+                    const files = [];
+                    const pdfViewers = [];
+                    let previewUrl = null;
                     const fileSection = $('#bo_v_file, section#bo_v_file');
                     if (fileSection.length > 0) {
-                        const files = [];
-                        const pdfViewers = [];
 
                         // Extract PDF viewer iframes
                         fileSection.find('iframe').each((_, iframe) => {
@@ -156,10 +157,14 @@ async function scrapeKPIPA() {
                             }
                         });
 
-                        // Add PDF viewer embeds
-                        if (pdfViewers.length > 0) {
-                            for (const viewerUrl of pdfViewers) {
-                                contentParts.push(`<div style="margin:20px 0;border:1px solid #ddd;border-radius:8px;overflow:hidden;"><iframe src="${viewerUrl}" style="width:100%;height:600px;border:none;" allowfullscreen></iframe></div>`);
+                        // Select best file for preview (PDF priority)
+                        const bestPreviewFile = files.find(f => f.isPdf) || files.find(f => f.name.match(/\.(docx?|xlsx?|hwp)(\s*\(.*\))?$/i));
+                        
+                        if (bestPreviewFile) {
+                            if (bestPreviewFile.isPdf) {
+                                previewUrl = `https://www.kpipa.or.kr/p/js/pdf/web/viewer.html?file=${encodeURIComponent(bestPreviewFile.url)}`;
+                            } else {
+                                previewUrl = `https://view.officeapps.live.com/op/view.aspx?src=${encodeURIComponent(bestPreviewFile.url)}`;
                             }
                         }
 
@@ -171,15 +176,6 @@ async function scrapeKPIPA() {
                             }
                         }
 
-                        // Add Office Docs Previews (Word, Excel, HWP)
-                        const officeFiles = files.filter(f => f.name.match(/\.(docx?|xlsx?|hwp)(\s*\(.*\))?$/i));
-                        if (officeFiles.length > 0) {
-                            for (const doc of officeFiles) {
-                                // Using Microsoft Office Viewer for online preview
-                                const viewerUrl = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(doc.url)}`;
-                                contentParts.push(`<div style="margin:200px 0 20px 0;border:1px solid #ddd;border-radius:8px;overflow:hidden;"><div style="background:#f1f3f4;padding:8px 12px;font-size:12px;border-bottom:1px solid #ddd;color:#5f6368;">📄 <strong>미리보기:</strong> ${doc.name}</div><iframe src="${viewerUrl}" style="width:100%;height:600px;border:none;" allowfullscreen></iframe></div>`);
-                            }
-                        }
 
                         // Add file download links
                         if (files.length > 0) {
@@ -193,22 +189,67 @@ async function scrapeKPIPA() {
                         }
                     }
 
-                    let content = contentParts.join('\n')
-                        .replace(/<script[\s\S]*?<\/script>/gi, '')
-                        .replace(/<style[\s\S]*?<\/style>/gi, '')
-                        .trim();
+                        // Smart Deadline Extraction from PDF if still missing
+                        if (!deadline && files.length > 0) {
+                            const mainPdf = files.find(f => f.isPdf || f.name.includes('공고') || f.name.includes('안내'));
+                            if (mainPdf) {
+                                try {
+                                    console.log(`    🔍 Extracting deadline from PDF: ${mainPdf.name}...`);
+                                    const pdfResponse = await axios.get(mainPdf.url, { responseType: 'arraybuffer' });
+                                    const pdfData = await pdf(pdfResponse.data);
+                                    const pdfText = pdfData.text;
+                                    
+                                    // Keywords to look for (smart parsing)
+                                    const keywords = ['신청 및 접수', '공고 기간', '접수 기간', '신청 기간', '접수 기한'];
+                                    let foundDeadline = null;
+                                    
+                                    for (const kw of keywords) {
+                                        const kwIndex = pdfText.indexOf(kw);
+                                        if (kwIndex !== -1) {
+                                            // Look for date range in the next 400 chars (more room for tables)
+                                            const proximityText = pdfText.substring(kwIndex, kwIndex + 400);
+                                            // Match YYYY. MM. DD. or YYYY-MM-DD
+                                            const pdfDateMatch = proximityText.match(/(\d{4}[\s.]*[-.]?\s*\d{1,2}[\s.]*[-.]?\s*\d{1,2})\s*[~-]\s*(\d{4}[\s.]*[-.]?\s*\d{1,2}[\s.]*[-.]?\s*\d{1,2})/);
+                                            if (pdfDateMatch) {
+                                                foundDeadline = pdfDateMatch[2].replace(/[\s.]+/g, '-').replace(/-$/, '');
+                                                break;
+                                            }
+                                        }
+                                    }
+                                    
+                                    if (foundDeadline) {
+                                        deadline = foundDeadline;
+                                        console.log(`    ✅ Found deadline in PDF: ${deadline}`);
+                                    }
+                                } catch (pdfErr) {
+                                    console.error(`    ❌ PDF parsing error: ${pdfErr.message}`);
+                                }
+                            }
+                        }
 
-                    if (content.length > 50) {
-                        posts.push({
-                            title: link.title.replace(/새글$/, '').trim(),
-                            source_url: link.url,
-                            author: '출판진흥원',
-                            board_type: 'support',
-                            is_auto: true,
-                            content: content
-                        });
-                        console.log(`[${posts.length}/${MAX_POSTS}] ✓ ${link.title.substring(0, 40)}... (${content.length} chars)`);
-                    }
+                        // Add deadline badge to content if found
+                        if (deadline) {
+                            contentParts.unshift(`<div style="background:#fff3cd;border:1px solid #ffc107;padding:12px 15px;margin-bottom:20px;border-radius:8px;"><strong>📅 마감일:</strong> ${deadline}</div>`);
+                        }
+
+                        let content = contentParts.join('\n')
+                            .replace(/<script[\s\S]*?<\/script>/gi, '')
+                            .replace(/<style[\s\S]*?<\/style>/gi, '')
+                            .trim();
+
+                        if (content.length > 50) {
+                            posts.push({
+                                title: link.title.replace(/새글$/, '').trim(),
+                                source_url: link.url,
+                                author: '출판진흥원',
+                                board_type: 'support',
+                                is_auto: true,
+                                content: content,
+                                deadline: deadline,
+                                preview_url: previewUrl
+                            });
+                            console.log(`[${posts.length}/${MAX_POSTS}] ✓ ${link.title.substring(0, 40)}... (${content.length} chars)`);
+                        }
 
                     await new Promise(r => setTimeout(r, 200));
                 } catch (err) {

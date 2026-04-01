@@ -597,7 +597,58 @@ export default function PostDetailPage() {
                             display: block;
                         }
                     `}</style>
-                    <div className="post-content whitespace-pre-wrap mb-10 overflow-x-auto" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(post.content) }}></div>
+                    <div className="post-content mb-10 overflow-x-auto" dangerouslySetInnerHTML={{ 
+                        __html: DOMPurify.sanitize(post.content, {
+                            ADD_TAGS: ['iframe'], // Keep for backward compatibility if any
+                            ADD_ATTR: ['src', 'allowfullscreen', 'frameborder', 'allow'],
+                            ALLOWED_TAGS: [
+                                'address', 'article', 'aside', 'footer', 'header', 'h1', 'h2', 'h3', 'h4',
+                                'h5', 'h6', 'hgroup', 'main', 'nav', 'section', 'blockquote', 'dd', 'div',
+                                'dl', 'dt', 'figcaption', 'figure', 'hr', 'li', 'main', 'ol', 'p', 'pre',
+                                'ul', 'a', 'abbr', 'b', 'bdi', 'bdo', 'br', 'cite', 'code', 'data', 'dfn',
+                                'em', 'i', 'kbd', 'mark', 'q', 'rb', 'rp', 'rt', 'rtc', 'ruby', 's', 'samp',
+                                'small', 'span', 'strong', 'sub', 'sup', 'time', 'u', 'var', 'wbr', 'caption',
+                                'col', 'colgroup', 'table', 'tbody', 'td', 'tfoot', 'th', 'thead', 'tr', 'img',
+                                'iframe'
+                            ],
+                            ALLOWED_ATTR: [
+                                'accept', 'accesskey', 'action', 'align', 'alt', 'autocomplete', 'autofocus',
+                                'autoplay', 'bgcolor', 'border', 'challenge', 'charset', 'checked', 'cite',
+                                'class', 'cols', 'colspan', 'content', 'contenteditable', 'contextmenu',
+                                'controls', 'coords', 'data', 'datetime', 'default', 'defer', 'dir',
+                                'disabled', 'download', 'draggable', 'enctype', 'for', 'form', 'formaction',
+                                'formenctype', 'formmethod', 'formnovalidate', 'formtarget', 'headers',
+                                'height', 'hidden', 'high', 'href', 'hreflang', 'http-equiv', 'icon', 'id',
+                                'importance', 'integrity', 'ismap', 'itemprop', 'keytype', 'kind', 'label',
+                                'lang', 'list', 'loop', 'low', 'manifest', 'max', 'maxlength', 'media',
+                                'method', 'min', 'minlength', 'multiple', 'muted', 'name', 'novalidate',
+                                'open', 'optimum', 'pattern', 'placeholder', 'poster', 'preload', 'radiogroup',
+                                'readonly', 'rel', 'required', 'reversed', 'rows', 'rowspan', 'sandbox',
+                                'scope', 'scoped', 'selected', 'shape', 'size', 'sizes', 'slot', 'span',
+                                'spellcheck', 'src', 'srcdoc', 'srclang', 'srcset', 'start', 'step', 'style',
+                                'summary', 'tabindex', 'target', 'title', 'translate', 'type', 'usemap',
+                                'value', 'width', 'wrap', 'allowfullscreen', 'frameborder', 'allow'
+                            ]
+                        }) 
+                    }}></div>
+
+                    {/* 실시간 미리보기 필드 (새로운 방식) */}
+                    {post.preview_url && (
+                        <div className="mb-10 p-1 bg-gray-100 rounded-lg border border-gray-200 overflow-hidden shadow-sm">
+                            <div className="bg-gray-100 px-3 py-2 text-xs font-bold text-gray-500 flex justify-between items-center border-bottom border-gray-200">
+                                <span>📄 미리보기</span>
+                                <a href={post.preview_url.split('file=')[1] || post.preview_url.split('src=')[1] || "#"} target="_blank" className="text-blue-500 hover:underline">새창으로 열기</a>
+                            </div>
+                            <div className="relative w-full h-[600px] bg-white">
+                                <iframe 
+                                    src={post.preview_url}
+                                    className="w-full h-full border-none"
+                                    allowFullScreen
+                                    title="Document Preview"
+                                ></iframe>
+                            </div>
+                        </div>
+                    )}
 
                     {/* 구인구직 채용 정보 */}
                     {post.board_type === "job" && (post.job_type || post.job_category || post.experience_level || post.deadline) && (
