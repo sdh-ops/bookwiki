@@ -6,6 +6,16 @@ const iconv = require('iconv-lite');
 const { supabase } = require('./common');
 const qs = require('qs');
 
+function isValidPost(title) {
+    if (!title || title.length < 2) return false;
+    const blacklist = [
+        '로그인', '회원가입', '공지사항', '테스트', '샘플', '광고', '배너',
+        '필독', '안내', '일정', '시스템', '점검', '축하', '환영'
+    ];
+    const lowerTitle = title.toLowerCase();
+    return !blacklist.some(word => lowerTitle.includes(word));
+}
+
 const MAX_POSTS = 100;
 const START_DATE = new Date('2026-03-01');
 const BE_USER = process.env.BOOKEDITOR_ID || 'sdh0815';
@@ -62,9 +72,9 @@ async function scrapeBookEditor() {
                     const idMatch = (onclick + href).match(/id=(\d+)/);
                     const postId = idMatch ? parseInt(idMatch[1]) : NaN;
 
-                    // 공지, re:, Re: 등 답글 필터링
+                    // 공지, re:, Re: 등 답글 및 부적절한 게시물 필터링
                     const lowerTitle = titleText.toLowerCase();
-                    if (!isNaN(postId) && !titleText.includes('공지') && !lowerTitle.startsWith('re:') && !lowerTitle.startsWith('re ')) {
+                    if (!isNaN(postId) && isValidPost(titleText) && !titleText.includes('공지') && !lowerTitle.startsWith('re:') && !lowerTitle.startsWith('re ')) {
                         const detailUrl = `${baseUrl}/editorplaza/sub9/bread.php?id=${postId}&code=bepsub9&start=0`;
                         const author = $list(tds[4]).text().trim() || '익명';
 

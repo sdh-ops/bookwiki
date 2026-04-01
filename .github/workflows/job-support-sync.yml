@@ -1,0 +1,38 @@
+name: Job & Support Data Sync
+
+on:
+  schedule:
+    # 6:00 AM KST is 9:00 PM UTC (21:00)
+    - cron: '0 21 * * *'
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm install --legacy-peer-deps
+
+      - name: Run Support Announcement Scraper
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: node scripts/kpipa-scraper.js
+
+      - name: Run Job Posting Scraper
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          BOOKEDITOR_ID: ${{ secrets.BOOKEDITOR_ID }}
+          BOOKEDITOR_PW: ${{ secrets.BOOKEDITOR_PW }}
+        run: node scripts/bookeditor-scraper.js

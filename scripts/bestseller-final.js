@@ -37,32 +37,57 @@ async function initBrowser() {
   return browser;
 }
 
-// 저자명 정리 함수
-function cleanAuthor(author) {
-  if (!author) return '알수없음';
+// 도서 유효성 검사 함수
+function isValidBook(title, author) {
+  if (!title || title.length < 2) return false;
+  
+  // 블랙리스트 키워드 (완벽한 필터링을 위해 대폭 확장)
+  const blacklist = [
+    '로고', '이벤트', '공지', '배너', '안내', '이미지', '출판사', '서점', 
+    '교보문고', '예스24', '알라딘', '리디', '밀리', '쿠폰', '적립', '가이드',
+    '예약판매', '잡지', '월간', '증정', '비매품', '세트할인', '기프트', '사은품', '굿즈',
+    '캐시백', '포인트', '할인권', '문구', '오피스', '학용품', '다이어리', '플래너',
+    '아크릴', '스티커', '카드', '부록', '엽서', '포스터', '마스킹테이프', '필통', '머그컵',
+    '북마크', '북슬리브', '도서 1만 5천원', '이상 구매 시', '초판 스티커', '스크래치 카드',
+    '키링', '인스', '노트', '북토크', '강연', '사인회', '배송료', '배송비', '포함 상품',
+    '랜덤', '박스', '패키지', '포토카드', '폴라로이드', '인생네컷', '엽서세트', 'L홀더',
+    '파우치', '손수건', '클리너', '에코백', '토트백', '텀블러', '배지', '뱃지', '와펜',
+    '마그넷', '자석', '메모지', '포스트잇', '볼펜', '연필', '지우개', '샤프', '스케줄러',
+    '편지지', '봉투', '문구세트', '편지세트', '박스테이프', '마스킹', '데코레이션'
+  ];
 
-  // 가격 정보나 불필요한 태그 제거
-  if (author.includes('원') && author.includes('할인')) {
-    return '알수없음';
+  const lowerTitle = title.toLowerCase();
+  
+  // 제목에 블랙리스트가 포함되어 있는지 확인
+  if (blacklist.some(word => lowerTitle.includes(word.toLowerCase()))) return false;
+  
+  // 저자가 '알수없음'이거나 '저자 미상'인 경우, 제목에 [도서] 등의 태그가 없다면 의심
+  if (!author || author === '저자 미상' || author === '알수없음') {
+    // 상품명에 흔한 도서 형태가 아니면 일단 제외
+    if (title.length < 5) return false;
+    // 사은품이나 굿즈는 보통 저자가 없거나 특정 문구가 들어감
+    if (lowerTitle.includes('원 이상')) return false;
   }
 
-  return author
-    .replace(/\(지은이\)/g, '')
-    .replace(/\(옮긴이\)/g, '')
-    .replace(/\(감수\)/g, '')
-    .replace(/\(그림\)/g, '')
-    .replace(/\(저\)/g, '')
-    .replace(/\(역\)/g, '')
-    .replace(/\(엮은이\)/g, '')
-    .replace(/\(편저\)/g, '')
-    .replace(/\(글\)/g, '')
-    .replace(/저$/g, '')
-    .replace(/역$/g, '')
-    .replace(/편저$/g, '')
-    .split(',')[0]  // 여러 저자 중 첫 번째만
-    .split('/')[0]  // 슬래시로 구분된 경우 첫 번째만
-    .split('|')[0]  // 구분자가 섞인 경우
-    .trim() || '알수없음';
+  return true;
+}
+
+// 저자명 정리 함수
+function cleanAuthor(author) {
+  if (!author || author === '알수없음') return '저자 미상';
+
+  // 가격 정보나 불필요한 태그/괄호 제거
+  let cleaned = author
+    .replace(/\s+/g, ' ')
+    .replace(/\[(지은이|저|작가|글|그림|역|옮긴이|편저|엮음|원작)\]/g, '')
+    .replace(/\((지은이|저|작가|글|그림|역|옮긴이|편저|엮음|원작)\)/g, '')
+    .replace(/\([^)]*\)/g, '') // 일반적인 괄호 내용 제거
+    .trim();
+
+  // 여러 구분자 처리 (첫 번째 저자만 추출)
+  cleaned = cleaned.split(/[,/|]/)[0].trim();
+
+  return cleaned || '저자 미상';
 }
 
 // 날짜 형식 통일 함수 (YYYY-MM-DD)
@@ -98,18 +123,44 @@ async function scrapeYes24(category, retries = 3) {
       const $ = cheerio.load(res.data);
 
       const books = [];
-      $('#yesBestList li, .itemUnit').slice(0, 50).each((i, el) => {
-        const title = $(el).find('.gd_name').text().trim();
-        const author = cleanAuthor($(el).find('.info_auth, .info_pub').first().text().trim());
+      const seenTitles = new Set();
+
+      $('#yesBestList li, .itemUnit').each((i, el) => {
+        if (books.length >= 50) return;
+
+        const titleText = $(el).find('.gd_name').text().trim();
+        const authorRaw = $(el).find('.info_auth, .info_pub').first().text().trim();
+        const author = cleanAuthor(authorRaw);
+
+        if (!titleText || !isValidBook(titleText, author)) return;
+        
+        // 중복 제거 (특히 eBook과 일반 도서가 같이 나오는 경우 대비)
+        const normalizedTitle = titleText.replace(/\s+/g, '').toLowerCase();
+        if (seenTitles.has(normalizedTitle)) return;
+        seenTitles.add(normalizedTitle);
+
         const img = $(el).find('img.lazy').attr('data-original') || $(el).find('img').attr('src');
         
+        // ISBN 추출 (상세 페이지 링크에서 추출 시도)
+        const href = $(el).find('.gd_name').attr('href') || '';
+        const isbnMatch = href.match(/Product\/Goods\/(\d+)/);
+        const isbn = isbnMatch ? isbnMatch[1] : null;
+
         // 출판사 및 출간일 추출 (info_pub 내에 있음 예: 출판사 | 2024년 03월)
         const pubText = $(el).find('.info_pub').text().trim();
         const pub = pubText.split('|')[0]?.trim() || '알수없음';
         const dateMatch = pubText.match(/\d{4}년\s*\d{1,2}월/);
         const pubDate = dateMatch ? formatDate(dateMatch[0]) : null;
 
-        if (title) books.push({ rank: i + 1, title, author, publisher: pub, cover_url: img, pub_date: pubDate });
+        books.push({ 
+          rank: books.length + 1, 
+          title: titleText, 
+          author, 
+          publisher: pub, 
+          cover_url: img, 
+          pub_date: pubDate,
+          isbn
+        });
       });
 
       if (books.length > 0) return books;
@@ -136,17 +187,53 @@ async function scrapeAladdin(category, retries = 3) {
       const $ = cheerio.load(res.data);
 
       const books = [];
-      $('.ss_book_box').slice(0, 50).each((i, el) => {
-        const title = $(el).find('.bo3').text().trim();
+      const seenTitles = new Set();
+
+      $('.ss_book_box').each((i, el) => {
+        if (books.length >= 50) return;
+
+        const titleArea = $(el).find('.ss_book_list li').first();
+        const titleText = titleArea.find('.bo3').text().trim() || titleArea.text().trim();
+        
         // 알라딘은 보통 세 번째 li에 저자|출판사|날짜 정보가 있음
-        let info = $(el).find('.ss_book_list li').filter((idx, li) => $(li).text().includes('|')).first().text().trim();
+        let infoRow = $(el).find('.ss_book_list li').filter((idx, li) => $(li).text().includes('|')).first();
+        let info = infoRow.text().trim();
         const parts = info.split('|');
         const author = cleanAuthor(parts[0]?.trim());
+
+        // 알라딘 특유의 사은품/굿즈 필터링 (저자가 없거나 가격만 있는 경우 등)
+        const priceArea = $(el).find('.ss_p2').text().trim();
+        // 가격이 없으면 보통 비구매 사은품
+        if (priceArea.includes('포인트 차감') || !info.includes('|') || !priceArea) return;
+        
+        // 추가 필터링: 제목에 괄호로 되어 있는 사은품 정보 등
+        if (titleText.includes(') 이상') || titleText.includes(') 사은품')) return;
+
+        if (!titleText || !isValidBook(titleText, author)) return;
+
+        const normalizedTitle = titleText.replace(/\s+/g, '').toLowerCase();
+        if (seenTitles.has(normalizedTitle)) return;
+        seenTitles.add(normalizedTitle);
+
         const pub = parts[1]?.trim();
-        const dateStr = parts[2]?.trim(); // 알라딘은 보통 세 번째가 날짜
+        const dateStr = parts[2]?.trim(); 
         const pubDate = formatDate(dateStr);
         const img = $(el).find('.front_cover').attr('src');
-        if (title) books.push({ rank: i + 1, title, author, publisher: pub, cover_url: img, pub_date: pubDate });
+        
+        // ISBN 추출 (itemId가 보통 URL에 있음)
+        const href = $(el).find('a.bo3').attr('href') || '';
+        const isbnMatch = href.match(/ItemId=(\d+)/);
+        const isbn = isbnMatch ? isbnMatch[1] : null;
+
+        books.push({ 
+          rank: books.length + 1, 
+          title: titleText, 
+          author, 
+          publisher: pub, 
+          cover_url: img, 
+          pub_date: pubDate,
+          isbn
+        });
       });
 
       if (books.length > 0) return books;
@@ -198,8 +285,9 @@ async function scrapeKyobo(category, retries = 3) {
           author: cleanAuthor(item.chrcName),
           publisher: item.pbcmName || '알수없음',
           cover_url: item.imgPath,
-          pub_date: formatDate(item.rlseDate)
-        }));
+          pub_date: formatDate(item.rlseDate),
+          isbn: item.cmdtCode // 교보문고는 cmdtCode가 ISBN인 경우가 많음
+        })).filter(b => isValidBook(b.title, b.author));
       }
 
       if (attempt < retries) {
@@ -260,11 +348,13 @@ async function scrapeRidi(category, retries = 3) {
 
       await page.close();
 
-      // 저자 정리
-      const cleanedBooks = books.map(book => ({
-        ...book,
-        author: cleanAuthor(book.author)
-      }));
+      // 저자 정리 및 필터링
+      const cleanedBooks = books
+        .map(book => ({
+          ...book,
+          author: cleanAuthor(book.author)
+        }))
+        .filter(book => isValidBook(book.title, book.author));
 
       if (cleanedBooks.length > 0) return cleanedBooks;
       if (attempt < retries) {
@@ -429,8 +519,9 @@ async function sync(platform, books, categoryName) {
           author: book.author || '알수없음',
           publisher: book.publisher || '알수없음',
           cover_url: book.cover_url,
-          pub_date: book.pub_date || null
-        }, { onConflict: 'title,author' })
+          pub_date: book.pub_date || null,
+          isbn: book.isbn || null
+        }, { onConflict: 'title,author' }) // ISBN이 있으면 더 좋지만 일단 호환성 유지
         .select().single();
 
       if (record) {
@@ -483,4 +574,16 @@ async function run() {
   console.log('\n=== [All platforms scraped successfully!] ===');
 }
 
-run();
+module.exports = {
+  initBrowser,
+  scrapeKyobo,
+  scrapeYes24,
+  scrapeAladdin,
+  scrapeRidi,
+  scrapeMillie,
+  run
+};
+
+if (require.main === module) {
+  run();
+}

@@ -5,6 +5,16 @@ const cheerio = require('cheerio');
 const { supabase } = require('./common');
 const pdf = require('pdf-parse');
 
+function isValidPost(title) {
+    if (!title || title.length < 2) return false;
+    const blacklist = [
+        '로그인', '회원가입', '공지사항', '테스트', '샘플', '광고', '배너',
+        '필독', '안내', '일정', '시스템', '점검', '축하', '환영'
+    ];
+    const lowerTitle = title.toLowerCase();
+    return !blacklist.some(word => lowerTitle.includes(word));
+}
+
 const MAX_POSTS = 100;
 const START_DATE = new Date('2026-03-01');
 
@@ -30,7 +40,8 @@ async function scrapeKPIPA() {
             $list('a').each((_, el) => {
                 const href = $list(el).attr('href') || '';
                 const text = $list(el).text().trim();
-                if (href.match(/\/p\/g1_2\/\d+/) && text.length > 5) {
+                
+                if (href.match(/\/p\/g1_2\/\d+/) && text.length > 5 && isValidPost(text)) {
                     const fullUrl = href.startsWith('http') ? href : `${baseUrl}${href}`;
                     if (!postLinks.find(p => p.url === fullUrl)) {
                         postLinks.push({ title: text, url: fullUrl });
