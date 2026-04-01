@@ -5,6 +5,8 @@ const axios = require('axios');
 const cheerio = require('cheerio');
 const { supabase } = require('./common');
 
+const ALADIN_API_KEY = 'ttbsdh10220011';
+
 /**
  * [Bestseller Scraper FINAL - 5 Platforms Integrated]
  * 교보/예스24/알라딘/리디/밀리 - 모든 플랫폼 지원
@@ -111,6 +113,37 @@ function getYesterdayKST() {
   const kstNow = new Date(now.getTime() + kstOffset);
   kstNow.setDate(kstNow.getDate() - 1);
   return kstNow.toISOString().split('T')[0];
+}
+
+// 누락된 표지/출판사 정보를 알라딘 API를 통해 보완 (Fallback)
+async function fetchMissingInfo(title, author) {
+  try {
+    const safeTitle = title.replace(/\[도서\]/g, '').split('(')[0].split('-')[0].trim();
+    const url = 'http://www.aladin.co.kr/ttb/api/ItemSearch.aspx';
+    const params = {
+      ttbkey: ALADIN_API_KEY,
+      Query: safeTitle + ' ' + (author !== '저자 미상' ? author.split(' ')[0] : ''),
+      QueryType: 'Keyword',
+      MaxResults: 2,
+      start: 1,
+      SearchTarget: 'Book',
+      output: 'js',
+      Version: '20131101'
+    };
+    const response = await axios.get(url, { params, timeout: 5000 });
+    if (response.data && response.data.item && response.data.item.length > 0) {
+      // Find the closest match (often the first one provided by relevant searching)
+      const book = response.data.item[0];
+      return {
+        cover_url: book.cover?.replace('coversum', 'cover200') || book.cover, // Get higher res cover
+        publisher: book.publisher,
+        isbn: book.isbn13 || book.isbn
+      };
+    }
+  } catch (e) {
+    // Fail silently, returning null
+  }
+  return null;
 }
 
 // 예스24 - Axios 방식 (재시도 로직 포함)
@@ -408,16 +441,23 @@ async function scrapeMillie(category, retries = 3) {
             // 0: 제목, 1: 저자
             title = pTags[0].innerText.trim();
             author = pTags[1].innerText.trim();
+          } else if (pTags.length === 1) {
+            title = pTags[0].innerText.trim();
           }
 
           if (title) {
             const imgEl = el.querySelector('img');
+            // Check robustly for lazy-loaded src or standard src
+            const coverSrc = imgEl?.src || imgEl?.dataset?.src || imgEl?.dataset?.original || imgEl?.getAttribute('data-src');
+            // If it starts with data:image (base64 placeholder), we consider it missing
+            const finalCover = coverSrc && !coverSrc.startsWith('data:image') ? coverSrc : null;
+            
             list.push({
               rank: idx + 1,
               title,
               author: author || '알수없음',
               publisher: '밀리의서재',
-              cover_url: imgEl?.src || imgEl?.dataset?.src
+              cover_url: finalCover
             });
           }
         });
@@ -451,14 +491,28 @@ async function sync(platform, books, categoryName) {
   for (const book of books) {
     try {
       const cleanTitle = book.title.replace(/\[도서\]/g, '').trim();
+      let cover = book.cover_url;
+      let pub = book.publisher;
+      let isbn = book.isbn;
+
+      // 알라딘 API를 이용한 결측치 메꾸기 (표지가 없거나 밀리의서재/알수없음 출판사인 경우)
+      if (!cover || !cover.startsWith('http') || pub === '알수없음' || pub === '밀리의서재') {
+        const fallback = await fetchMissingInfo(cleanTitle, book.author);
+        if (fallback) {
+          if (!cover || !cover.startsWith('http')) cover = fallback.cover_url;
+          if (pub === '알수없음' || pub === '밀리의서재') pub = fallback.publisher;
+          if (!isbn) isbn = fallback.isbn;
+        }
+      }
+
       const { data: record } = await supabase.from('bw_books')
         .upsert({
           title: cleanTitle,
           author: book.author || '알수없음',
-          publisher: book.publisher || '알수없음',
-          cover_url: book.cover_url,
+          publisher: pub || '알수없음',
+          cover_url: cover || null,
           pub_date: book.pub_date || null,
-          isbn: book.isbn || null
+          isbn: isbn || null
         }, { onConflict: 'title,author' }) // ISBN이 있으면 더 좋지만 일단 호환성 유지
         .select().single();
 
