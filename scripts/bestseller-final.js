@@ -212,7 +212,7 @@ async function scrapeAladdin(category, retries = 3) {
   console.log(`[Aladin] ${category.name}...`);
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
-      const url = `https://www.aladin.co.kr/shop/common/wbest.aspx?BestType=DailyBest&CID=${category.aladdin}`;
+      const url = `https://www.aladin.co.kr/shop/common/wbest.aspx?BestType=DailyBest&CID=${category.aladin}`;
       const res = await axios.get(url, { headers: HEADERS, timeout: 30000 });
       const $ = cheerio.load(res.data);
 
