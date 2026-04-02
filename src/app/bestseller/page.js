@@ -307,8 +307,8 @@ export default function BestsellerPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F8F9FA] pb-20">
-      {/* Platform Navigation Header */}
+    <div className="min-h-screen bg-white pb-20">
+      {/* Header */}
       <header className="bg-[#355E3B] text-white">
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center space-x-6">
@@ -388,19 +388,19 @@ export default function BestsellerPage() {
         )}
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 mt-8">
+      <main className="max-w-6xl mx-auto px-4 mt-8">
         {/* TAB CONTROLS */}
         <div className="flex justify-center mb-8">
-          <div className="flex gap-1 bg-white p-1.5 rounded-2xl shadow-sm border border-gray-200">
+          <div className="flex border border-gray-200 rounded-lg overflow-hidden text-sm shadow-sm bg-white">
             <button
               onClick={() => setActiveTab("current")}
-              className={`px-8 py-3 rounded-xl text-sm font-bold transition-all ${activeTab === "current" ? "bg-[#355E3B] text-white shadow-md" : "text-gray-500 hover:bg-gray-50 hover:text-gray-700"}`}
+              className={`px-8 py-2.5 transition-all font-bold ${activeTab === "current" ? "bg-[#355E3B] text-white" : "text-gray-500 hover:bg-gray-50 hover:text-gray-900"}`}
             >
               📊 현재 현황
             </button>
             <button
               onClick={() => setActiveTab("trend")}
-              className={`px-8 py-3 rounded-xl text-sm font-bold transition-all ${activeTab === "trend" ? "bg-[#355E3B] text-white shadow-md" : "text-gray-500 hover:bg-gray-50 hover:text-gray-700"}`}
+              className={`px-8 py-2.5 transition-all font-bold ${activeTab === "trend" ? "bg-[#355E3B] text-white" : "text-gray-500 hover:bg-gray-50 hover:text-gray-900"}`}
             >
               📈 트렌드 분석
             </button>
@@ -411,13 +411,13 @@ export default function BestsellerPage() {
         {activeTab === "current" && (
           <>
             {/* Filters */}
-            <div className="flex flex-col md:flex-row gap-4 mb-8 bg-white p-6 rounded-3xl shadow-sm border border-gray-100 justify-between items-center">
+            <div className="flex flex-col md:flex-row gap-4 mb-8 bg-white p-5 rounded-xl border border-gray-200 shadow-sm justify-between items-center">
               <div className="flex gap-2 overflow-x-auto w-full md:w-auto scrollbar-hide">
                 {CATEGORIES.map(cat => (
                   <button
                     key={cat}
                     onClick={() => setSelectedCategory(cat)}
-                    className={`px-4 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap ${selectedCategory === cat ? "bg-[#355E3B] text-white shadow-md" : "bg-gray-50 text-gray-400 hover:bg-gray-100"}`}
+                    className={`px-4 py-1.5 rounded-md text-[13px] font-bold transition whitespace-nowrap ${selectedCategory === cat ? "bg-[#355E3B] text-white" : "bg-gray-50 border border-gray-100 text-gray-600 hover:bg-gray-100"}`}
                   >
                     {cat}
                   </button>
@@ -431,15 +431,15 @@ export default function BestsellerPage() {
                     placeholder="강조할 출판사 입력..."
                     value={publisherHighlight}
                     onChange={(e) => setPublisherHighlight(e.target.value)}
-                    className="pl-10 pr-4 py-2 bg-gray-50 border-2 border-transparent rounded-xl text-sm font-bold focus:outline-none focus:border-[#355E3B] focus:bg-white transition-all w-48 group-hover:bg-gray-100"
+                    className="pl-9 pr-4 py-2 bg-gray-50 border border-transparent rounded-lg text-[13px] font-medium focus:outline-none focus:border-[#355E3B] focus:bg-white transition-all w-52"
                   />
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-hover:text-[#355E3B] transition-colors">🔍</span>
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs">🔍</span>
                 </div>
                 <input
                   type="date"
                   value={selectedDate}
                   onChange={(e) => setSelectedDate(e.target.value)}
-                  className="px-4 py-2 border-2 border-gray-100 rounded-xl text-sm font-bold focus:outline-none focus:border-[#355E3B] transition-colors"
+                  className="px-4 py-2 border border-gray-200 bg-white rounded-lg text-[13px] font-medium focus:outline-none focus:border-[#355E3B] transition-colors"
                 />
               </div>
             </div>
@@ -447,7 +447,7 @@ export default function BestsellerPage() {
             {/* Publisher Insights Summary (Visible when publisher is set) */}
             {publisherHighlight && publisherInsights && (
               <div className="mb-6 animate-in fade-in slide-in-from-top-2 duration-300">
-                <div className="bg-[#355E3B] text-white p-6 rounded-[28px] shadow-xl flex flex-col md:flex-row justify-between items-center gap-6 relative overflow-hidden">
+                <div className="bg-[#355E3B] text-white p-6 rounded-2xl border border-[#355E3B] shadow-sm flex flex-col md:flex-row justify-between items-center gap-6 relative overflow-hidden">
                   <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-2xl"></div>
                   <div className="relative">
                     <h3 className="text-xl font-black mb-1 flex items-center gap-2">
@@ -466,13 +466,13 @@ export default function BestsellerPage() {
               {PLATFORMS.map(platform => {
                 const books = platformData[platform.id] || [];
                 return (
-                  <div key={platform.id} className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden flex flex-col h-[700px]">
-                    <div className="p-4 text-white font-black text-sm text-center tracking-widest uppercase" style={{ backgroundColor: platform.color }}>
+                  <div key={platform.id} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col h-[750px]">
+                    <div className="py-2.5 px-4 text-white font-bold text-sm text-center tracking-wider bg-gray-800" style={{ backgroundColor: platform.color }}>
                       {platform.name}
                     </div>
-                    <div className="flex-1 overflow-y-auto p-2 space-y-2 scrollbar-hide">
+                    <div className="flex-1 overflow-y-auto p-2 space-y-1.5 scrollbar-hide">
                       {loading ? (
-                        <div className="h-full flex items-center justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-300"></div></div>
+                        <div className="h-full flex items-center justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#355E3B]"></div></div>
                       ) : books.length > 0 ? (
                         books.map((item, idx) => {
                           const isHighlighted = publisherHighlight && item.bw_books.publisher?.includes(publisherHighlight);
@@ -480,23 +480,28 @@ export default function BestsellerPage() {
                             <div 
                               key={idx}
                               onClick={() => handleBookClick(item, platform.name)}
-                              className={`flex items-center gap-3 p-2 rounded-2xl cursor-pointer transition-all border border-transparent group ${isHighlighted ? "bg-[#355E3B]/10 border-[#355E3B]/20 shadow-sm" : "hover:bg-gray-50 hover:border-gray-100"}`}
+                              className={`flex items-start gap-3 p-3 rounded-lg cursor-pointer transition-all border border-transparent group leading-tight ${isHighlighted ? "bg-[#355E3B]/10 border-[#355E3B]/20" : "hover:bg-gray-50 hover:border-gray-100"}`}
                             >
-                              <span className={`text-xs font-black w-4 text-center ${isHighlighted ? "text-[#355E3B]" : "text-gray-300 group-hover:text-[#355E3B]"}`}>{item.rank}</span>
+                              <span className={`text-sm font-bold w-5 mt-0.5 text-center shrink-0 ${isHighlighted ? "text-[#355E3B]" : "text-gray-300 group-hover:text-[#355E3B]"}`}>{item.rank}</span>
                               <div className="flex-1 min-w-0">
-                                <p className={`text-[11px] font-bold truncate mb-0.5 ${isHighlighted ? "text-[#355E3B]" : "text-gray-800"}`}>{item.bw_books.title}</p>
-                                <p className="text-[9px] text-gray-400 truncate">{item.bw_books.author}</p>
-                                <p className="text-[8px] text-gray-300 truncate mt-0.5">{item.bw_books.publisher}</p>
+                                <p className={`text-sm font-bold truncate mb-1 ${isHighlighted ? "text-[#355E3B]" : "text-gray-900"}`}>{item.bw_books.title}</p>
+                                <p className="text-[12px] text-gray-500 truncate mb-1">{item.bw_books.author}</p>
+                                <div className="flex items-center justify-between mt-1">
+                                  <p className="text-[11px] text-gray-400 truncate">
+                                    {item.bw_books.publisher}
+                                    {item.bw_books.pub_date && ` | ${item.bw_books.pub_date.split('-').slice(0,3).join('.').substring(2)}`}
+                                  </p>
+                                  {item.rank_change !== 0 && (
+                                    <span className={`text-[10px] font-bold shrink-0 ${item.rank_change > 0 ? 'text-red-500' : 'text-blue-500'}`}>
+                                      {item.rank_change > 0 ? `▲${item.rank_change}` : `▼${Math.abs(item.rank_change)}`}
+                                    </span>
+                                  )}
+                                </div>
                               </div>
-                              {item.rank_change !== 0 && (
-                                <span className={`text-[9px] font-black ${item.rank_change > 0 ? 'text-red-500' : 'text-blue-500'}`}>
-                                  {item.rank_change > 0 ? `▲${item.rank_change}` : `▼${Math.abs(item.rank_change)}`}
-                                </span>
-                              )}
                             </div>
                           );
                         })
-                      ) : <div className="h-full flex items-center justify-center text-xs text-gray-300">데이터 없음</div>}
+                      ) : <div className="h-full flex items-center justify-center text-sm text-gray-300">데이터가 없습니다.</div>}
                     </div>
                   </div>
                 );
@@ -507,26 +512,23 @@ export default function BestsellerPage() {
 
         {/* TREND TAB */}
         {activeTab === "trend" && (
-          <div className="max-w-5xl mx-auto">
+          <div className="max-w-5xl mx-auto py-4">
             {/* Search Dashboard */}
-            <div className="bg-white rounded-[40px] shadow-2xl border border-gray-100 p-8 mb-12 relative">
-               <div className="absolute inset-0 overflow-hidden rounded-[40px] pointer-events-none">
-                 <div className="absolute top-0 right-0 w-64 h-64 bg-[#355E3B]/5 rounded-full -mr-32 -mt-32 blur-3xl"></div>
-               </div>
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 mb-10 relative">
                <div className="relative">
-                  <div className="flex gap-4 mb-6">
+                  <div className="flex gap-2 mb-6">
                     {["book", "publisher"].map(t => (
                       <button
                         key={t}
                         onClick={() => setSearchType(t)}
-                        className={`px-6 py-2 rounded-2xl text-xs font-black transition-all ${searchType === t ? "bg-black text-white" : "bg-gray-100 text-gray-400 hover:bg-gray-200"}`}
+                        className={`px-5 py-2 rounded-lg text-sm font-bold transition-all ${searchType === t ? "bg-[#355E3B] text-white" : "bg-gray-50 text-gray-400 hover:bg-gray-100"}`}
                       >
                         {t === "book" ? "📚 도서명 검색" : "🏢 출판사 검색"}
                       </button>
                     ))}
                   </div>
 
-                  <div className="flex gap-3 relative">
+                  <div className="flex gap-2 relative">
                     <div className="flex-1 relative">
                       <input
                         type="text"
@@ -535,11 +537,11 @@ export default function BestsellerPage() {
                         onFocus={(e) => handleSearchInput(e.target.value, true)}
                         onBlur={() => setTimeout(() => setShowAutocomplete(false), 200)}
                         onKeyPress={(e) => e.key === "Enter" && handleSearch()}
-                        placeholder={searchType === "book" ? "어떤 책의 순위가 궁금하신가요?" : "어떤 출판사의 성과를 보시겠습니까?"}
-                        className="w-full px-8 py-5 bg-gray-50 border-none rounded-[24px] text-lg font-medium focus:ring-4 focus:ring-[#355E3B]/10 transition-all placeholder:text-gray-300"
+                        placeholder={searchType === "book" ? "도서 제목을 찾아보세요..." : "출판사 이름을 입력하세요..."}
+                        className="w-full px-6 py-4 bg-gray-50 border border-gray-100 rounded-xl text-lg font-medium focus:outline-none focus:ring-2 focus:ring-[#355E3B]/20 transition-all placeholder:text-gray-300"
                       />
                       {showAutocomplete && autocompleteSuggestions.length > 0 && (
-                        <div className="absolute top-full left-0 right-0 mt-3 bg-white border border-gray-100 rounded-[28px] shadow-3xl z-50 overflow-hidden backdrop-blur-xl">
+                        <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-xl shadow-xl z-50 overflow-hidden">
                           {autocompleteSuggestions.map((item, idx) => (
                             <div
                               key={idx}
@@ -548,12 +550,11 @@ export default function BestsellerPage() {
                                 else { setSearchQuery(item.publisher); handleSearch(); }
                                 setShowAutocomplete(false);
                               }}
-                              className="px-8 py-4 hover:bg-[#355E3B]/5 cursor-pointer flex items-center gap-4 border-b border-gray-50 last:border-none transition-colors"
+                              className="px-6 py-3.5 hover:bg-gray-50 cursor-pointer flex items-center gap-4 border-b border-gray-50 last:border-none transition-colors"
                             >
-                              {/* Cover removed */}
                               <div>
-                                <p className="font-bold text-gray-900">{item.title || item.publisher}</p>
-                                {item.author && <p className="text-xs text-gray-400">{item.author}</p>}
+                                <p className="font-bold text-gray-900 text-sm">{item.title || item.publisher}</p>
+                                {item.author && <p className="text-xs text-gray-400 mt-0.5">{item.author}</p>}
                               </div>
                             </div>
                           ))}
@@ -562,9 +563,9 @@ export default function BestsellerPage() {
                     </div>
                     <button 
                       onClick={handleSearch}
-                      className="px-10 bg-[#355E3B] text-white rounded-[24px] font-black hover:bg-[#1A2F1D] transition-all shadow-lg active:scale-95"
+                      className="px-8 bg-[#355E3B] text-white rounded-xl font-bold hover:bg-[#2A4A2E] transition-all shadow-md active:scale-95"
                     >
-                      검색하기
+                      검색
                     </button>
                   </div>
                </div>
@@ -624,13 +625,17 @@ export default function BestsellerPage() {
             ) : searchResults.length > 0 ? (
                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {searchResults.map((book, idx) => (
-                    <div key={idx} onClick={() => loadBookTrend(book)} className="bg-white p-6 rounded-[32px] shadow-sm border border-gray-100 hover:shadow-xl transition-all cursor-pointer flex gap-6 items-center group">
-                        {/* Cover removed */}
-                       <div className="flex-1 min-w-0">
-                          <p className="text-lg font-black text-gray-900 truncate group-hover:text-[#355E3B] transition-colors">{book.title}</p>
-                          <p className="text-sm text-gray-500 font-medium">{book.author} / {book.publisher}</p>
-                       </div>
-                       <div className="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center text-gray-400 group-hover:bg-[#355E3B] group-hover:text-white transition-all">→</div>
+                    <div key={idx} onClick={() => loadBookTrend(book)} className="bg-white p-5 rounded-xl border border-gray-100 shadow-sm hover:border-[#355E3B] transition-all cursor-pointer flex gap-5 items-center group">
+                        <div className="flex-1 min-w-0">
+                           <p className="text-base font-bold text-gray-900 truncate group-hover:text-[#355E3B] transition-colors">{book.title}</p>
+                           <p className="text-sm text-gray-500 font-medium mt-1">
+                             {book.author} · {book.publisher} 
+                             {book.pub_date && <span className="ml-2 text-gray-400 text-xs">({book.pub_date})</span>}
+                           </p>
+                        </div>
+                        <div className="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center text-gray-400 group-hover:bg-[#355E3B] group-hover:text-white transition-all">
+                          <span className="text-xs">→</span>
+                        </div>
                     </div>
                   ))}
                </div>
@@ -647,13 +652,16 @@ export default function BestsellerPage() {
 
       {/* Book Details Modal */}
       {selectedBook && !selectedTrendBook && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md transition-all">
-          <div className="bg-white rounded-[40px] w-full max-w-2xl max-h-[90vh] overflow-hidden shadow-3xl flex flex-col animate-in zoom-in-95 duration-300">
-             <div className="p-10 overflow-y-auto">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm transition-all text-sm">
+          <div className="bg-white rounded-2xl w-full max-w-xl max-h-[90vh] overflow-hidden shadow-2xl flex flex-col animate-in zoom-in-95 duration-200">
+             <div className="p-8 overflow-y-auto">
                 <div className="flex flex-col md:flex-row gap-10 mb-10">
                    <div className="flex-1 text-center md:text-left">
                       <h3 className="text-2xl font-black text-gray-900 mb-2">{selectedBook.bw_books?.title}</h3>
-                      <p className="text-gray-500 font-bold mb-6 italic">{selectedBook.bw_books?.author} · {selectedBook.bw_books?.publisher}</p>
+                      <p className="text-gray-500 font-bold mb-6 italic">
+                        {selectedBook.bw_books?.author} · {selectedBook.bw_books?.publisher}
+                        {selectedBook.bw_books?.pub_date && <span className="ml-2 font-normal text-xs not-italic">({selectedBook.bw_books.pub_date} 출간)</span>}
+                      </p>
                       
                       <div className="flex flex-wrap gap-2 justify-center md:justify-start">
                          <span className="px-3 py-1 bg-gray-100 rounded-lg text-[10px] font-black text-gray-400">ISBN: {selectedBook.bw_books?.isbn || 'N/A'}</span>
@@ -672,10 +680,10 @@ export default function BestsellerPage() {
                 </div>
              </div>
              
-             <div className="p-8 border-t border-gray-50 bg-gray-50/50 flex gap-3">
+             <div className="p-6 border-t border-gray-100 bg-gray-50 flex gap-2">
                 <button 
                    onClick={() => { setSelectedBook(null); }}
-                   className="flex-1 py-4 bg-black text-white rounded-2xl font-black shadow-xl hover:shadow-2xl transition-all active:scale-95"
+                   className="flex-1 py-3 bg-[#355E3B] text-white rounded-xl font-bold hover:shadow-lg transition-all active:scale-95"
                 >
                    확인
                 </button>
@@ -686,7 +694,7 @@ export default function BestsellerPage() {
                       setSelectedBook(null);
                       setActiveTab("trend");
                    }}
-                   className="px-8 py-4 bg-white border-2 border-gray-100 rounded-2xl font-black text-gray-400 hover:text-black transition-all"
+                   className="px-6 py-3 bg-white border border-gray-200 rounded-xl font-bold text-gray-500 hover:text-black transition-all"
                 >
                    트렌드 보기
                 </button>
