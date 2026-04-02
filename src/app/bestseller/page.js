@@ -155,52 +155,23 @@ export default function BestsellerPage() {
     setLoading(false);
   }
 
-  const handlePublisherReport = async () => {
-    if (!publisherHighlight || !publisherInsights) {
-        alert("먼저 강조할 출판사 지정을 해주세요.");
-        return;
-    }
-    setIsGeneratingReport(true);
-    try {
-        await generatePublisherReport(publisherHighlight, publisherInsights, publisherInsights.allBooks);
-    } catch (e) {
-        console.error(e);
-        alert("리포트 생성 중 오류가 발생했습니다.");
-    } finally {
-        setIsGeneratingReport(false);
-    }
-  };
-
   async function handleBookClick(book, platform) {
     setSelectedBook({ ...book, platform });
     setLoadingDetails(true);
     setBookDetails(null);
 
     try {
-      let coverUrl = book.bw_books.cover_url;
-      if (!coverUrl && book.bw_books.isbn) {
-        const coverResponse = await fetch(`/api/aladin/lookup?isbn=${book.bw_books.isbn}&type=cover`);
-        if (coverResponse.ok) {
-          const coverData = await coverResponse.json();
-          if (coverData.cover) {
-            coverUrl = coverData.cover;
-            await supabase.from('bw_books').update({ cover_url: coverUrl }).eq('id', book.bw_books.id);
-          }
-        }
-      }
-
       if (book.bw_books.isbn) {
         const response = await fetch(`/api/aladin/lookup?isbn=${book.bw_books.isbn}`);
         if (response.ok) {
           const data = await response.json();
-          setBookDetails({ ...data, cover_url: coverUrl || data.cover });
+          setBookDetails({ ...data }); // No cover
         }
       } else {
         setBookDetails({
           title: book.bw_books.title,
           author: book.bw_books.author,
           publisher: book.bw_books.publisher,
-          cover_url: coverUrl,
           description: "ISBN 정보가 없어 상세 정보를 불러올 수 없습니다."
         });
       }
@@ -209,7 +180,6 @@ export default function BestsellerPage() {
         title: book.bw_books.title,
         author: book.bw_books.author,
         publisher: book.bw_books.publisher,
-        cover_url: book.bw_books.cover_url,
         description: "상세 정보를 불러오는데 실패했습니다."
       });
     } finally {
@@ -486,15 +456,7 @@ export default function BestsellerPage() {
                     <p className="text-sm opacity-90 font-medium">검색된 베스트셀러: <span className="font-black text-white">{publisherInsights.ourBooks.length}</span>권</p>
                   </div>
                   
-                  <div className="flex gap-4 relative">
-                    <button 
-                      onClick={handlePublisherReport}
-                      disabled={isGeneratingReport}
-                      className="px-6 py-3 bg-white text-[#355E3B] rounded-2xl font-black text-sm hover:shadow-2xl transition-all active:scale-95 disabled:opacity-50"
-                    >
-                      {isGeneratingReport ? "⏳ 리포트 생성 중..." : "📄 전문 리포트 다운로드"}
-                    </button>
-                  </div>
+                  {/* Report Download removed */}
                 </div>
               </div>
             )}
@@ -521,11 +483,6 @@ export default function BestsellerPage() {
                               className={`flex items-center gap-3 p-2 rounded-2xl cursor-pointer transition-all border border-transparent group ${isHighlighted ? "bg-[#355E3B]/10 border-[#355E3B]/20 shadow-sm" : "hover:bg-gray-50 hover:border-gray-100"}`}
                             >
                               <span className={`text-xs font-black w-4 text-center ${isHighlighted ? "text-[#355E3B]" : "text-gray-300 group-hover:text-[#355E3B]"}`}>{item.rank}</span>
-                              <div className={`w-10 h-14 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0 shadow-sm transition-transform group-hover:scale-105 ${isHighlighted ? "ring-2 ring-[#355E3B]/30 shadow-md" : ""}`}>
-                                {item.bw_books.cover_url ? (
-                                  <img src={item.bw_books.cover_url} referrerPolicy="no-referrer" className="w-full h-full object-cover" alt="" />
-                                ) : <div className="w-full h-full flex items-center justify-center text-xs">📚</div>}
-                              </div>
                               <div className="flex-1 min-w-0">
                                 <p className={`text-[11px] font-bold truncate mb-0.5 ${isHighlighted ? "text-[#355E3B]" : "text-gray-800"}`}>{item.bw_books.title}</p>
                                 <p className="text-[9px] text-gray-400 truncate">{item.bw_books.author}</p>
@@ -593,7 +550,7 @@ export default function BestsellerPage() {
                               }}
                               className="px-8 py-4 hover:bg-[#355E3B]/5 cursor-pointer flex items-center gap-4 border-b border-gray-50 last:border-none transition-colors"
                             >
-                              {item.cover_url && <img src={item.cover_url} referrerPolicy="no-referrer" className="w-10 h-14 rounded-lg object-cover shadow-sm" alt="" />}
+                              {/* Cover removed */}
                               <div>
                                 <p className="font-bold text-gray-900">{item.title || item.publisher}</p>
                                 {item.author && <p className="text-xs text-gray-400">{item.author}</p>}
@@ -621,9 +578,6 @@ export default function BestsellerPage() {
                     <span className="text-lg">←</span> 목록으로 돌아가기
                   </button>
                   <div className="flex flex-col md:flex-row gap-10 items-center md:items-start text-center md:text-left">
-                    <div className="w-48 aspect-[3/4] bg-gray-100 rounded-[24px] shadow-2xl overflow-hidden flex-shrink-0 border-8 border-white">
-                      <img src={selectedTrendBook.cover_url} className="w-full h-full object-cover" alt="" />
-                    </div>
                     <div className="flex-1">
                       <span className="bg-[#355E3B]/10 text-[#355E3B] px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest mb-4 inline-block">Best Seller Trend</span>
                       <h2 className="text-4xl font-black text-gray-900 mb-4 tracking-tighter">{selectedTrendBook.title}</h2>
@@ -632,14 +586,7 @@ export default function BestsellerPage() {
                         <p>출판사: <span className="text-gray-900">{selectedTrendBook.publisher}</span></p>
                       </div>
                       
-                      <div className="mt-8 flex gap-3">
-                        <button 
-                           onClick={() => generateBookReport(selectedTrendBook, trendData, PLATFORMS)}
-                           className="px-6 py-3 bg-white border-2 border-gray-100 rounded-2xl text-sm font-bold hover:bg-gray-50 transition-all flex items-center gap-2"
-                        >
-                          📄 데이터 PDF 추출
-                        </button>
-                      </div>
+                      {/* PDF extraction removed */}
                     </div>
                   </div>
                 </div>
@@ -678,9 +625,7 @@ export default function BestsellerPage() {
                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {searchResults.map((book, idx) => (
                     <div key={idx} onClick={() => loadBookTrend(book)} className="bg-white p-6 rounded-[32px] shadow-sm border border-gray-100 hover:shadow-xl transition-all cursor-pointer flex gap-6 items-center group">
-                       <div className="w-16 h-24 bg-gray-50 rounded-xl overflow-hidden shadow-md flex-shrink-0 group-hover:scale-105 transition-transform">
-                          <img src={book.cover_url} className="w-full h-full object-cover" alt="" />
-                       </div>
+                        {/* Cover removed */}
                        <div className="flex-1 min-w-0">
                           <p className="text-lg font-black text-gray-900 truncate group-hover:text-[#355E3B] transition-colors">{book.title}</p>
                           <p className="text-sm text-gray-500 font-medium">{book.author} / {book.publisher}</p>
@@ -706,9 +651,6 @@ export default function BestsellerPage() {
           <div className="bg-white rounded-[40px] w-full max-w-2xl max-h-[90vh] overflow-hidden shadow-3xl flex flex-col animate-in zoom-in-95 duration-300">
              <div className="p-10 overflow-y-auto">
                 <div className="flex flex-col md:flex-row gap-10 mb-10">
-                   <div className="w-40 h-56 bg-gray-100 rounded-[24px] shadow-2xl overflow-hidden border-8 border-white flex-shrink-0 mx-auto md:mx-0">
-                      <img src={bookDetails?.cover_url || selectedBook.bw_books?.cover_url} className="w-full h-full object-cover" alt="" />
-                   </div>
                    <div className="flex-1 text-center md:text-left">
                       <h3 className="text-2xl font-black text-gray-900 mb-2">{selectedBook.bw_books?.title}</h3>
                       <p className="text-gray-500 font-bold mb-6 italic">{selectedBook.bw_books?.author} · {selectedBook.bw_books?.publisher}</p>

@@ -147,7 +147,7 @@ export default function LoginPage() {
         });
 
         if (error) {
-            setMessage("로그인 실패: 비밀번호 또는 정보를 확인해주세요.");
+            setMessage("로그인 실패: 비밀번호 또는 정보를 확인해주세요. (보안을 위해 5회 이상 실패 시 계정이 잠길 수 있습니다.)");
         } else {
             window.location.href = "/";
         }
@@ -428,6 +428,14 @@ export default function LoginPage() {
                                         />
                                     </div>
                                     <p className="mt-1 text-xs text-gray-500">입력한 아이디의 이메일로 비밀번호 재설정 링크가 발송됩니다.</p>
+                                </div>
+                            )}
+
+                            {findType === "id" && (
+                                <div className="p-3 bg-yellow-50 border border-yellow-100 rounded-lg">
+                                    <p className="text-xs text-yellow-700 leading-relaxed font-medium">
+                                        <span className="font-bold">⚠️ 알림:</span> 아이디 확인을 위한 보안 이메일(Magic Link)은 <span className="font-bold underline">영문으로 발송</span>됩니다. 이로 인해 국내 메일 서비스에서 <span className="font-bold">스팸으로 분류</span>될 수 있으니, 메일이 오지 않는다면 반드시 <strong>스팸함</strong>을 확인해 주세요.
+                                    </p>
                                 </div>
                             )}
 

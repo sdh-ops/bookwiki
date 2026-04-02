@@ -13,12 +13,12 @@ const ALADIN_API_KEY = 'ttbsdh10220011';
  */
 
 const COMMON_CATEGORIES = [
-  { id: 'total', name: '종합', kyobo: '000', yes24: '001', aladdin: '0', ridi: 'general', millie: '0' },
-  { id: 'fiction', name: '소설', kyobo: '100', yes24: '001001046', aladdin: '1', ridi: '100', millie: '1' },
-  { id: 'essay', name: '에세이/시', kyobo: '300', yes24: '001001047', aladdin: '55889', ridi: '106', millie: '11' },
-  { id: 'humanities', name: '인문', kyobo: '500', yes24: '001001019', aladdin: '656', ridi: '103', millie: '3' },
-  { id: 'economy', name: '경제경영', kyobo: '1300', yes24: '001001025', aladdin: '170', ridi: '105', millie: '5' },
-  { id: 'selfhelp', name: '자기계발', kyobo: '1500', yes24: '001001026', aladdin: '336', ridi: '113', millie: '6' }
+  { id: 'total', name: '종합', kyobo: '000', yes24: '001', aladdin: '0', ridi: 'general', millie: 'total' },
+  { id: 'fiction', name: '소설', kyobo: '100', yes24: '001001046', aladdin: '1', ridi: '100', millie: 'story' },
+  { id: 'essay', name: '에세이/시', kyobo: '300', yes24: '001001047', aladdin: '55889', ridi: '110', millie: 'poem' },
+  { id: 'humanities', name: '인문', kyobo: '500', yes24: '001001019', aladdin: '656', ridi: '400', millie: 'humanities' },
+  { id: 'economy', name: '경제경영', kyobo: '1300', yes24: '001001025', aladdin: '170', ridi: '200', millie: 'economy' },
+  { id: 'selfhelp', name: '자기계발', kyobo: '1500', yes24: '001001026', aladdin: '336', ridi: '300', millie: 'self-development' }
 ];
 
 const HEADERS = {
@@ -55,7 +55,8 @@ function isValidBook(title, author) {
     '랜덤', '박스', '패키지', '포토카드', '폴라로이드', '인생네컷', '엽서세트', 'L홀더',
     '파우치', '손수건', '클리너', '에코백', '토트백', '텀블러', '배지', '뱃지', '와펜',
     '마그넷', '자석', '메모지', '포스트잇', '볼펜', '연필', '지우개', '샤프', '스케줄러',
-    '편지지', '봉투', '문구세트', '편지세트', '박스테이프', '마스킹', '데코레이션'
+    '편지지', '봉투', '문구세트', '편지세트', '박스테이프', '마스킹', '데코레이션',
+    '만원 이상', '주년 기념', '특별 한정', '박스 세트', '포인트 차감', '사은품 증정'
   ];
 
   const lowerTitle = title.toLowerCase();
@@ -135,7 +136,6 @@ async function fetchMissingInfo(title, author) {
       // Find the closest match (often the first one provided by relevant searching)
       const book = response.data.item[0];
       return {
-        cover_url: book.cover?.replace('coversum', 'cover200') || book.cover, // Get higher res cover
         publisher: book.publisher,
         isbn: book.isbn13 || book.isbn
       };
@@ -190,7 +190,6 @@ async function scrapeYes24(category, retries = 3) {
           title: titleText, 
           author, 
           publisher: pub, 
-          cover_url: img, 
           pub_date: pubDate,
           isbn
         });
@@ -226,35 +225,34 @@ async function scrapeAladdin(category, retries = 3) {
         if (books.length >= 50) return;
 
         const titleArea = $(el).find('.ss_book_list li').first();
-        const titleText = titleArea.find('.bo3').text().trim() || titleArea.text().trim();
-        
-        // 알라딘은 보통 세 번째 li에 저자|출판사|날짜 정보가 있음
-        let infoRow = $(el).find('.ss_book_list li').filter((idx, li) => $(li).text().includes('|')).first();
-        let info = infoRow.text().trim();
-        const parts = info.split('|');
-        const author = cleanAuthor(parts[0]?.trim());
+        const titleLink = titleArea.find('a.bo3');
+        if (titleLink.length === 0) return; // Not a book title link
 
-        // 알라딘 특유의 사은품/굿즈 필터링 (저자가 없거나 가격만 있는 경우 등)
-        const priceArea = $(el).find('.ss_p2').text().trim();
-        // 가격이 없으면 보통 비구매 사은품
-        if (priceArea.includes('포인트 차감') || !info.includes('|') || !priceArea) return;
+        const titleText = titleLink.text().trim();
+        if (!titleText) return;
+
+        // Skip non-books (merchandise)
+        if (!isValidBook(titleText, 'Aladin')) return;
         
-        // 추가 필터링: 제목에 괄호로 되어 있는 사은품 정보 등
+        const infoArea = titleArea.next();
+        const info = infoArea.text().trim();
+        const priceArea = infoArea.next().text().trim();
+
+        if (priceArea.includes('포인트 차감') || !info.includes('|')) return;
         if (titleText.includes(') 이상') || titleText.includes(') 사은품')) return;
-
-        if (!titleText || !isValidBook(titleText, author)) return;
 
         const normalizedTitle = titleText.replace(/\s+/g, '').toLowerCase();
         if (seenTitles.has(normalizedTitle)) return;
         seenTitles.add(normalizedTitle);
 
+        const parts = info.split('|');
+        const author = cleanAuthor(parts[0]?.trim());
         const pub = parts[1]?.trim();
         const dateStr = parts[2]?.trim(); 
         const pubDate = formatDate(dateStr);
-        const img = $(el).find('img.front_cover, img.i_cover').first().attr('src');
         
         // ISBN 추출 (itemId가 보통 URL에 있음)
-        const href = $(el).find('a.bo3').attr('href') || '';
+        const href = titleLink.attr('href') || '';
         const isbnMatch = href.match(/ItemId=(\d+)/);
         const isbn = isbnMatch ? isbnMatch[1] : null;
 
@@ -263,7 +261,6 @@ async function scrapeAladdin(category, retries = 3) {
           title: titleText, 
           author, 
           publisher: pub, 
-          cover_url: img, 
           pub_date: pubDate,
           isbn
         });
@@ -317,9 +314,8 @@ async function scrapeKyobo(category, retries = 3) {
           title: item.cmdtName,
           author: cleanAuthor(item.chrcName),
           publisher: item.pbcmName || '알수없음',
-          cover_url: item.cmdtImagePath || item.imgPath,
           pub_date: formatDate(item.rlseDate),
-          isbn: item.cmdtCode // 교보문고는 cmdtCode가 ISBN인 경우가 많음
+          isbn: item.cmdtCode
         })).filter(b => isValidBook(b.title, b.author));
       }
 
@@ -347,7 +343,9 @@ async function scrapeRidi(category, retries = 3) {
     try {
       await page.setUserAgent(HEADERS['User-Agent']);
       // 리디 베스트셀러 기본 URL 변경
-      const url = `https://ridibooks.com/bestsellers/${category.ridi === 'general' ? 'general' : 'category/' + category.ridi}`;
+      const url = category.ridi === 'general' 
+        ? 'https://ridibooks.com/bestsellers/general'
+        : `https://ridibooks.com/category/bestsellers/${category.ridi}`;
       await page.goto(url, { waitUntil: 'networkidle2', timeout: 60000 });
       await new Promise(r => setTimeout(r, 2000));
 
@@ -375,7 +373,6 @@ async function scrapeRidi(category, retries = 3) {
               title: book.title?.main || book.title,
               author: authors,
               publisher: book.publicationInfo?.name || book.publisher?.name || '리디북스',
-              cover_url: book.thumbnail?.large || `https://img.ridicdn.net/cover/${book.bookId || book.id}/xxlarge`,
               isbn: book.isbn || book.id
             };
           });
@@ -413,9 +410,7 @@ async function scrapeMillie(category, retries = 3) {
     try {
       await page.setUserAgent(HEADERS['User-Agent']);
       // 밀리 v3 종합 주소 변경
-      const url = category.millie === '0'
-        ? 'https://www.millie.co.kr/v3/today/more/best/bookstore/total?nav_hidden=y'
-        : `https://www.millie.co.kr/v3/today/more/best/bookstore/category/${category.millie}?nav_hidden=y`;
+      const url = `https://www.millie.co.kr/v3/today/more/best/ranking/${category.millie}`;
 
       await page.goto(url, { waitUntil: 'networkidle2', timeout: 60000 });
       await new Promise(r => setTimeout(r, 4000));
@@ -456,8 +451,7 @@ async function scrapeMillie(category, retries = 3) {
               rank: idx + 1,
               title,
               author: author || '알수없음',
-              publisher: '밀리의서재',
-              cover_url: finalCover
+              publisher: '밀리의서재'
             });
           }
         });
@@ -510,7 +504,6 @@ async function sync(platform, books, categoryName) {
           title: cleanTitle,
           author: book.author || '알수없음',
           publisher: pub || '알수없음',
-          cover_url: cover || null,
           pub_date: book.pub_date || null,
           isbn: isbn || null
         }, { onConflict: 'title,author' }) // ISBN이 있으면 더 좋지만 일단 호환성 유지
@@ -532,38 +525,40 @@ async function sync(platform, books, categoryName) {
   }
 }
 
-async function run() {
-  console.log('\n=== [5-Platform Bestseller Scraper FINAL] ===\n');
-
+async function main() {
+  console.log(`[${new Date().toISOString()}] Bestseller Scraping Started (All Categories)...`);
+  
   await initBrowser();
 
   try {
-    for (const cat of COMMON_CATEGORIES) {
-      console.log(`\n> CATEGORY: ${cat.name}`);
-
+    for (const category of COMMON_CATEGORIES) {
+      console.log(`\n--- Scraping Category: ${category.name} ---`);
+      
       const [yes24, aladin, kyobo, ridi, millie] = await Promise.all([
-        scrapeYes24(cat),
-        scrapeAladdin(cat),
-        scrapeKyobo(cat),
-        scrapeRidi(cat),
-        scrapeMillie(cat)
+        scrapeYes24(category),
+        scrapeAladdin(category),
+        scrapeKyobo(category),
+        scrapeRidi(category),
+        scrapeMillie(category)
       ]);
 
-      await sync('yes24', yes24, cat.name);
-      await sync('aladdin', aladin, cat.name);
-      await sync('kyobo', kyobo, cat.name);
-      await sync('ridi', ridi, cat.name);
-      await sync('millie', millie, cat.name);
+      await sync('yes24', yes24, category.name);
+      await sync('aladin', aladin, category.name);
+      await sync('kyobo', kyobo, category.name);
+      await sync('ridi', ridi, category.name);
+      await sync('millie', millie, category.name);
 
-      await new Promise(r => setTimeout(r, 2000));
+      console.log(`✅ Category ${category.name} completed.`);
     }
+  } catch (error) {
+    console.error('❌ Scraping session failed:', error);
   } finally {
     if (browser) {
       await browser.close();
     }
+    console.log(`\n[${new Date().toISOString()}] All tasks completed.`);
+    process.exit(0);
   }
-
-  console.log('\n=== [All platforms scraped successfully!] ===');
 }
 
 module.exports = {
@@ -573,9 +568,9 @@ module.exports = {
   scrapeAladdin,
   scrapeRidi,
   scrapeMillie,
-  run
+  run: main
 };
 
 if (require.main === module) {
-  run();
+  main();
 }
