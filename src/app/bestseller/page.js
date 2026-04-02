@@ -112,7 +112,8 @@ export default function BestsellerPage() {
           title,
           author,
           publisher,
-          cover_url
+          cover_url,
+          description
         )
       `)
       .eq("period_type", "daily")
@@ -161,19 +162,47 @@ export default function BestsellerPage() {
     setBookDetails(null);
 
     try {
-      if (book.bw_books.isbn) {
-        const response = await fetch(`/api/aladin/lookup?isbn=${book.bw_books.isbn}`);
-        if (response.ok) {
-          const data = await response.json();
-          setBookDetails({ ...data }); // No cover
-        }
-      } else {
+      if (book.bw_books.description) {
         setBookDetails({
           title: book.bw_books.title,
           author: book.bw_books.author,
           publisher: book.bw_books.publisher,
-          description: "ISBN 정보가 없어 상세 정보를 불러올 수 없습니다."
+          description: book.bw_books.description
         });
+      } else if (book.bw_books.isbn) {
+        const response = await fetch(`/api/aladin/lookup?isbn=${book.bw_books.isbn}`);
+        if (response.ok) {
+          const data = await response.json();
+          setBookDetails({ ...data }); // No cover
+        } else {
+          // Fallback to title/author search if ISBN lookup fails (e.g. invalid ISBN)
+          const fallbackRes = await fetch(`/api/aladin/lookup?title=${encodeURIComponent(book.bw_books.title)}&author=${encodeURIComponent(book.bw_books.author || '')}`);
+          if (fallbackRes.ok) {
+            const data = await fallbackRes.json();
+            setBookDetails({ ...data });
+          } else {
+            setBookDetails({
+              title: book.bw_books.title,
+              author: book.bw_books.author,
+              publisher: book.bw_books.publisher,
+              description: "상세 정보를 찾을 수 없습니다."
+            });
+          }
+        }
+      } else {
+        // Fallback to title/author search directly if no ISBN is available
+        const titleRes = await fetch(`/api/aladin/lookup?title=${encodeURIComponent(book.bw_books.title)}&author=${encodeURIComponent(book.bw_books.author || '')}`);
+        if (titleRes.ok) {
+          const data = await titleRes.json();
+          setBookDetails({ ...data });
+        } else {
+          setBookDetails({
+            title: book.bw_books.title,
+            author: book.bw_books.author,
+            publisher: book.bw_books.publisher,
+            description: "ISBN 정보가 없어 상세 정보를 불러올 수 없습니다."
+          });
+        }
       }
     } catch (error) {
       setBookDetails({
@@ -396,13 +425,13 @@ export default function BestsellerPage() {
               onClick={() => setActiveTab("current")}
               className={`px-8 py-2.5 transition-all font-bold ${activeTab === "current" ? "bg-[#355E3B] text-white" : "text-gray-500 hover:bg-gray-50 hover:text-gray-900"}`}
             >
-              📊 현재 현황
+              현재 현황
             </button>
             <button
               onClick={() => setActiveTab("trend")}
               className={`px-8 py-2.5 transition-all font-bold ${activeTab === "trend" ? "bg-[#355E3B] text-white" : "text-gray-500 hover:bg-gray-50 hover:text-gray-900"}`}
             >
-              📈 트렌드 분석
+              트렌드 분석
             </button>
           </div>
         </div>
