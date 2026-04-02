@@ -12,7 +12,7 @@ import { generateBookReport, generatePublisherReport } from "@/lib/reportGenerat
 const PLATFORMS = [
   { id: "kyobo", name: "교보문고", color: "#1E40AF" },
   { id: "yes24", name: "예스24", color: "#FF6B00" },
-  { id: "aladdin", name: "알라딘", color: "#FBBE00" },
+  { id: "aladin", name: "알라딘", color: "#FBBE00" },
   { id: "ridi", name: "리디북스", color: "#5B4FFF" },
   { id: "millie", name: "밀리의서재", color: "#00C73C" },
 ];
@@ -506,22 +506,22 @@ export default function BestsellerPage() {
                         books.map((item, idx) => {
                           const isHighlighted = publisherHighlight && item.bw_books.publisher?.includes(publisherHighlight);
                           return (
-                            <div 
+                            <div
                               key={idx}
                               onClick={() => handleBookClick(item, platform.name)}
-                              className={`flex items-start gap-3 p-3 rounded-lg cursor-pointer transition-all border border-transparent group leading-tight ${isHighlighted ? "bg-[#355E3B]/10 border-[#355E3B]/20" : "hover:bg-gray-50 hover:border-gray-100"}`}
+                              className={`flex items-start gap-2 p-2 rounded-lg cursor-pointer transition-all border border-transparent group leading-tight ${isHighlighted ? "bg-[#355E3B]/10 border-[#355E3B]/20" : "hover:bg-gray-50 hover:border-gray-100"}`}
                             >
-                              <span className={`text-sm font-bold w-5 mt-0.5 text-center shrink-0 ${isHighlighted ? "text-[#355E3B]" : "text-gray-300 group-hover:text-[#355E3B]"}`}>{item.rank}</span>
+                              <span className={`text-[11px] font-bold w-4 mt-0.5 text-center shrink-0 ${isHighlighted ? "text-[#355E3B]" : "text-gray-300 group-hover:text-[#355E3B]"}`}>{item.rank}</span>
                               <div className="flex-1 min-w-0">
-                                <p className={`text-sm font-bold truncate mb-1 ${isHighlighted ? "text-[#355E3B]" : "text-gray-900"}`}>{item.bw_books.title}</p>
-                                <p className="text-[12px] text-gray-500 truncate mb-1">{item.bw_books.author}</p>
-                                <div className="flex items-center justify-between mt-1">
-                                  <p className="text-[11px] text-gray-400 truncate">
+                                <p className={`text-[12px] font-bold truncate mb-0.5 ${isHighlighted ? "text-[#355E3B]" : "text-gray-900"}`}>{item.bw_books.title}</p>
+                                <p className="text-[11px] text-gray-500 truncate mb-0.5">{item.bw_books.author}</p>
+                                <div className="flex items-center justify-between">
+                                  <p className="text-[10px] text-gray-400 truncate">
                                     {item.bw_books.publisher}
                                     {item.bw_books.pub_date && ` | ${item.bw_books.pub_date.split('-').slice(0,3).join('.').substring(2)}`}
                                   </p>
                                   {item.rank_change !== 0 && (
-                                    <span className={`text-[10px] font-bold shrink-0 ${item.rank_change > 0 ? 'text-red-500' : 'text-blue-500'}`}>
+                                    <span className={`text-[9px] font-bold shrink-0 ${item.rank_change > 0 ? 'text-red-500' : 'text-blue-500'}`}>
                                       {item.rank_change > 0 ? `▲${item.rank_change}` : `▼${Math.abs(item.rank_change)}`}
                                     </span>
                                   )}

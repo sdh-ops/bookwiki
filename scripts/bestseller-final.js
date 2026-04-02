@@ -15,9 +15,9 @@ const ALADIN_API_KEY = 'ttbsdh10220011';
 const COMMON_CATEGORIES = [
   { name: '종합', yes24: '001', aladin: '0', kyobo: '0', ridi: 'general', millie: 'total' },
   { name: '소설', yes24: '001001046', aladin: '1', kyobo: '01', ridi: '100', millie: 'story' },
-  { name: '에세이/시', yes24: '001001047', aladin: '51387', kyobo: '03', ridi: '110', millie: 'essay' },
-  { name: '인문', yes24: '001001019', aladin: '656', kyobo: '05', ridi: '120', millie: 'humanity' },
-  { name: '경제경영', yes24: '001001025', aladin: '170', kyobo: '13', ridi: '170', millie: 'business' },
+  { name: '에세이/시', yes24: '001001047', aladin: '51387', kyobo: '03', ridi: '110', millie: 'poem' },
+  { name: '인문', yes24: '001001019', aladin: '656', kyobo: '05', ridi: '120', millie: 'humanities' },
+  { name: '경제경영', yes24: '001001025', aladin: '170', kyobo: '13', ridi: '200', millie: 'economy' },
   { name: '자기계발', yes24: '001001026', aladin: '336', kyobo: '15', ridi: '300', millie: 'self' }
 ];
 
