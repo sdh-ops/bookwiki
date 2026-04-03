@@ -18,7 +18,16 @@ const COMMON_CATEGORIES = [
   { name: '에세이/시', yes24: '001001047', aladin: '51387', kyobo: '03', ridi: '110', millie: 'poem' },
   { name: '인문', yes24: '001001019', aladin: '656', kyobo: '05', ridi: '120', millie: 'humanities' },
   { name: '경제경영', yes24: '001001025', aladin: '170', kyobo: '13', ridi: '200', millie: 'economy' },
-  { name: '자기계발', yes24: '001001026', aladin: '336', kyobo: '15', ridi: '300', millie: 'self' }
+  { name: '자기계발', yes24: '001001026', aladin: '336', kyobo: '15', ridi: '300', millie: 'self-development' },
+  { name: '사회과학', yes24: '001001022', aladin: '798', kyobo: '17', ridi: '420', millie: 'total' },
+  { name: '역사', yes24: '001001010', aladin: '74', kyobo: '19', ridi: '440', millie: 'total' },
+  { name: '예술', yes24: '001001007', aladin: '517', kyobo: '21', ridi: '430', millie: 'total' },
+  { name: '종교', yes24: '001001021', aladin: '1237', kyobo: '23', ridi: '700', millie: 'total' },
+  { name: '과학', yes24: '001001002', aladin: '987', kyobo: '25', ridi: '1100', millie: 'total' },
+  { name: '기술/IT', yes24: '001001003', aladin: '351', kyobo: '27', ridi: '2200', millie: 'total' },
+  { name: '만화', yes24: '001001008', aladin: '2551', kyobo: '47', ridi: '1500', millie: 'total' },
+  { name: '여행', yes24: '001001009', aladin: '1196', kyobo: '32', ridi: '800', millie: 'hobby' },
+  { name: '건강', yes24: '001001011', aladin: '55890', kyobo: '07' /*교보 건강은 07*/, ridi: '500', millie: 'hobby' }
 ];
 
 const HEADERS = {
@@ -131,6 +140,14 @@ async function fetchMissingInfo(title, author) {
       output: 'js',
       Version: '20131101'
     };
+    
+    // 저자가 있을 경우 검색 정확도를 위해 포함
+    if (author && author !== '저자 미상' && author !== '알수없음') {
+      params.Query = `${safeTitle} ${author.split(' ')[0]}`;
+    } else {
+      params.Query = safeTitle;
+    }
+
     const response = await axios.get(url, { params, timeout: 5000 });
     if (response.data && response.data.item && response.data.item.length > 0) {
       const book = response.data.item[0];
@@ -427,7 +444,7 @@ async function scrapeRidi(category, retries = 3) {
   return [];
 }
 
-// 밀리 - Puppeteer + DOM (재시도 및 다양한 셀렉터 전략)
+// 밀리 - Puppeteer + DOM (v3 전용)
 async function scrapeMillie(category, retries = 3) {
   console.log(`[Millie] ${category.name}...`);
 
@@ -436,49 +453,32 @@ async function scrapeMillie(category, retries = 3) {
 
     try {
       await page.setUserAgent(HEADERS['User-Agent']);
-      // 밀리 v3 종합 주소 변경
-      const url = `https://www.millie.co.kr/v3/today/more/best/ranking/${category.millie}`;
+      // 밀리 v3 베스트셀러 주소 (서점 베스트 기준)
+      const url = `https://www.millie.co.kr/v3/today/more/best/bookstore/${category.millie}`;
 
       await page.goto(url, { waitUntil: 'networkidle2', timeout: 60000 });
       await new Promise(r => setTimeout(r, 4000));
 
       const books = await page.evaluate(() => {
         const list = [];
-        // v3 도서 카드 셀렉터
-        const items = document.querySelectorAll('a.book-data');
+        // v3 도서 리스트 아이템 셀렉터
+        const items = document.querySelectorAll('li.item');
         
         items.forEach((el, idx) => {
           if (list.length >= 50) return;
           
-          const pTags = Array.from(el.querySelectorAll('p'));
-          let title = '';
-          let author = '';
+          const titleEl = el.querySelector('.book-data p.title');
+          const authorEl = el.querySelector('.book-data p.author');
           
-          // 밀리 특유의 '낭독자' 포함 구조 필터링
-          if (pTags.length >= 3) {
-            // 0: 낭독자, 1: 제목, 2: 저자
-            title = pTags[1].innerText.trim();
-            author = pTags[2].innerText.trim();
-          } else if (pTags.length === 2) {
-            // 0: 제목, 1: 저자
-            title = pTags[0].innerText.trim();
-            author = pTags[1].innerText.trim();
-          } else if (pTags.length === 1) {
-            title = pTags[0].innerText.trim();
-          }
-
-          if (title) {
-            const imgEl = el.querySelector('img');
-            // Check robustly for lazy-loaded src or standard src
-            const coverSrc = imgEl?.src || imgEl?.dataset?.src || imgEl?.dataset?.original || imgEl?.getAttribute('data-src');
-            // If it starts with data:image (base64 placeholder), we consider it missing
-            const finalCover = coverSrc && !coverSrc.startsWith('data:image') ? coverSrc : null;
+          if (titleEl) {
+            const title = titleEl.innerText.trim();
+            const author = authorEl ? authorEl.innerText.trim() : '알수없음';
             
             list.push({
               rank: idx + 1,
               title,
-              author: author || '알수없음',
-              publisher: '밀리의서재'
+              author,
+              publisher: '밀리의서재' // 밀리는 기본 제공 안함 -> sync에서 보완
             });
           }
         });
@@ -521,12 +521,18 @@ async function sync(platform, books, categoryName, targetDate = null) {
       // ISBN 유효성 검사 (10자리 또는 13자리 숫자가 아니거나, 978/979로 시작하지 않으면 무효)
       const isInvalidIsbn = !isbn || (isbn.length < 10) || (!isbn.startsWith('978') && !isbn.startsWith('979'));
 
-      // 알라딘 API를 이용한 결측치 메꾸기 (출판사/출간일이 없거나 ISBN이 잘못된 경우)
-      if (pub === '알수없음' || pub === '밀리의서재' || !pubDate || isInvalidIsbn) {
+      // 알라딘 API를 이용한 결측치 메꾸기 (출판사/출간일이 없거나 ISBN이 잘못된 경우, 혹은 밀리의서재로 잘못 표기된 경우)
+      if (pub === '알수없음' || pub === '밀리의서재' || !pubDate || isInvalidIsbn || platform === 'millie') {
         const fallback = await fetchMissingInfo(cleanTitle, book.author);
         if (fallback) {
-          if (pub === '알수없음' || pub === '밀리의서재') pub = fallback.publisher;
-          if (!pubDate) pubDate = fallback.pubDate;
+          // 출판사가 '밀리의서재'이거나 '알수없음'인 경우에만 업데이트 (밀리 오리지널은 제외하기 위함이나, 대부분의 경우 알라딘 정보가 더 정확함)
+          if (pub === '알수없음' || pub === '밀리의서재' || platform === 'millie') {
+            // 알라딘에서 가져온 출판사가 있다면 업데이트
+            if (fallback.publisher && fallback.publisher !== '밀리의서재') {
+              pub = fallback.publisher;
+            }
+          }
+          if (!pubDate || pubDate === 'null') pubDate = fallback.pubDate;
           if (!description) description = fallback.description;
           // 기존 ISBN이 무효하다면 진짜 ISBN으로 교체
           if (isInvalidIsbn) isbn = fallback.isbn;

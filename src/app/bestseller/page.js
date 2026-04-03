@@ -17,7 +17,7 @@ const PLATFORMS = [
   { id: "millie", name: "밀리의서재", color: "#00C73C" },
 ];
 
-const CATEGORIES = ["종합", "소설", "에세이/시", "인문", "경제경영", "자기계발"];
+const CATEGORIES = ["종합", "소설", "에세이/시", "인문", "경제경영", "자기계발", "사회과학", "역사", "예술", "종교", "과학", "기술/IT", "만화", "여행", "건강"];
 
 // 제목 정규화 함수 (중복 제거용)
 function normalizeTitle(title) {
@@ -113,7 +113,8 @@ export default function BestsellerPage() {
           author,
           publisher,
           cover_url,
-          description
+          description,
+          pub_date
         )
       `)
       .eq("period_type", "daily")
@@ -709,12 +710,41 @@ export default function BestsellerPage() {
                 </div>
              </div>
              
-             <div className="p-6 border-t border-gray-100 bg-gray-50 flex gap-2">
+              <div className="p-6 border-t border-gray-100 bg-gray-50 flex flex-wrap gap-2">
                 <button 
                    onClick={() => { setSelectedBook(null); }}
-                   className="flex-1 py-3 bg-[#355E3B] text-white rounded-xl font-bold hover:shadow-lg transition-all active:scale-95"
+                   className="flex-1 min-w-[120px] py-3 bg-[#355E3B] text-white rounded-xl font-bold hover:shadow-lg transition-all active:scale-95"
                 >
                    확인
+                </button>
+                <button 
+                   onClick={async () => {
+                     setLoadingDetails(true);
+                     try {
+                        const bookId = selectedBook.bw_books.id;
+                        // Use bookDetails from Aladin or current book info
+                        const toUpdate = {
+                          publisher: bookDetails?.publisher || selectedBook.bw_books.publisher,
+                          pub_date: bookDetails?.pubDate || selectedBook.bw_books.pub_date,
+                          isbn: bookDetails?.isbn || selectedBook.bw_books.isbn,
+                          description: bookDetails?.description || selectedBook.bw_books.description,
+                          cover_url: bookDetails?.cover || selectedBook.bw_books.cover_url
+                        };
+                        
+                        const { error } = await supabase.from('bw_books').update(toUpdate).eq('id', bookId);
+                        if (error) throw error;
+                        alert('도서 정보가 성공적으로 업데이트되었습니다.');
+                        fetchAllData(); // Refresh list
+                     } catch (err) {
+                        console.error('Update error:', err);
+                        alert('업데이트 중 오류가 발생했습니다.');
+                     } finally {
+                        setLoadingDetails(false);
+                     }
+                   }}
+                   className="flex-1 min-w-[120px] py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-all active:scale-95 flex items-center justify-center gap-2"
+                >
+                   <span>🔄</span> 정보 업데이트
                 </button>
                 <button 
                    onClick={() => { 
@@ -723,11 +753,11 @@ export default function BestsellerPage() {
                       setSelectedBook(null);
                       setActiveTab("trend");
                    }}
-                   className="px-6 py-3 bg-white border border-gray-200 rounded-xl font-bold text-gray-500 hover:text-black transition-all"
+                   className="flex-1 min-w-[120px] px-6 py-3 bg-white border border-gray-200 rounded-xl font-bold text-gray-500 hover:text-black transition-all"
                 >
                    트렌드 보기
                 </button>
-             </div>
+              </div>
           </div>
         </div>
       )}

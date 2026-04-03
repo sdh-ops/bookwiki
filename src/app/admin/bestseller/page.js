@@ -14,7 +14,7 @@ const PLATFORMS = [
   { id: "millie", name: "밀리의서재", color: "#00C73C" },
 ];
 
-const CATEGORIES = ["종합", "소설", "에세이/시", "인문", "경제경영", "자기계발"];
+const CATEGORIES = ["종합", "소설", "에세이/시", "인문", "경제경영", "자기계발", "사회과학", "역사", "예술", "종교", "과학", "기술/IT", "만화", "여행", "건강"];
 
 // 제목 정규화 함수 (중복 제거용)
 function normalizeTitle(title) {
@@ -91,7 +91,9 @@ export default function AdminBestsellerPage() {
           title,
           author,
           publisher,
-          cover_url
+          cover_url,
+          description,
+          pub_date
         )
       `)
       .eq("period_type", "daily")
@@ -623,6 +625,37 @@ export default function AdminBestsellerPage() {
                           </p>
                         </div>
                       )}
+
+                      <div className="mt-6 flex gap-2">
+                        <button
+                          onClick={async () => {
+                            setLoadingDetails(true);
+                            try {
+                              const bookId = selectedBook.bw_books.id;
+                              const toUpdate = {
+                                publisher: bookDetails?.publisher || selectedBook.bw_books.publisher,
+                                pub_date: bookDetails?.pubDate || selectedBook.bw_books.pub_date,
+                                isbn: bookDetails?.isbn || selectedBook.bw_books.isbn,
+                                description: bookDetails?.description || selectedBook.bw_books.description,
+                                cover_url: bookDetails?.cover_url || bookDetails?.cover || selectedBook.bw_books.cover_url
+                              };
+                              
+                              const { error } = await supabase.from('bw_books').update(toUpdate).eq('id', bookId);
+                              if (error) throw error;
+                              alert('도서 정보가 성공적으로 업데이트되었습니다.');
+                              fetchAllData();
+                            } catch (err) {
+                              console.error('Update error:', err);
+                              alert('업데이트 중 오류가 발생했습니다.');
+                            } finally {
+                              setLoadingDetails(false);
+                            }
+                          }}
+                          className="flex-1 py-3 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 transition"
+                        >
+                          🔄 알라딘 정보로 동기화
+                        </button>
+                      </div>
                     </div>
                   ) : (
                     <div className="text-center py-12 text-gray-500">
