@@ -183,21 +183,21 @@ async function scrapeYes24(category, retries = 3) {
       const seenTitles = new Set();
 
       $('#yesBestList li, .itemUnit').each((i, el) => {
-        if (books.length >= 50) return;
+        if (books.length >= 20) return;
 
         const titleText = $(el).find('.gd_name').text().trim();
         const authorRaw = $(el).find('.info_auth, .info_pub').first().text().trim();
         const author = cleanAuthor(authorRaw);
 
         if (!titleText || !isValidBook(titleText, author)) return;
-        
+
         // 중복 제거 (특히 eBook과 일반 도서가 같이 나오는 경우 대비)
         const normalizedTitle = titleText.replace(/\s+/g, '').toLowerCase();
         if (seenTitles.has(normalizedTitle)) return;
         seenTitles.add(normalizedTitle);
 
         const img = $(el).find('img.lazy').attr('data-original') || $(el).find('img').attr('src');
-        
+
         // ISBN 추출 (상세 페이지 링크에서 추출 시도)
         const href = $(el).find('.gd_name').attr('href') || '';
         const isbnMatch = href.match(/Product\/Goods\/(\d+)/);
@@ -208,13 +208,22 @@ async function scrapeYes24(category, retries = 3) {
         const dateMatch = pubText.match(/\d{4}년\s*\d{1,2}월\s*(\d{1,2}일)?/);
         const pubDate = dateMatch ? formatDate(dateMatch[0]) : null;
 
-        books.push({ 
-          rank: books.length + 1, 
-          title: titleText, 
-          author, 
-          publisher: pub, 
+        // 판매지수 추출
+        let salesPoint = null;
+        $(el).find('span').each((_j, span) => {
+          const text = $(span).text().replace(/\s+/g, ' ').trim();
+          const match = text.match(/^판매지수\s*([\d,]+)$/);
+          if (match) { salesPoint = parseInt(match[1].replace(/,/g, ''), 10); return false; }
+        });
+
+        books.push({
+          rank: books.length + 1,
+          title: titleText,
+          author,
+          publisher: pub,
           pub_date: pubDate,
-          isbn
+          isbn,
+          sales_point: salesPoint
         });
       });
 
@@ -245,7 +254,7 @@ async function scrapeAladdin(category, retries = 3) {
       const seenTitles = new Set();
 
       $('.ss_book_box').each((i, el) => {
-        if (books.length >= 50) return;
+        if (books.length >= 20) return;
 
         // 알라딘 리스트는 굿즈나 사은품 안내가 섞여 있어 li 태그들을 순회하며 실제 제목 탐색
         let titleLink = null;
@@ -283,13 +292,17 @@ async function scrapeAladdin(category, retries = 3) {
         const isbnMatch = href.match(/ItemId=(\d+)/);
         const isbn = isbnMatch ? isbnMatch[1] : null;
 
-        books.push({ 
-          rank: books.length + 1, 
-          title: titleText, 
-          author, 
-          publisher: pub, 
+        const salesPointRaw = $(el).find('.sales_point').text().trim().replace(/,/g, '');
+        const salesPoint = salesPointRaw ? parseInt(salesPointRaw, 10) : null;
+
+        books.push({
+          rank: books.length + 1,
+          title: titleText,
+          author,
+          publisher: pub,
           pub_date: pubDate,
-          isbn
+          isbn,
+          sales_point: salesPoint
         });
       });
 
@@ -551,7 +564,8 @@ async function sync(platform, books, categoryName, targetDate = null) {
         publisher: pub || '알수없음',
         pub_date: pubDate || null,
         isbn: (isbn && isbn.length >= 10) ? isbn : null,
-        description
+        description,
+        sales_point: book.sales_point || null
       };
     }));
     enrichedBooks.push(...results);
@@ -578,7 +592,7 @@ async function sync(platform, books, categoryName, targetDate = null) {
       .map(book => {
         const id = bookIdMap.get(`${book.title}|||${book.author}`);
         if (!id) return null;
-        return { book_id: id, platform, period_type: 'daily', rank: book.rank, common_category: categoryName, snapshot_date: snapshotDate };
+        return { book_id: id, platform, period_type: 'daily', rank: book.rank, common_category: categoryName, snapshot_date: snapshotDate, sales_point: book.sales_point || null };
       })
       .filter(Boolean);
 

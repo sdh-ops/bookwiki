@@ -19,6 +19,12 @@ const PLATFORMS = [
 
 const CATEGORIES = ["종합", "소설", "에세이/시", "인문", "경제경영", "자기계발", "사회과학", "역사", "예술", "종교", "과학", "기술/IT", "만화", "여행", "건강"];
 
+function formatSalesPoint(n) {
+  if (!n) return null;
+  if (n >= 10000) return `${(n / 10000).toFixed(1).replace(/\.0$/, '')}만`;
+  return n.toLocaleString();
+}
+
 // 제목 정규화 함수 (중복 제거용)
 function normalizeTitle(title) {
   if (!title) return '';
@@ -108,6 +114,7 @@ export default function BestsellerPage() {
       .select(`
         rank,
         rank_change,
+        sales_point,
         platform,
         snapshot_date,
         is_ebook,
@@ -600,16 +607,21 @@ export default function BestsellerPage() {
                               <div className="flex-1 min-w-0">
                                 <p className={`text-[12px] font-bold truncate mb-0.5 ${isHighlighted ? "text-[#355E3B]" : "text-gray-900"}`}>{item.bw_books.title}</p>
                                 <p className="text-[11px] text-gray-500 truncate mb-0.5">{item.bw_books.author}</p>
-                                <div className="flex items-center justify-between">
+                                <div className="flex items-center justify-between gap-1">
                                   <p className="text-[10px] text-gray-400 truncate">
                                     {item.bw_books.publisher}
                                     {item.bw_books.pub_date && ` | ${item.bw_books.pub_date.split('-').slice(0,3).join('.').substring(2)}`}
                                   </p>
-                                  {item.rank_change !== 0 && (
-                                    <span className={`text-[9px] font-bold shrink-0 ${item.rank_change > 0 ? 'text-red-500' : 'text-blue-500'}`}>
-                                      {item.rank_change > 0 ? `▲${item.rank_change}` : `▼${Math.abs(item.rank_change)}`}
-                                    </span>
-                                  )}
+                                  <div className="flex items-center gap-1 shrink-0">
+                                    {item.rank_change !== 0 && (
+                                      <span className={`text-[9px] font-bold ${item.rank_change > 0 ? 'text-red-500' : 'text-blue-500'}`}>
+                                        {item.rank_change > 0 ? `▲${item.rank_change}` : `▼${Math.abs(item.rank_change)}`}
+                                      </span>
+                                    )}
+                                    {formatSalesPoint(item.sales_point) && (
+                                      <span className="text-[9px] text-gray-400">{formatSalesPoint(item.sales_point)}</span>
+                                    )}
+                                  </div>
                                 </div>
                               </div>
                             </div>
