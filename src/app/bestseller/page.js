@@ -253,6 +253,11 @@ export default function BestsellerPage() {
     }
   }
 
+  // 제목 앞 N글자(공백·특수문자 제거)로 유사도 키 생성
+  function titleSimilarityKey(title, len = 6) {
+    return title.replace(/\s/g, '').replace(/[^\uAC00-\uD7A3a-zA-Z0-9]/g, '').substring(0, len).toLowerCase();
+  }
+
   async function handleSearch() {
     if (!searchQuery.trim()) return;
     setTrendLoading(true);
@@ -267,6 +272,7 @@ export default function BestsellerPage() {
         .ilike(searchType === "book" ? "title" : "publisher", `%${searchQuery}%`)
         .limit(50);
 
+      // 1차: normalizeTitle() 기준 그룹화
       const groups = {};
       (data || []).forEach(book => {
         const normalizedKey = normalizeTitle(book.title);
@@ -274,7 +280,19 @@ export default function BestsellerPage() {
         groups[normalizedKey].push(book);
       });
 
-      const representatives = Object.values(groups).map(bookGroup => {
+      // 2차: 정규화 제목 앞 6글자(공백 제외)가 같으면 같은 책으로 합침
+      // (e.g. "살아집디다" vs "살아집니다" 같은 플랫폼별 표기 차이 처리)
+      const mergedGroups = {};
+      Object.entries(groups).forEach(([key, books]) => {
+        const simKey = titleSimilarityKey(key);
+        if (mergedGroups[simKey]) {
+          mergedGroups[simKey].push(...books);
+        } else {
+          mergedGroups[simKey] = [...books];
+        }
+      });
+
+      const representatives = Object.values(mergedGroups).map(bookGroup => {
         const withIsbn = bookGroup.find(b => b.isbn);
         return { ...(withIsbn || bookGroup[0]), _variants: bookGroup, _variantCount: bookGroup.length };
       });
@@ -286,15 +304,33 @@ export default function BestsellerPage() {
   }
 
   async function loadBookTrend(book, initialCategory = "전체") {
-    setSelectedTrendBook(book);
-    setSelectedBookGroup(book._variants || [book]);
     setTrendLoading(true);
     setTrendCategory(initialCategory);
 
     try {
+      // 동일 제목의 모든 변형을 DB에서 조회 (저자·출판사가 다른 플랫폼별 항목 포함)
+      const { data: sameTitleBooks } = await supabase
+        .from("bw_books")
+        .select("id, title, author, publisher, isbn, cover_url")
+        .eq("title", book.title)
+        .limit(20);
+
+      const existingIds = new Set((book._variants || [book]).map(b => b.id));
+      const allVariants = [...(book._variants || [book])];
+      for (const b of (sameTitleBooks || [])) {
+        if (!existingIds.has(b.id)) {
+          allVariants.push(b);
+          existingIds.add(b.id);
+        }
+      }
+
+      const enrichedBook = { ...book, _variants: allVariants, _variantCount: allVariants.length };
+      setSelectedTrendBook(enrichedBook);
+      setSelectedBookGroup(allVariants);
+
       const startDate = new Date();
       startDate.setDate(startDate.getDate() - parseInt(period));
-      const bookIds = (book._variants || [book]).map(b => b.id);
+      const bookIds = allVariants.map(b => b.id);
 
       const { data } = await supabase
         .from("bw_bestseller_snapshots")
