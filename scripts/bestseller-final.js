@@ -137,25 +137,44 @@ async function fetchMissingInfo(title, author) {
   try {
     const safeTitle = title.replace(/\[도서\]/g, '').split('(')[0].split('-')[0].trim();
     const url = 'http://www.aladin.co.kr/ttb/api/ItemSearch.aspx';
-    const params = {
+    const baseParams = {
       ttbkey: ALADIN_API_KEY,
       QueryType: 'Keyword',
-      MaxResults: 2,
+      MaxResults: 3,
       start: 1,
       SearchTarget: 'Book',
       output: 'js',
       Version: '20131101'
     };
 
-    if (author && author !== '저자 미상' && author !== '알수없음') {
-      params.Query = `${safeTitle} ${author.split(' ')[0]}`;
-    } else {
-      params.Query = safeTitle;
+    // 제목으로 결과를 검색하고 가장 유사한 항목을 반환
+    async function searchAladin(query) {
+      const response = await axios.get(url, { params: { ...baseParams, Query: query }, timeout: 5000 });
+      return response.data?.item || [];
     }
 
-    const response = await axios.get(url, { params, timeout: 5000 });
-    if (response.data && response.data.item && response.data.item.length > 0) {
-      const book = response.data.item[0];
+    // 제목 유사도 검사 (앞 4글자 이상 일치 여부)
+    function titleMatches(foundTitle) {
+      const normalize = s => s.replace(/\s/g, '').replace(/[^\uAC00-\uD7A3a-zA-Z0-9]/g, '').toLowerCase();
+      const a = normalize(safeTitle).substring(0, Math.min(4, normalize(safeTitle).length));
+      return normalize(foundTitle).includes(a);
+    }
+
+    let items = [];
+
+    // 1차 시도: 제목 + 저자 첫 단어
+    if (author && author !== '저자 미상' && author !== '알수없음') {
+      items = await searchAladin(`${safeTitle} ${author.split(' ')[0]}`);
+    }
+
+    // 2차 시도: 제목만 (1차에서 결과 없거나 title 불일치 시)
+    if (items.length === 0 || !titleMatches(items[0].title)) {
+      items = await searchAladin(safeTitle);
+    }
+
+    // 제목이 일치하는 첫 번째 항목 선택
+    const book = items.find(i => titleMatches(i.title)) || items[0];
+    if (book) {
       const result = {
         publisher: book.publisher,
         isbn: book.isbn13 || book.isbn,

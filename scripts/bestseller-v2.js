@@ -30,7 +30,7 @@ const COMMON_CATEGORIES = [
   { id: 'children', name: '어린이/청소년', kyobo: '4200', yes24: '001001016', aladdin: '1108', ridi: '1300', millie: 'child' }
 ];
 
-const ALADIN_API_KEY = 'ttbsdh10220011';
+const ALADIN_API_KEY = 'ttbsue_1201547001';
 
 // KST 기준 전일 날짜 반환 (실제 판매 데이터 날짜)
 function getSnapshotDate() {

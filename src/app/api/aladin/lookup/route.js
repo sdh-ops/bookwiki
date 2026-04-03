@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-const ALADIN_API_KEY = 'ttbsdh10220011';
+const ALADIN_API_KEY = 'ttbsue_1201547001';
 const ALADIN_LOOKUP_URL = 'http://www.aladin.co.kr/ttb/api/ItemLookUp.aspx';
 const ALADIN_SEARCH_URL = 'http://www.aladin.co.kr/ttb/api/ItemSearch.aspx';
 

@@ -1,7 +1,7 @@
 const { supabase } = require('./common');
 const axios = require('axios');
 
-const ALADIN_API_KEY = 'ttbsdh10220011';
+const ALADIN_API_KEY = 'ttbsue_1201547001';
 
 /**
  * Cleanup V2: 더 강력한 출판사 교정 스크립트
