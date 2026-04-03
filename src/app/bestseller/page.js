@@ -511,7 +511,12 @@ export default function BestsellerPage() {
                           return (
                             <div
                               key={idx}
-                              onClick={() => handleBookClick(item, platform.name)}
+                              onClick={() => {
+                                const b = item.bw_books;
+                                loadBookTrend({ ...b, _variants: [b], _variantCount: 1 });
+                                setActiveTab("trend");
+                                window.scrollTo({ top: 0, behavior: 'smooth' });
+                              }}
                               className={`flex items-start gap-2 p-2 rounded-lg cursor-pointer transition-all border border-transparent group leading-tight ${isHighlighted ? "bg-[#355E3B]/10 border-[#355E3B]/20" : "hover:bg-gray-50 hover:border-gray-100"}`}
                             >
                               <span className={`text-[11px] font-bold w-4 mt-0.5 text-center shrink-0 ${isHighlighted ? "text-[#355E3B]" : "text-gray-300 group-hover:text-[#355E3B]"}`}>{item.rank}</span>
