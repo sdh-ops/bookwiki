@@ -95,12 +95,13 @@ export default function AdminMembersPage() {
             // Add registered users
             profiles.forEach(p => {
                 const email = emailMap[p.id] || "알 수 없음";
-                const role = adminEmails.has(email) ? "관리자" : "회원";
+                if (adminEmails.has(email)) return; // Skip admins
+
                 memberList.push({
                     id: p.id,
                     email: email,
                     nickname: p.nickname || "N/A",
-                    role: role,
+                    role: "회원",
                     joinDate: p.created_at,
                     postCount: postCountMap[p.id] || 0,
                     commentCount: commentCountMap[p.id] || 0,
@@ -225,8 +226,7 @@ export default function AdminMembersPage() {
                     onChange={(e) => setRoleFilter(e.target.value)}
                     className="px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none"
                 >
-                    <option value="all">전체 등급</option>
-                    <option value="관리자">관리자</option>
+                    <option value="all">전체 구분</option>
                     <option value="회원">회원</option>
                     <option value="비회원">비회원</option>
                 </select>
