@@ -71,6 +71,10 @@ export default function BestsellerPage() {
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
   const [publisherInsights, setPublisherInsights] = useState(null);
 
+  const [trendCategory, setTrendCategory] = useState("전체"); 
+  const [availableCategories, setAvailableCategories] = useState([]);
+  const [trendSummary, setTrendSummary] = useState(null);
+
   useEffect(() => {
     async function checkUser() {
       const { data: { user } } = await supabase.auth.getUser();
@@ -274,10 +278,11 @@ export default function BestsellerPage() {
     }
   }
 
-  async function loadBookTrend(book) {
+  async function loadBookTrend(book, initialCategory = "전체") {
     setSelectedTrendBook(book);
     setSelectedBookGroup(book._variants || [book]);
     setTrendLoading(true);
+    setTrendCategory(initialCategory);
 
     try {
       const startDate = new Date();
@@ -286,24 +291,96 @@ export default function BestsellerPage() {
 
       const { data } = await supabase
         .from("bw_bestseller_snapshots")
-        .select("*")
+        .select("rank, platform, snapshot_date, common_category")
         .in("book_id", bookIds)
         .gte("snapshot_date", startDate.toISOString().split('T')[0])
         .order("snapshot_date", { ascending: true });
 
-      const groupedByDate = {};
-      data?.forEach(item => {
-        const date = item.snapshot_date;
-        if (!groupedByDate[date]) groupedByDate[date] = { date };
-        if (!groupedByDate[date][item.platform] || item.rank < groupedByDate[date][item.platform]) {
-          groupedByDate[date][item.platform] = item.rank;
-        }
-      });
-      setTrendData(Object.values(groupedByDate));
-    } catch (e) {} finally {
+      // Extract available categories
+      const categories = ["전체", ...new Set(data?.map(item => item.common_category).filter(Boolean) || [])];
+      setAvailableCategories(categories);
+      
+      // Process Data function based on selected category
+      const processTrendData = (cat) => {
+        const filtered = cat === "전체" ? data : data.filter(d => d.common_category === cat);
+        const groupedByDate = {};
+        
+        let peak = 51;
+        let sum = 0;
+        let count = 0;
+        const seenDates = new Set();
+
+        filtered?.forEach(item => {
+          const date = item.snapshot_date;
+          if (!groupedByDate[date]) groupedByDate[date] = { date };
+          
+          if (!groupedByDate[date][item.platform] || item.rank < groupedByDate[date][item.platform]) {
+            groupedByDate[date][item.platform] = item.rank;
+          }
+
+          if (item.rank < peak) peak = item.rank;
+          sum += item.rank;
+          count++;
+          seenDates.add(date);
+        });
+
+        const summary = {
+          peak: peak > 50 ? "-" : peak,
+          avg: count > 0 ? (sum / count).toFixed(1) : "-",
+          days: seenDates.size,
+          category: cat
+        };
+
+        return { chartData: Object.values(groupedByDate), summary };
+      };
+
+      const result = processTrendData(initialCategory);
+      setTrendData(result.chartData);
+      setTrendSummary(result.summary);
+
+      // Store entire raw data to re-filter easily client-side
+      window._rawTrendData = data;
+
+    } catch (e) {
+      console.error(e);
+    } finally {
       setTrendLoading(false);
     }
   }
+
+  // Client-side re-filter
+  useEffect(() => {
+    if (!window._rawTrendData || activeTab !== "trend") return;
+    
+    const data = window._rawTrendData;
+    const filtered = trendCategory === "전체" ? data : data.filter(d => d.common_category === trendCategory);
+    const groupedByDate = {};
+    
+    let peak = 51;
+    let sum = 0;
+    let count = 0;
+    const seenDates = new Set();
+
+    filtered?.forEach(item => {
+      const date = item.snapshot_date;
+      if (!groupedByDate[date]) groupedByDate[date] = { date };
+      if (!groupedByDate[date][item.platform] || item.rank < groupedByDate[date][item.platform]) {
+        groupedByDate[date][item.platform] = item.rank;
+      }
+      if (item.rank < peak) peak = item.rank;
+      sum += item.rank;
+      count++;
+      seenDates.add(date);
+    });
+
+    setTrendData(Object.values(groupedByDate));
+    setTrendSummary({
+      peak: peak > 50 ? "-" : peak,
+      avg: count > 0 ? (sum / count).toFixed(1) : "-",
+      days: seenDates.size,
+      category: trendCategory
+    });
+  }, [trendCategory]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -513,7 +590,7 @@ export default function BestsellerPage() {
                               key={idx}
                               onClick={() => {
                                 const b = item.bw_books;
-                                loadBookTrend({ ...b, _variants: [b], _variantCount: 1 });
+                                loadBookTrend({ ...b, _variants: [b], _variantCount: 1 }, selectedCategory);
                                 setActiveTab("trend");
                                 window.scrollTo({ top: 0, behavior: 'smooth' });
                               }}
@@ -619,28 +696,64 @@ export default function BestsellerPage() {
                     <div className="flex-1">
                       <span className="bg-[#355E3B]/10 text-[#355E3B] px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest mb-4 inline-block">Best Seller Trend</span>
                       <h2 className="text-4xl font-black text-gray-900 mb-4 tracking-tighter">{selectedTrendBook.title}</h2>
-                      <div className="space-y-2 text-gray-500 font-medium">
+                      <div className="space-y-2 text-gray-500 font-medium text-sm">
                         <p>저자: <span className="text-gray-900">{selectedTrendBook.author}</span></p>
                         <p>출판사: <span className="text-gray-900">{selectedTrendBook.publisher}</span></p>
                       </div>
-                      
-                      {/* PDF extraction removed */}
                     </div>
                   </div>
+
+                  {/* Summary Stats Cards */}
+                  {trendSummary && (
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-8 pt-8 border-t border-gray-50">
+                      <div className="bg-gray-50 p-4 rounded-2xl flex flex-col items-center justify-center">
+                         <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Peak Rank</span>
+                         <span className="text-2xl font-black text-[#355E3B]">{trendSummary.peak === "-" ? "-" : `${trendSummary.peak}위`}</span>
+                      </div>
+                      <div className="bg-gray-50 p-4 rounded-2xl flex flex-col items-center justify-center">
+                         <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Average Rank</span>
+                         <span className="text-2xl font-black text-[#355E3B]">{trendSummary.avg === "-" ? "-" : `${trendSummary.avg}위`}</span>
+                      </div>
+                      <div className="bg-gray-50 p-4 rounded-2xl flex flex-col items-center justify-center">
+                         <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Market Days</span>
+                         <span className="text-2xl font-black text-[#355E3B]">{trendSummary.days}일</span>
+                      </div>
+                      <div className="bg-gray-50 p-4 rounded-2xl flex flex-col items-center justify-center border-2 border-[#355E3B]/10">
+                         <span className="text-[10px] font-bold text-[#355E3B] uppercase tracking-widest mb-1">Active Category</span>
+                         <span className="text-sm font-black text-[#355E3B] truncate max-w-full px-2">{trendSummary.category}</span>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="bg-white rounded-[40px] shadow-sm border border-gray-100 p-10 h-[600px] flex flex-col">
-                  <div className="flex justify-between items-center mb-8">
+                  {/* Chart Header & Category Selector */}
+                  <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
                     <h3 className="text-xl font-black text-gray-900 flex items-center gap-2">
                       <span className="w-2 h-8 bg-[#355E3B] rounded-full"></span>
                       플랫폼별 순위 히스토리
                     </h3>
-                    <div className="flex gap-2 bg-gray-50 p-1 rounded-xl">
-                      {["7", "30", "90"].map(d => (
-                        <button key={d} onClick={() => { setPeriod(d); loadBookTrend(selectedTrendBook); }} className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${period === d ? "bg-white text-black shadow-sm" : "text-gray-400"}`}>
-                          {d}일
-                        </button>
-                      ))}
+                    <div className="flex flex-wrap items-center gap-3">
+                      {/* Category Switcher */}
+                      <div className="flex bg-gray-100 p-1 rounded-xl">
+                        {availableCategories.length > 1 && availableCategories.map(cat => (
+                          <button 
+                            key={cat} 
+                            onClick={() => setTrendCategory(cat)} 
+                            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${trendCategory === cat ? "bg-white text-[#355E3B] shadow-sm" : "text-gray-400 hover:text-gray-600"}`}
+                          >
+                            {cat}
+                          </button>
+                        ))}
+                      </div>
+
+                      <div className="flex gap-2 bg-gray-50 p-1 rounded-xl">
+                        {["7", "30", "90"].map(d => (
+                          <button key={d} onClick={() => { setPeriod(d); loadBookTrend(selectedTrendBook, trendCategory); }} className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${period === d ? "bg-white text-black shadow-sm" : "text-gray-400"}`}>
+                            {d}일
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   </div>
                   <div className="flex-1 min-h-0">
