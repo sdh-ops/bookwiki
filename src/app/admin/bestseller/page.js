@@ -432,7 +432,7 @@ export default function AdminBestsellerPage() {
             </div>
 
             {/* Category Filter */}
-            <div className="flex gap-2 overflow-x-auto pb-2 -mx-3 px-3 md:mx-0 md:px-0">
+            <div className="flex flex-wrap gap-2 pt-1 pb-2">
               {CATEGORIES.map(cat => (
                 <button
                   key={cat}

@@ -441,8 +441,8 @@ export default function BestsellerPage() {
         {activeTab === "current" && (
           <>
             {/* Filters */}
-            <div className="flex flex-col md:flex-row gap-4 mb-8 bg-white p-5 rounded-xl border border-gray-200 shadow-sm justify-between items-center">
-              <div className="flex gap-2 overflow-x-auto w-full md:w-auto scrollbar-hide">
+            <div className="flex flex-col md:flex-row gap-4 mb-8 bg-white p-5 rounded-xl border border-gray-200 shadow-sm justify-between items-start md:items-center">
+              <div className="flex flex-wrap gap-2 w-full md:flex-1">
                 {CATEGORIES.map(cat => (
                   <button
                     key={cat}
