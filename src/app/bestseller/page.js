@@ -10,11 +10,11 @@ import {
 import { generateBookReport, generatePublisherReport } from "@/lib/reportGenerator";
 
 const PLATFORMS = [
-  { id: "kyobo", name: "교보문고", color: "#1E40AF" },
-  { id: "yes24", name: "예스24", color: "#FF6B00" },
-  { id: "aladin", name: "알라딘", color: "#FBBE00" },
-  { id: "ridi", name: "리디북스", color: "#5B4FFF" },
-  { id: "millie", name: "밀리의서재", color: "#00C73C" },
+  { id: "kyobo", name: "교보문고", color: "#1E40AF", url: "https://www.kyobobook.co.kr/" },
+  { id: "yes24", name: "예스24", color: "#FF6B00", url: "http://www.yes24.com/" },
+  { id: "aladin", name: "알라딘", color: "#FBBE00", url: "https://www.aladin.co.kr/" },
+  { id: "ridi", name: "리디북스", color: "#5B4FFF", url: "https://ridibooks.com/" },
+  { id: "millie", name: "밀리의서재", color: "#00C73C", url: "https://www.millie.co.kr/" },
 ];
 
 const CATEGORIES = ["종합", "소설", "에세이/시", "인문", "경제경영", "자기계발", "사회과학", "역사", "예술", "종교", "과학", "기술/IT", "만화", "여행", "건강"];
@@ -493,9 +493,15 @@ export default function BestsellerPage() {
                 const books = platformData[platform.id] || [];
                 return (
                   <div key={platform.id} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col h-[750px]">
-                    <div className="py-2.5 px-4 text-white font-bold text-sm text-center tracking-wider bg-gray-800" style={{ backgroundColor: platform.color }}>
+                    <a 
+                      href={platform.url} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="py-2.5 px-4 text-white font-bold text-sm text-center tracking-wider bg-gray-800 hover:opacity-90 transition-opacity block" 
+                      style={{ backgroundColor: platform.color }}
+                    >
                       {platform.name}
-                    </div>
+                    </a>
                     <div className="flex-1 overflow-y-auto p-2 space-y-1.5 scrollbar-hide">
                       {loading ? (
                         <div className="h-full flex items-center justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#355E3B]"></div></div>
@@ -745,43 +751,7 @@ export default function BestsellerPage() {
                 >
                    확인
                 </button>
-                {isAdmin && (
-                  <button 
-                    disabled={!bookDetails?.isbn}
-                    onClick={async () => {
-                      if (!bookDetails?.isbn) {
-                        alert('저장할 ISBN 정보가 없습니다. 먼저 검색을 완료해주세요.');
-                        return;
-                      }
-                      setLoadingDetails(true);
-                      try {
-                          const bookId = selectedBook.bw_books.id;
-                          const toUpdate = {
-                            publisher: bookDetails.publisher,
-                            pub_date: bookDetails.pubDate,
-                            isbn: bookDetails.isbn,
-                            description: bookDetails.description,
-                            cover_url: bookDetails.cover
-                          };
-                          
-                          const { error } = await supabase.from('bw_books').update(toUpdate).eq('id', bookId);
-                          if (error) throw error;
-                          alert('도서 정보가 성공적으로 업데이트되었습니다.');
-                          fetchAllData(); 
-                      } catch (err) {
-                          console.error('Update error:', err);
-                          alert('업데이트 중 오류가 발생했습니다.');
-                      } finally {
-                          setLoadingDetails(false);
-                      }
-                    }}
-                    className={`flex-1 min-w-[120px] py-3 rounded-xl font-bold transition-all active:scale-95 flex items-center justify-center gap-2 ${
-                      !bookDetails?.isbn ? "bg-gray-200 text-gray-400 cursor-not-allowed" : "bg-blue-600 text-white hover:bg-blue-700"
-                    }`}
-                  >
-                    <span>🔄</span> 정보 업데이트
-                  </button>
-                )}
+
                 <button 
                    onClick={() => { 
                       const b = selectedBook.bw_books || selectedBook;
