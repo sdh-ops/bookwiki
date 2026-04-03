@@ -38,6 +38,9 @@ const HEADERS = {
 
 let browser = null;
 
+// 알라딘 API 중복 호출 방지 캐시 (같은 책이 여러 카테고리에 등장할 때 재사용)
+const aladdinCache = new Map();
+
 async function initBrowser() {
   if (!browser) {
     browser = await puppeteer.launch({
@@ -128,12 +131,14 @@ function getYesterdayKST() {
 
 // 누락된 출판사/출간일 정보를 알라딘 API를 통해 보완 (Fallback)
 async function fetchMissingInfo(title, author) {
+  const cacheKey = `${title}|||${author}`;
+  if (aladdinCache.has(cacheKey)) return aladdinCache.get(cacheKey);
+
   try {
     const safeTitle = title.replace(/\[도서\]/g, '').split('(')[0].split('-')[0].trim();
     const url = 'http://www.aladin.co.kr/ttb/api/ItemSearch.aspx';
     const params = {
       ttbkey: ALADIN_API_KEY,
-      Query: safeTitle + ' ' + (author !== '저자 미상' ? author.split(' ')[0] : ''),
       QueryType: 'Keyword',
       MaxResults: 2,
       start: 1,
@@ -141,8 +146,7 @@ async function fetchMissingInfo(title, author) {
       output: 'js',
       Version: '20131101'
     };
-    
-    // 저자가 있을 경우 검색 정확도를 위해 포함
+
     if (author && author !== '저자 미상' && author !== '알수없음') {
       params.Query = `${safeTitle} ${author.split(' ')[0]}`;
     } else {
@@ -152,14 +156,17 @@ async function fetchMissingInfo(title, author) {
     const response = await axios.get(url, { params, timeout: 5000 });
     if (response.data && response.data.item && response.data.item.length > 0) {
       const book = response.data.item[0];
-      return {
+      const result = {
         publisher: book.publisher,
         isbn: book.isbn13 || book.isbn,
-        pubDate: book.pubDate, // YYYY-MM-DD
+        pubDate: book.pubDate,
         description: book.description
       };
+      aladdinCache.set(cacheKey, result);
+      return result;
     }
   } catch (e) {}
+  aladdinCache.set(cacheKey, null);
   return null;
 }
 
@@ -324,7 +331,7 @@ async function scrapeKyobo(category, retries = 3) {
       // 국내도서(domestic) 필터 추가 및 per=50 설정
       const url = `https://store.kyobobook.co.kr/bestseller/online/daily/domestic?dsplDvsnCode=${category.kyobo}&per=50`;
       await page.goto(url, { waitUntil: 'networkidle2', timeout: 60000 });
-      await new Promise(r => setTimeout(r, 3000));
+      await new Promise(r => setTimeout(r, 1500));
 
       await page.close();
 
@@ -458,7 +465,7 @@ async function scrapeMillie(category, retries = 3) {
       const url = `https://www.millie.co.kr/v3/today/more/best/bookstore/${category.millie}`;
 
       await page.goto(url, { waitUntil: 'networkidle2', timeout: 60000 });
-      await new Promise(r => setTimeout(r, 4000));
+      await new Promise(r => setTimeout(r, 2000));
 
       const books = await page.evaluate(() => {
         const list = [];
@@ -511,72 +518,113 @@ async function sync(platform, books, categoryName, targetDate = null) {
   const snapshotDate = targetDate || getYesterdayKST();
   console.log(`  -> Syncing ${books.length} items for ${platform} on ${snapshotDate}...`);
 
-  for (const book of books) {
-    try {
+  // Step 1: 알라딘 API 보완 - 5개씩 병렬 처리 (rate limit 고려)
+  const enrichedBooks = [];
+  const ENRICH_BATCH = 5;
+  for (let i = 0; i < books.length; i += ENRICH_BATCH) {
+    const batch = books.slice(i, i + ENRICH_BATCH);
+    const results = await Promise.all(batch.map(async (book) => {
       const cleanTitle = book.title.replace(/\[도서\]/g, '').trim();
       let pub = book.publisher;
       let pubDate = book.pub_date;
       let isbn = book.isbn;
       let description = book.description || null;
 
-      // ISBN 유효성 검사 (10자리 또는 13자리 숫자가 아니거나, 978/979로 시작하지 않으면 무효)
       const isInvalidIsbn = !isbn || (isbn.length < 10) || (!isbn.startsWith('978') && !isbn.startsWith('979'));
 
-      // 알라딘 API를 이용한 결측치 메꾸기 (출판사/출간일이 없거나 ISBN이 잘못된 경우, 혹은 밀리의서재로 잘못 표기된 경우)
       if (pub === '알수없음' || pub === '밀리의서재' || !pubDate || isInvalidIsbn || platform === 'millie') {
         const fallback = await fetchMissingInfo(cleanTitle, book.author);
         if (fallback) {
-          // 출판사가 '밀리의서재'이거나 '알수없음'인 경우에만 업데이트 (밀리 오리지널은 제외하기 위함이나, 대부분의 경우 알라딘 정보가 더 정확함)
           if (pub === '알수없음' || pub === '밀리의서재' || platform === 'millie') {
-            // 알라딘에서 가져온 출판사가 있다면 업데이트
-            if (fallback.publisher && fallback.publisher !== '밀리의서재') {
-              pub = fallback.publisher;
-            }
+            if (fallback.publisher && fallback.publisher !== '밀리의서재') pub = fallback.publisher;
           }
           if (!pubDate || pubDate === 'null') pubDate = fallback.pubDate;
           if (!description) description = fallback.description;
-          // 기존 ISBN이 무효하다면 진짜 ISBN으로 교체
           if (isInvalidIsbn) isbn = fallback.isbn;
         }
       }
 
-      const { data: record } = await supabase.from('bw_books')
-        .upsert({
-          title: cleanTitle,
-          author: book.author || '알수없음',
-          publisher: pub || '알수없음',
-          pub_date: pubDate || null,
-          isbn: (isbn && isbn.length >= 10) ? isbn : null,
-          description: description
-        }, { onConflict: 'title,author' })
-        .select().single();
-
-      if (record) {
-        await supabase.from('bw_bestseller_snapshots').insert({
-          book_id: record.id,
-          platform,
-          period_type: 'daily',
-          rank: book.rank,
-          common_category: categoryName,
-          snapshot_date: snapshotDate
-        });
-      }
-    } catch (err) {
-      // Ignore duplicates
-    }
+      return {
+        rank: book.rank,
+        title: cleanTitle,
+        author: book.author || '알수없음',
+        publisher: pub || '알수없음',
+        pub_date: pubDate || null,
+        isbn: (isbn && isbn.length >= 10) ? isbn : null,
+        description
+      };
+    }));
+    enrichedBooks.push(...results);
   }
+
+  try {
+    // Step 2: bw_books 배치 upsert
+    const { data: upsertedBooks } = await supabase
+      .from('bw_books')
+      .upsert(
+        enrichedBooks.map(b => ({
+          title: b.title, author: b.author, publisher: b.publisher,
+          pub_date: b.pub_date, isbn: b.isbn, description: b.description
+        })),
+        { onConflict: 'title,author' }
+      )
+      .select('id, title, author');
+
+    if (!upsertedBooks) return;
+
+    // Step 3: book_id 매핑 후 스냅샷 배치 upsert
+    const bookIdMap = new Map(upsertedBooks.map(b => [`${b.title}|||${b.author}`, b.id]));
+    const snapshots = enrichedBooks
+      .map(book => {
+        const id = bookIdMap.get(`${book.title}|||${book.author}`);
+        if (!id) return null;
+        return { book_id: id, platform, period_type: 'daily', rank: book.rank, common_category: categoryName, snapshot_date: snapshotDate };
+      })
+      .filter(Boolean);
+
+    if (snapshots.length > 0) {
+      await supabase.from('bw_bestseller_snapshots')
+        .upsert(snapshots, { onConflict: 'book_id,platform,period_type,snapshot_date,common_category', ignoreDuplicates: true });
+    }
+  } catch (err) {
+    console.error(`  [!] Sync error for ${platform}/${categoryName}:`, err.message);
+  }
+}
+
+// 동시 실행 수 제한 헬퍼
+function withConcurrency(limit) {
+  let active = 0;
+  const queue = [];
+  return function run(fn) {
+    return new Promise((resolve, reject) => {
+      const execute = async () => {
+        active++;
+        try { resolve(await fn()); }
+        catch (e) { reject(e); }
+        finally {
+          active--;
+          if (queue.length > 0) queue.shift()();
+        }
+      };
+      if (active < limit) execute();
+      else queue.push(execute);
+    });
+  };
 }
 
 async function main(targetDateStr = null) {
   const targetDate = targetDateStr || getYesterdayKST();
   console.log(`[${new Date().toISOString()}] Bestseller Scraping Started (Date: ${targetDate})...`);
-  
+
   await initBrowser();
 
+  // 카테고리 3개씩 병렬 처리 (Puppeteer 탭 수 = 최대 9개 동시)
+  const limit = withConcurrency(3);
+
   try {
-    for (const category of COMMON_CATEGORIES) {
+    await Promise.all(COMMON_CATEGORIES.map(category => limit(async () => {
       console.log(`\n--- Scraping Category: ${category.name} ---`);
-      
+
       const [yes24, aladin, kyobo, ridi, millie] = await Promise.all([
         scrapeYes24(category),
         scrapeAladdin(category),
@@ -585,14 +633,17 @@ async function main(targetDateStr = null) {
         scrapeMillie(category)
       ]);
 
-      await sync('yes24', yes24, category.name, targetDate);
-      await sync('aladin', aladin, category.name, targetDate);
-      await sync('kyobo', kyobo, category.name, targetDate);
-      await sync('ridi', ridi, category.name, targetDate);
-      await sync('millie', millie, category.name, targetDate);
+      // 플랫폼별 sync도 병렬 처리
+      await Promise.all([
+        sync('yes24', yes24, category.name, targetDate),
+        sync('aladin', aladin, category.name, targetDate),
+        sync('kyobo', kyobo, category.name, targetDate),
+        sync('ridi', ridi, category.name, targetDate),
+        sync('millie', millie, category.name, targetDate),
+      ]);
 
       console.log(`✅ Category ${category.name} completed.`);
-    }
+    })));
   } catch (error) {
     console.error('❌ Scraping session failed:', error);
   } finally {
