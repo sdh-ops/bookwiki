@@ -88,8 +88,8 @@ async function searchByTitle(title, author, type) {
   const aladinUrl = new URL(ALADIN_SEARCH_URL);
   aladinUrl.searchParams.append('ttbkey', ALADIN_API_KEY);
   aladinUrl.searchParams.append('Query', title);
-  aladinUrl.searchParams.append('QueryType', 'Title');
-  aladinUrl.searchParams.append('MaxResults', '5');
+  aladinUrl.searchParams.append('QueryType', 'Keyword'); // Using Keyword is more flexible
+  aladinUrl.searchParams.append('MaxResults', '10');
   aladinUrl.searchParams.append('start', '1');
   aladinUrl.searchParams.append('SearchTarget', 'Book');
   aladinUrl.searchParams.append('output', 'js');
@@ -104,31 +104,26 @@ async function searchByTitle(title, author, type) {
   const data = await response.json();
 
   if (!data.item || data.item.length === 0) {
+    // Retry with Keyword if not already or maybe search again with broader query
     return NextResponse.json(
       { error: 'Book not found' },
       { status: 404 }
     );
   }
 
-  // Find best match
+  // Find best match among results
   let bestMatch = data.item[0];
 
   if (author) {
-    const cleanAuthor = author.split(',')[0].trim().toLowerCase();
+    // Simplify author for matching (e.g. "앤디 위어 저" -> "앤디 위어")
+    const cleanAuth = author.split(/[,/|]/)[0].replace(/\s(저|지음|그림|역|옮김|외)$/, '').trim().toLowerCase();
 
     for (const item of data.item) {
-      if (item.author.toLowerCase().includes(cleanAuthor)) {
+      if (item.author.toLowerCase().includes(cleanAuth)) {
         bestMatch = item;
         break;
       }
     }
-  }
-
-  // If only cover is requested
-  if (type === 'cover') {
-    return NextResponse.json({
-      cover: bestMatch.cover || null
-    });
   }
 
   // Return full book details

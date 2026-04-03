@@ -48,6 +48,7 @@ export default function BestsellerPage() {
   const [selectedBook, setSelectedBook] = useState(null);
   const [bookDetails, setBookDetails] = useState(null);
   const [loadingDetails, setLoadingDetails] = useState(false);
+  const [manualSearchText, setManualSearchText] = useState("");
 
   // Navigation states
   const [isAdmin, setIsAdmin] = useState(false);
@@ -157,42 +158,42 @@ export default function BestsellerPage() {
     setLoading(false);
   }
 
-  async function handleBookClick(book, platform) {
-    setSelectedBook({ ...book, platform });
+  async function handleBookClick(book, platform, manualQuery = null) {
+    if (!manualQuery) setSelectedBook({ ...book, platform });
     setLoadingDetails(true);
-    setBookDetails(null);
-
+    if (!manualQuery) setManualSearchText("");
+    
     try {
-      if (book.bw_books.description) {
+      if (!manualQuery && book.bw_books.description && !book.bw_books.publisher?.includes('밀리의서재')) {
         setBookDetails({
           title: book.bw_books.title,
           author: book.bw_books.author,
           publisher: book.bw_books.publisher,
-          description: book.bw_books.description
+          description: book.bw_books.description,
+          isbn: book.bw_books.isbn,
+          cover: book.bw_books.cover_url
         });
-      } else if (book.bw_books.isbn) {
-        const response = await fetch(`/api/aladin/lookup?isbn=${book.bw_books.isbn}`);
-        if (response.ok) {
-          const data = await response.json();
-          setBookDetails({ ...data }); // No cover
-        } else {
-          // Fallback to title/author search if ISBN lookup fails (e.g. invalid ISBN)
-          const fallbackRes = await fetch(`/api/aladin/lookup?title=${encodeURIComponent(book.bw_books.title)}&author=${encodeURIComponent(book.bw_books.author || '')}`);
-          if (fallbackRes.ok) {
-            const data = await fallbackRes.json();
+      } else {
+        const isbn = book.bw_books.isbn;
+        const hasValidIsbn = isbn && isbn !== "N/A" && isbn.trim().length > 5;
+        
+        if (hasValidIsbn && !manualQuery) {
+          const response = await fetch(`/api/aladin/lookup?isbn=${isbn}`);
+          if (response.ok) {
+            const data = await response.json();
             setBookDetails({ ...data });
-          } else {
-            setBookDetails({
-              title: book.bw_books.title,
-              author: book.bw_books.author,
-              publisher: book.bw_books.publisher,
-              description: "상세 정보를 찾을 수 없습니다."
-            });
+            setLoadingDetails(false);
+            return;
           }
         }
-      } else {
-        // Fallback to title/author search directly if no ISBN is available
-        const titleRes = await fetch(`/api/aladin/lookup?title=${encodeURIComponent(book.bw_books.title)}&author=${encodeURIComponent(book.bw_books.author || '')}`);
+
+        // Fallback or Manual Query
+        const searchTitle = manualQuery || book.bw_books.title.replace(/\([^)]*\)/g, '').replace(/\[[^\]]*\]/g, '').trim();
+        const searchAuthor = book.bw_books.author?.replace(/\s(저|지음|그림|역|옮김|외).*$/, '').trim() || '';
+        
+        const url = `/api/aladin/lookup?title=${encodeURIComponent(searchTitle)}&author=${encodeURIComponent(searchAuthor)}`;
+        const titleRes = await fetch(url);
+        
         if (titleRes.ok) {
           const data = await titleRes.json();
           setBookDetails({ ...data });
@@ -201,17 +202,12 @@ export default function BestsellerPage() {
             title: book.bw_books.title,
             author: book.bw_books.author,
             publisher: book.bw_books.publisher,
-            description: "ISBN 정보가 없어 상세 정보를 불러올 수 없습니다."
+            description: manualQuery ? "검색 결과가 없습니다." : "ISBN 정보가 없거나 자동 검색에 실패했습니다. 직접 검색해보세요."
           });
         }
       }
     } catch (error) {
-      setBookDetails({
-        title: book.bw_books.title,
-        author: book.bw_books.author,
-        publisher: book.bw_books.publisher,
-        description: "상세 정보를 불러오는데 실패했습니다."
-      });
+      console.error("Lookup error:", error);
     } finally {
       setLoadingDetails(false);
     }
@@ -686,6 +682,16 @@ export default function BestsellerPage() {
           <div className="bg-white rounded-2xl w-full max-w-xl max-h-[90vh] overflow-hidden shadow-2xl flex flex-col animate-in zoom-in-95 duration-200">
              <div className="p-8 overflow-y-auto">
                 <div className="flex flex-col md:flex-row gap-10 mb-10">
+                   {(bookDetails?.cover || selectedBook.bw_books?.cover_url) && (
+                     <div className="w-32 h-44 flex-shrink-0 mx-auto md:mx-0 bg-gray-50 rounded-lg overflow-hidden shadow-md">
+                        <img 
+                          src={bookDetails?.cover || selectedBook.bw_books?.cover_url} 
+                          alt={selectedBook.bw_books?.title}
+                          referrerPolicy="no-referrer"
+                          className="w-full h-full object-cover"
+                        />
+                     </div>
+                   )}
                    <div className="flex-1 text-center md:text-left">
                       <h3 className="text-2xl font-black text-gray-900 mb-2">{selectedBook.bw_books?.title}</h3>
                       <p className="text-gray-500 font-bold mb-6 italic">
@@ -699,6 +705,28 @@ export default function BestsellerPage() {
                            <span className="px-3 py-1 bg-[#355E3B]/10 rounded-lg text-[10px] font-black text-[#355E3B]">{selectedBook.platform} {selectedBook.rank}위</span>
                          )}
                       </div>
+                   </div>
+                </div>
+
+                <div className="border-t border-gray-50 pt-8 mb-6">
+                   <h4 className="text-xs font-black tracking-widest text-gray-400 mb-3 uppercase">직접 검색</h4>
+                   <div className="flex gap-2">
+                      <input 
+                        type="text" 
+                        value={manualSearchText}
+                        onChange={(e) => setManualSearchText(e.target.value)}
+                        placeholder="ISBN 또는 정확한 도서명을 입력하세요"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') handleBookClick(selectedBook, selectedBook.platform, manualSearchText);
+                        }}
+                        className="flex-1 px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-[#355E3B] transition-all"
+                      />
+                      <button 
+                        onClick={() => handleBookClick(selectedBook, selectedBook.platform, manualSearchText)}
+                        className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg font-bold hover:bg-gray-300 transition-all"
+                      >
+                         검색
+                      </button>
                    </div>
                 </div>
 
@@ -719,23 +747,27 @@ export default function BestsellerPage() {
                 </button>
                 {isAdmin && (
                   <button 
+                    disabled={!bookDetails?.isbn}
                     onClick={async () => {
+                      if (!bookDetails?.isbn) {
+                        alert('저장할 ISBN 정보가 없습니다. 먼저 검색을 완료해주세요.');
+                        return;
+                      }
                       setLoadingDetails(true);
                       try {
                           const bookId = selectedBook.bw_books.id;
-                          // Use bookDetails from Aladin or current book info
                           const toUpdate = {
-                            publisher: bookDetails?.publisher || selectedBook.bw_books.publisher,
-                            pub_date: bookDetails?.pubDate || selectedBook.bw_books.pub_date,
-                            isbn: bookDetails?.isbn || selectedBook.bw_books.isbn,
-                            description: bookDetails?.description || selectedBook.bw_books.description,
-                            cover_url: bookDetails?.cover || selectedBook.bw_books.cover_url
+                            publisher: bookDetails.publisher,
+                            pub_date: bookDetails.pubDate,
+                            isbn: bookDetails.isbn,
+                            description: bookDetails.description,
+                            cover_url: bookDetails.cover
                           };
                           
                           const { error } = await supabase.from('bw_books').update(toUpdate).eq('id', bookId);
                           if (error) throw error;
                           alert('도서 정보가 성공적으로 업데이트되었습니다.');
-                          fetchAllData(); // Refresh list
+                          fetchAllData(); 
                       } catch (err) {
                           console.error('Update error:', err);
                           alert('업데이트 중 오류가 발생했습니다.');
@@ -743,7 +775,9 @@ export default function BestsellerPage() {
                           setLoadingDetails(false);
                       }
                     }}
-                    className="flex-1 min-w-[120px] py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-all active:scale-95 flex items-center justify-center gap-2"
+                    className={`flex-1 min-w-[120px] py-3 rounded-xl font-bold transition-all active:scale-95 flex items-center justify-center gap-2 ${
+                      !bookDetails?.isbn ? "bg-gray-200 text-gray-400 cursor-not-allowed" : "bg-blue-600 text-white hover:bg-blue-700"
+                    }`}
                   >
                     <span>🔄</span> 정보 업데이트
                   </button>
