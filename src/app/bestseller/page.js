@@ -717,35 +717,37 @@ export default function BestsellerPage() {
                 >
                    확인
                 </button>
-                <button 
-                   onClick={async () => {
-                     setLoadingDetails(true);
-                     try {
-                        const bookId = selectedBook.bw_books.id;
-                        // Use bookDetails from Aladin or current book info
-                        const toUpdate = {
-                          publisher: bookDetails?.publisher || selectedBook.bw_books.publisher,
-                          pub_date: bookDetails?.pubDate || selectedBook.bw_books.pub_date,
-                          isbn: bookDetails?.isbn || selectedBook.bw_books.isbn,
-                          description: bookDetails?.description || selectedBook.bw_books.description,
-                          cover_url: bookDetails?.cover || selectedBook.bw_books.cover_url
-                        };
-                        
-                        const { error } = await supabase.from('bw_books').update(toUpdate).eq('id', bookId);
-                        if (error) throw error;
-                        alert('도서 정보가 성공적으로 업데이트되었습니다.');
-                        fetchAllData(); // Refresh list
-                     } catch (err) {
-                        console.error('Update error:', err);
-                        alert('업데이트 중 오류가 발생했습니다.');
-                     } finally {
-                        setLoadingDetails(false);
-                     }
-                   }}
-                   className="flex-1 min-w-[120px] py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-all active:scale-95 flex items-center justify-center gap-2"
-                >
-                   <span>🔄</span> 정보 업데이트
-                </button>
+                {isAdmin && (
+                  <button 
+                    onClick={async () => {
+                      setLoadingDetails(true);
+                      try {
+                          const bookId = selectedBook.bw_books.id;
+                          // Use bookDetails from Aladin or current book info
+                          const toUpdate = {
+                            publisher: bookDetails?.publisher || selectedBook.bw_books.publisher,
+                            pub_date: bookDetails?.pubDate || selectedBook.bw_books.pub_date,
+                            isbn: bookDetails?.isbn || selectedBook.bw_books.isbn,
+                            description: bookDetails?.description || selectedBook.bw_books.description,
+                            cover_url: bookDetails?.cover || selectedBook.bw_books.cover_url
+                          };
+                          
+                          const { error } = await supabase.from('bw_books').update(toUpdate).eq('id', bookId);
+                          if (error) throw error;
+                          alert('도서 정보가 성공적으로 업데이트되었습니다.');
+                          fetchAllData(); // Refresh list
+                      } catch (err) {
+                          console.error('Update error:', err);
+                          alert('업데이트 중 오류가 발생했습니다.');
+                      } finally {
+                          setLoadingDetails(false);
+                      }
+                    }}
+                    className="flex-1 min-w-[120px] py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-all active:scale-95 flex items-center justify-center gap-2"
+                  >
+                    <span>🔄</span> 정보 업데이트
+                  </button>
+                )}
                 <button 
                    onClick={() => { 
                       const b = selectedBook.bw_books || selectedBook;
