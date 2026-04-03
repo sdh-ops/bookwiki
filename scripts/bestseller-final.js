@@ -5,7 +5,7 @@ const axios = require('axios');
 const cheerio = require('cheerio');
 const { supabase } = require('./common');
 
-const ALADIN_API_KEY = 'ttbsdh10220011';
+const ALADIN_API_KEY = 'ttbsue_1201547001';
 
 /**
  * [Bestseller Scraper FINAL - 5 Platforms Integrated]
