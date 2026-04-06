@@ -76,10 +76,15 @@ async function scrapeBookEditor() {
             await page.goto(baseUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
             await new Promise(r => setTimeout(r, 3000)); // Wait for CUPID redirect
         } catch (e) {
-            console.warn(`  ⚠️ Main page load: ${e.message}`);
+            const msg = e.message || '';
+            if (msg.includes('ERR_TOO_MANY_REDIRECTS') || msg.includes('overTraffic') || msg.includes('503')) {
+                console.error('  🛑 Site is over traffic limit or redirect loop (Cafe24). Aborting.');
+                return;
+            }
+            console.warn(`  ⚠️ Main page load: ${msg}`);
         }
 
-        // Check for Cafe24 traffic limit
+        // Check for Cafe24 traffic limit via URL (in case goto succeeded but landed on 503 page)
         const mainUrl = page.url();
         if (mainUrl.includes('overTraffic') || mainUrl.includes('503')) {
             console.error('  🛑 Site is over traffic limit (Cafe24 503). Aborting.');
@@ -91,6 +96,9 @@ async function scrapeBookEditor() {
         try {
             await page.goto(`${baseUrl}/editorplaza/sub9/blist.php?start=0`, {
                 waitUntil: 'domcontentloaded', timeout: 30000
+            }).catch(e => {
+                if (e.message?.includes('ERR_TOO_MANY_REDIRECTS')) throw new Error('SITE_UNAVAILABLE');
+                throw e;
             });
             await new Promise(r => setTimeout(r, 3000));
             const currentUrl = page.url();
@@ -110,6 +118,10 @@ async function scrapeBookEditor() {
             }
             console.log('  ✅ Login step complete. URL:', page.url());
         } catch (e) {
+            if (e.message === 'SITE_UNAVAILABLE' || e.message?.includes('ERR_TOO_MANY_REDIRECTS')) {
+                console.error('  🛑 Site unavailable (redirect loop). Aborting.');
+                return;
+            }
             console.warn(`  ⚠️ Login step failed: ${e.message}. Continuing...`);
         }
 
