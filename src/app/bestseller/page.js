@@ -178,11 +178,7 @@ export default function BestsellerPage() {
         .sort((a,b) => b[1] - a[1])
         .slice(0, 5);
       
-      const ourBooks = publisherHighlight 
-        ? data.filter(item => item.bw_books.publisher?.includes(publisherHighlight))
-        : [];
-
-      setPublisherInsights({ topPublishers, ourBooks, allBooks: data });
+      setPublisherInsights({ topPublishers, allBooks: data });
     }
     
     setLoading(false);
@@ -625,7 +621,7 @@ export default function BestsellerPage() {
                     <h3 className="text-xl font-black mb-1 flex items-center gap-2">
                        🏢 {publisherHighlight} <span className="text-xs font-normal opacity-80">마켓 인사이트</span>
                     </h3>
-                    <p className="text-sm opacity-90 font-medium">검색된 베스트셀러: <span className="font-black text-white">{publisherInsights.ourBooks.length}</span>권</p>
+                    <p className="text-sm opacity-90 font-medium">검색된 베스트셀러: <span className="font-black text-white">{publisherInsights.allBooks.filter(item => item.bw_books.publisher?.includes(publisherHighlight)).length}</span>권</p>
                   </div>
                   
                   {/* Report Download removed */}
