@@ -184,14 +184,17 @@ export default function PostDetailPage() {
                 return;
             }
 
-            // Increment view count
-            const newViewCount = (postData.view_count || 0) + 1;
-            await supabase
-                .from("bw_posts")
-                .update({ view_count: newViewCount })
-                .eq("id", id);
+            // Increment view count (같은 세션에서 같은 글 재방문 시 중복 카운트 방지)
+            const viewKey = `bw_viewed_${id}`;
+            const alreadyViewed = sessionStorage.getItem(viewKey);
+            let displayViewCount = postData.view_count || 0;
+            if (!alreadyViewed) {
+                sessionStorage.setItem(viewKey, "1");
+                await supabase.rpc("increment_view_count", { post_id: id });
+                displayViewCount += 1;
+            }
 
-            setPost({ ...postData, view_count: newViewCount });
+            setPost({ ...postData, view_count: displayViewCount });
 
             // Fetch comments (삭제되지 않은 댓글만)
             const { data: commentData } = await supabase
