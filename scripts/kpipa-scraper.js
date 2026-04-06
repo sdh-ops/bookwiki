@@ -1,9 +1,9 @@
 "use strict";
 
-const axios = require('axios');
 const cheerio = require('cheerio');
 const { supabase } = require('./common');
 const pdf = require('pdf-parse');
+const { fetchWithRetry } = require('./scraper-utils');
 
 function isValidPost(title) {
     if (!title || title.length < 2) return false;
@@ -16,31 +16,46 @@ function isValidPost(title) {
 }
 
 const MAX_POSTS = 100;
-const START_DATE = new Date('2026-03-01');
+const LOOKBACK_DAYS = 45; // Look back 45 days dynamically
 
 async function scrapeKPIPA() {
-    console.log('Starting KPIPA scraping...');
+    console.log('🚀 Starting KPIPA scraping...');
     const baseUrl = 'https://www.kpipa.or.kr';
     const posts = [];
     let page = 1;
     let reachedOldPosts = false;
 
+    // Calculate dynamic START_DATE
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - LOOKBACK_DAYS);
+    console.log(`📅 Dynamic Lookback: From ${startDate.toISOString().split('T')[0]}`);
+
     try {
+        // DB Pre-check: Fetch existing source_urls to avoid redundant detail fetches
+        console.log('🔍 Fetching existing posts from DB for deduplication...');
+        const { data: existingPosts, error: dbError } = await supabase
+            .from('bw_posts')
+            .select('source_url')
+            .eq('board_type', 'support')
+            .eq('is_auto', true);
+
+        if (dbError) throw new Error(`DB Fetch failed: ${dbError.message}`);
+        const existingUrls = new Set(existingPosts?.map(p => p.source_url) || []);
+        console.log(`✅ Loaded ${existingUrls.size} existing URLs.`);
+
         while (posts.length < MAX_POSTS && !reachedOldPosts) {
             const listUrl = `${baseUrl}/p/g1_2?page=${page}`;
-            console.log(`Fetching page ${page}...`);
+            console.log(`\n📄 Fetching list page ${page}...`);
 
-            const { data: listHtml } = await axios.get(listUrl, {
-                headers: { 'User-Agent': 'Mozilla/5.0', 'Accept-Language': 'ko-KR,ko;q=0.9' }
-            });
-
-            const $list = cheerio.load(listHtml);
+            const listResponse = await fetchWithRetry(listUrl);
+            const $list = cheerio.load(listResponse.data);
             const postLinks = [];
 
             $list('a').each((_, el) => {
                 const href = $list(el).attr('href') || '';
                 const text = $list(el).text().trim();
                 
+                // Matches pattern like /p/g1_2/2034
                 if (href.match(/\/p\/g1_2\/\d+/) && text.length > 5 && isValidPost(text)) {
                     const fullUrl = href.startsWith('http') ? href : `${baseUrl}${href}`;
                     if (!postLinks.find(p => p.url === fullUrl)) {
@@ -49,18 +64,24 @@ async function scrapeKPIPA() {
                 }
             });
 
-            if (postLinks.length === 0) break;
+            if (postLinks.length === 0) {
+                console.log('⚠️ No more post links found on this page.');
+                break;
+            }
 
             for (const link of postLinks) {
                 if (posts.length >= MAX_POSTS) break;
-                if (posts.find(p => p.source_url === link.url)) continue;
+
+                // Pre-check skip
+                if (existingUrls.has(link.url)) {
+                    console.log(`  ⏭ Skipping (already in DB): ${link.title.substring(0, 35)}...`);
+                    // We don't stop here because list might not be strictly sorted or new ones might be inserted
+                    continue;
+                }
 
                 try {
-                    const { data: detailHtml } = await axios.get(link.url, {
-                        headers: { 'User-Agent': 'Mozilla/5.0', 'Accept-Language': 'ko-KR,ko;q=0.9' }
-                    });
-
-                    const $ = cheerio.load(detailHtml);
+                    const detailResponse = await fetchWithRetry(link.url);
+                    const $ = cheerio.load(detailResponse.data);
 
                     // Extract date
                     const pageText = $('body').text();
@@ -70,44 +91,39 @@ async function scrapeKPIPA() {
                         postDate = new Date(2000 + parseInt(dateMatch[1]), parseInt(dateMatch[2]) - 1, parseInt(dateMatch[3]));
                     }
 
-                    if (postDate && postDate < START_DATE) {
-                        console.log(`  ⏭ Skipping old post: ${link.title.substring(0, 30)}...`);
+                    if (postDate && postDate < startDate) {
+                        console.log(`  ⏭ Skipping (too old: ${postDate.toISOString().split('T')[0]}): ${link.title.substring(0, 30)}...`);
                         reachedOldPosts = true;
                         continue;
                     }
 
-                    // RE: 제목 필터링 (답글 제외)
+                    // Filtering
                     const titleLower = link.title.toLowerCase();
                     if (titleLower.startsWith('re:') || titleLower.startsWith('re ')) {
-                        console.log(`  ⏭ Skipping RE: ${link.title.substring(0, 30)}...`);
                         continue;
                     }
-
-                    // 공지 제외
                     if (link.title.includes('공지')) {
-                        console.log(`  ⏭ Skipping notice: ${link.title.substring(0, 30)}...`);
                         continue;
                     }
 
-                    // Remove scripts/styles
+                    // Remove noise
                     $('script, style, noscript').remove();
 
-                    // Build content parts
                     let contentParts = [];
+                    let deadline = null;
 
                     // 1. Extract deadline from period info
-                    let deadline = null;
                     const periodMatch = pageText.match(/기간\s*[:\s]*(\d{4}[-.]?\d{1,2}[-.]?\d{1,2})\s*[~-]\s*(\d{4}[-.]?\d{1,2}[-.]?\d{1,2})/);
                     if (periodMatch) {
                         deadline = periodMatch[2].replace(/\./g, '-');
                     }
 
-                    // 3. Get main content from #bo_v_con
-                    const mainContent = $('#bo_v_con');
+                    // 2. Main content extraction
+                    const mainContent = $('#bo_v_con').length > 0 ? $('#bo_v_con') : $('section#bo_v_atc, #bo_v_atc');
                     if (mainContent.length > 0) {
-                        mainContent.find('iframe, embed, object, #toolbarViewer').remove();
+                        mainContent.find('iframe, embed, object, #toolbarViewer, #bo_v_atc_title, h2').remove();
 
-                        // Fix URLs
+                        // Fix relative URLs
                         mainContent.find('a').each((_, a) => {
                             const href = $(a).attr('href');
                             if (href && !href.startsWith('http') && !href.startsWith('#')) {
@@ -127,34 +143,11 @@ async function scrapeKPIPA() {
                         }
                     }
 
-                    // 4. Fallback to section#bo_v_atc if needed
-                    if (contentParts.length < 2) {
-                        const atcSection = $('section#bo_v_atc, #bo_v_atc');
-                        if (atcSection.length > 0) {
-                            atcSection.find('#bo_v_atc_title, h2, iframe').remove();
-                            const atcHtml = atcSection.html()?.trim();
-                            if (atcHtml && atcHtml.length > 30) {
-                                contentParts.push(`<div style="line-height:1.8;margin-bottom:20px;">${atcHtml}</div>`);
-                            }
-                        }
-                    }
-
-                    // 5. Get attachments and PDF viewers from #bo_v_file
+                    // 3. Attachments & PDF Preview
                     const files = [];
-                    const pdfViewers = [];
                     let previewUrl = null;
                     const fileSection = $('#bo_v_file, section#bo_v_file');
                     if (fileSection.length > 0) {
-
-                        // Extract PDF viewer iframes
-                        fileSection.find('iframe').each((_, iframe) => {
-                            const src = $(iframe).attr('src');
-                            if (src && src.includes('viewer.html?file=')) {
-                                pdfViewers.push(src);
-                            }
-                        });
-
-                        // Extract file download links
                         fileSection.find('a').each((_, a) => {
                             const href = $(a).attr('href');
                             const text = $(a).text().trim();
@@ -168,9 +161,7 @@ async function scrapeKPIPA() {
                             }
                         });
 
-                        // Select best file for preview (PDF priority)
                         const bestPreviewFile = files.find(f => f.isPdf) || files.find(f => f.name.match(/\.(docx?|xlsx?|hwp)(\s*\(.*\))?$/i));
-                        
                         if (bestPreviewFile) {
                             if (bestPreviewFile.isPdf) {
                                 previewUrl = `https://www.kpipa.or.kr/p/js/pdf/web/viewer.html?file=${encodeURIComponent(bestPreviewFile.url)}`;
@@ -180,110 +171,97 @@ async function scrapeKPIPA() {
                         }
 
                         // Add Image Previews
-                        const imageFiles = files.filter(f => f.name.match(/\.(png|jpe?g|gif)(\s*\(.*\))?$/i));
-                        if (imageFiles.length > 0) {
-                            for (const img of imageFiles) {
-                                contentParts.push(`<div style="margin:20px 0;text-align:center;"><img src="${img.url}" alt="${img.name}" style="max-width:100%;height:auto;border-radius:8px;border:1px solid #eee;"></div>`);
-                            }
-                        }
+                        files.filter(f => f.name.match(/\.(png|jpe?g|gif)(\s*\(.*\))?$/i)).forEach(img => {
+                            contentParts.push(`<div style="margin:20px 0;text-align:center;"><img src="${img.url}" alt="${img.name}" style="max-width:100%;height:auto;border-radius:8px;border:1px solid #eee;"></div>`);
+                        });
 
-
-                        // Add file download links
+                        // Add Attachment UI
                         if (files.length > 0) {
                             let fileHtml = '<div style="background:#e3f2fd;padding:15px;border-radius:8px;margin-top:20px;"><strong>📎 첨부파일</strong><ul style="margin:10px 0 0 0;padding-left:20px;list-style:none;">';
-                            for (const file of files) {
+                            files.forEach(file => {
                                 const icon = file.isPdf ? '📕' : file.name.match(/\.(png|jpe?g|gif)$/i) ? '🖼️' : '📄';
                                 fileHtml += `<li style="margin:8px 0;">${icon} <a href="${file.url}" target="_blank" style="color:#1976d2;text-decoration:none;">${file.name}</a></li>`;
-                            }
+                            });
                             fileHtml += '</ul></div>';
                             contentParts.push(fileHtml);
                         }
                     }
 
-                        // Smart Deadline Extraction from PDF if still missing
-                        if (!deadline && files.length > 0) {
-                            const mainPdf = files.find(f => f.isPdf || f.name.includes('공고') || f.name.includes('안내'));
-                            if (mainPdf) {
-                                try {
-                                    console.log(`    🔍 Extracting deadline from PDF: ${mainPdf.name}...`);
-                                    const pdfResponse = await axios.get(mainPdf.url, { responseType: 'arraybuffer' });
-                                    const pdfData = await pdf(pdfResponse.data);
-                                    const pdfText = pdfData.text;
-                                    
-                                    // Keywords to look for (smart parsing)
-                                    const keywords = ['신청 및 접수', '공고 기간', '접수 기간', '신청 기간', '접수 기한'];
-                                    let foundDeadline = null;
-                                    
-                                    for (const kw of keywords) {
-                                        const kwIndex = pdfText.indexOf(kw);
-                                        if (kwIndex !== -1) {
-                                            // Look for date range in the next 400 chars (more room for tables)
-                                            const proximityText = pdfText.substring(kwIndex, kwIndex + 400);
-                                            // Match YYYY. MM. DD. or YYYY-MM-DD
-                                            const pdfDateMatch = proximityText.match(/(\d{4}[\s.]*[-.]?\s*\d{1,2}[\s.]*[-.]?\s*\d{1,2})\s*[~-]\s*(\d{4}[\s.]*[-.]?\s*\d{1,2}[\s.]*[-.]?\s*\d{1,2})/);
-                                            if (pdfDateMatch) {
-                                                foundDeadline = pdfDateMatch[2].replace(/[\s.]+/g, '-').replace(/-$/, '');
-                                                break;
-                                            }
+                    // 4. Smart Deadline Extraction from PDF
+                    if (!deadline && files.length > 0) {
+                        const mainPdf = files.find(f => f.isPdf && (f.name.includes('공고') || f.name.includes('안내') || f.name.includes('모집')));
+                        if (mainPdf) {
+                            try {
+                                console.log(`    🔍 Parsing PDF for deadline: ${mainPdf.name}...`);
+                                const pdfResponse = await fetchWithRetry(mainPdf.url, { responseType: 'arraybuffer' });
+                                const pdfData = await pdf(pdfResponse.data);
+                                const pdfText = pdfData.text;
+                                
+                                const keywords = ['신청 및 접수', '공고 기간', '접수 기간', '신청 기간', '접수 기한', '모집 기간'];
+                                for (const kw of keywords) {
+                                    const kwIndex = pdfText.indexOf(kw);
+                                    if (kwIndex !== -1) {
+                                        const proximityText = pdfText.substring(kwIndex, kwIndex + 400);
+                                        const pdfDateMatch = proximityText.match(/(\d{4}[\s.]*[-.]?\s*\d{1,2}[\s.]*[-.]?\s*\d{1,2})\s*[~-]\s*(\d{4}[\s.]*[-.]?\s*\d{1,2}[\s.]*[-.]?\s*\d{1,2})/);
+                                        if (pdfDateMatch) {
+                                            deadline = pdfDateMatch[2].replace(/[\s.]+/g, '-').replace(/-$/, '').replace(/^(\d{4})-(\d{1})-(\d+)/, '$1-0$2-$3').replace(/-(\d{1})$/, '-0$1');
+                                            console.log(`    ✅ Extracted deadline: ${deadline}`);
+                                            break;
                                         }
                                     }
-                                    
-                                    if (foundDeadline) {
-                                        deadline = foundDeadline;
-                                        console.log(`    ✅ Found deadline in PDF: ${deadline}`);
-                                    }
-                                } catch (pdfErr) {
-                                    console.error(`    ❌ PDF parsing error: ${pdfErr.message}`);
                                 }
+                            } catch (pdfErr) {
+                                console.warn(`    ⚠️ PDF parsing failed: ${pdfErr.message}`);
                             }
                         }
+                    }
 
-                        // Add deadline badge to content if found
-                        if (deadline) {
-                            contentParts.unshift(`<div style="background:#fff3cd;border:1px solid #ffc107;padding:12px 15px;margin-bottom:20px;border-radius:8px;"><strong>📅 마감일:</strong> ${deadline}</div>`);
-                        }
+                    if (deadline) {
+                        contentParts.unshift(`<div style="background:#fff3cd;border:1px solid #ffc107;padding:12px 15px;margin-bottom:20px;border-radius:8px;"><strong>📅 마감일:</strong> ${deadline}</div>`);
+                    }
 
-                        let content = contentParts.join('\n')
-                            .replace(/<script[\s\S]*?<\/script>/gi, '')
-                            .replace(/<style[\s\S]*?<\/style>/gi, '')
-                            .trim();
+                    let content = contentParts.join('\n').trim();
+                    if (content.length > 50) {
+                        posts.push({
+                            title: link.title.replace(/새글$/, '').trim(),
+                            source_url: link.url,
+                            author: '출판진흥원',
+                            board_type: 'support',
+                            is_auto: true,
+                            content: content,
+                            deadline: deadline || null,
+                            preview_url: previewUrl
+                        });
+                        console.log(`  [${posts.length}] ✓ ${link.title.substring(0, 40)}... (${content.length} chars)`);
+                    }
 
-                        if (content.length > 50) {
-                            posts.push({
-                                title: link.title.replace(/새글$/, '').trim(),
-                                source_url: link.url,
-                                author: '출판진흥원',
-                                board_type: 'support',
-                                is_auto: true,
-                                content: content,
-                                deadline: deadline,
-                                preview_url: previewUrl
-                            });
-                            console.log(`[${posts.length}/${MAX_POSTS}] ✓ ${link.title.substring(0, 40)}... (${content.length} chars)`);
-                        }
-
-                    await new Promise(r => setTimeout(r, 200));
+                    await new Promise(r => setTimeout(r, 300));
                 } catch (err) {
-                    console.error(`Failed: ${link.title.substring(0, 30)}... - ${err.message}`);
+                    console.error(`  ❌ Failed detail: ${link.title.substring(0, 30)}... - ${err.message}`);
                 }
             }
 
             page++;
-            if (page > 20) break;
+            if (page > 15) break; 
         }
 
-        console.log(`\nTotal scraped: ${posts.length} posts.`);
+        console.log(`\n🏁 Scraping finished. Total new items: ${posts.length}`);
 
-        let saved = 0;
-        for (const post of posts) {
-            const { error } = await supabase.from('bw_posts').upsert(post, { onConflict: 'source_url' });
-            if (!error || error.code === '23505') saved++;
-            else console.error(`DB Error: ${error.message}`);
+        if (posts.length > 0) {
+            console.log('💾 Saving to database...');
+            let saved = 0;
+            for (const post of posts) {
+                const { error } = await supabase.from('bw_posts').upsert(post, { onConflict: 'source_url' });
+                if (!error) saved++;
+                else console.error(`  ❌ DB Upsert Error: ${error.message}`);
+            }
+            console.log(`✅ Saved ${saved} items.`);
+        } else {
+            console.log('ℹ️ No new items to save.');
         }
 
-        console.log(`Saved ${saved} posts.`);
     } catch (err) {
-        console.error('KPIPA scraping failed:', err.message);
+        console.error('🔴 KPIPA scraper fatal error:', err.message);
     }
 }
 
