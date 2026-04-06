@@ -1,10 +1,8 @@
 "use strict";
 
+const puppeteer = require('puppeteer');
 const cheerio = require('cheerio');
-const iconv = require('iconv-lite');
 const { supabase } = require('./common');
-const qs = require('qs');
-const { fetchWithRetry } = require('./scraper-utils');
 
 function isValidPost(title) {
     if (!title || title.length < 2) return false;
@@ -17,9 +15,23 @@ function isValidPost(title) {
 }
 
 const MAX_POSTS = 100;
-const LOOKBACK_DAYS = 60; // Job posts might stay up longer
+const LOOKBACK_DAYS = 60;
 const BE_USER = process.env.BOOKEDITOR_ID || 'sdh0815';
 const BE_PASS = process.env.BOOKEDITOR_PW || 'Sk18061806!';
+
+// Wait for CUPID challenge to resolve (Cafe24 bot protection)
+async function waitForRealContent(page, timeout = 15000) {
+    try {
+        await page.waitForFunction(
+            () => !document.querySelector('script[src*="cupid.js"]') || document.querySelector('table') !== null,
+            { timeout }
+        );
+        // Extra wait for redirect after challenge
+        await new Promise(r => setTimeout(r, 2000));
+    } catch (_) {
+        // Timeout - proceed anyway
+    }
+}
 
 async function scrapeBookEditor() {
     console.log('🚀 Starting BookEditor scraping...');
@@ -30,47 +42,78 @@ async function scrapeBookEditor() {
     startDate.setDate(startDate.getDate() - LOOKBACK_DAYS);
     console.log(`📅 Dynamic Lookback: From ${startDate.toISOString().split('T')[0]}`);
 
+    // DB Pre-check
+    console.log('🔍 Fetching existing posts from DB...');
+    const { data: existingPosts, error: dbError } = await supabase
+        .from('bw_posts')
+        .select('source_url')
+        .eq('board_type', 'job')
+        .eq('is_auto', true);
+
+    if (dbError) throw new Error(`DB Fetch failed: ${dbError.message}`);
+    const existingUrls = new Set(existingPosts?.map(p => p.source_url) || []);
+    console.log(`✅ Loaded ${existingUrls.size} existing URLs.`);
+
+    let browser;
     try {
-        // DB Pre-check
-        console.log('🔍 Fetching existing posts from DB...');
-        const { data: existingPosts, error: dbError } = await supabase
-            .from('bw_posts')
-            .select('source_url')
-            .eq('board_type', 'job')
-            .eq('is_auto', true);
+        browser = await puppeteer.launch({
+            headless: 'new',
+            args: [
+                '--no-sandbox',
+                '--disable-setuid-sandbox',
+                '--disable-extensions',
+                '--disable-features=AdFilter,HttpsUpgrades',
+                '--allow-running-insecure-content',
+                '--disable-web-security'
+            ]
+        });
+        const page = await browser.newPage();
+        await page.setViewport({ width: 1280, height: 800 });
 
-        if (dbError) throw new Error(`DB Fetch failed: ${dbError.message}`);
-        const existingUrls = new Set(existingPosts?.map(p => p.source_url) || []);
-        console.log(`✅ Loaded ${existingUrls.size} existing URLs.`);
-
-        // Login
-        console.log('🔐 Logging in to BookEditor...');
-        let sessionCookie = '';
+        // Navigate to main page first (triggers CUPID challenge resolution)
+        console.log('🌐 Loading site...');
         try {
-            const loginResponse = await fetchWithRetry(`${baseUrl}/login/logincheck.php`, {
-                method: 'post',
-                data: qs.stringify({ id: BE_USER, passwd: BE_PASS }),
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                maxRedirects: 0,
-                validateStatus: (status) => status >= 200 && status < 400
-            });
-            const cookies = loginResponse.headers['set-cookie'];
-            // Extract only name=value part (before first ';') to avoid bleeding cookie attributes
-            sessionCookie = cookies ? cookies.map(c => c.split(';')[0]).join('; ') : '';
-            if (!sessionCookie) {
-                console.warn('  ⚠️ No session cookie received. Site might be down or login failed.');
-                console.warn(`  ℹ️ Login status: ${loginResponse.status}, headers: ${JSON.stringify(Object.keys(loginResponse.headers))}`);
-            } else {
-                console.log(`  ✅ Login successful. Cookies: ${sessionCookie.substring(0, 60)}...`);
-            }
+            await page.goto(baseUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
+            await new Promise(r => setTimeout(r, 3000)); // Wait for CUPID redirect
         } catch (e) {
-            if (e.message === 'TRAFFIC_LIMIT_EXCEEDED') {
-                console.error('  🛑 Aborting due to traffic limit.');
-                return;
-            }
-            console.warn(`  ⚠️ Login failed: ${e.message}. Continuing as guest...`);
+            console.warn(`  ⚠️ Main page load: ${e.message}`);
         }
 
+        // Check for Cafe24 traffic limit
+        const mainUrl = page.url();
+        if (mainUrl.includes('overTraffic') || mainUrl.includes('503')) {
+            console.error('  🛑 Site is over traffic limit (Cafe24 503). Aborting.');
+            return;
+        }
+
+        // Login via POST form submission (direct URL approach)
+        console.log('🔐 Logging in to BookEditor...');
+        try {
+            await page.goto(`${baseUrl}/editorplaza/sub9/blist.php?start=0`, {
+                waitUntil: 'domcontentloaded', timeout: 30000
+            });
+            await new Promise(r => setTimeout(r, 3000));
+            const currentUrl = page.url();
+            console.log('  ℹ️ Redirected to:', currentUrl);
+
+            // If redirected to login, fill the form
+            if (currentUrl.includes('login') || currentUrl.includes('Login')) {
+                await page.type('input[name="id"]', BE_USER, { delay: 50 });
+                await page.type('input[name="passwd"]', BE_PASS, { delay: 50 });
+                await Promise.all([
+                    page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {}),
+                    page.click('input[type="submit"], button[type="submit"], input[type="image"]').catch(() =>
+                        page.keyboard.press('Enter')
+                    )
+                ]);
+                await new Promise(r => setTimeout(r, 2000));
+            }
+            console.log('  ✅ Login step complete. URL:', page.url());
+        } catch (e) {
+            console.warn(`  ⚠️ Login step failed: ${e.message}. Continuing...`);
+        }
+
+        // Scrape list pages
         let start = 0;
         const pageSize = 25;
         let reachedOldPosts = false;
@@ -79,27 +122,27 @@ async function scrapeBookEditor() {
             const listUrl = `${baseUrl}/editorplaza/sub9/blist.php?start=${start}`;
             console.log(`\n📄 Fetching list page (start=${start})...`);
 
-            let listResponse;
             try {
-                listResponse = await fetchWithRetry(listUrl, {
-                    responseType: 'arraybuffer',
-                    headers: { 'Cookie': sessionCookie }
-                });
+                await page.goto(listUrl, { waitUntil: 'networkidle2', timeout: 30000 });
+                await waitForRealContent(page);
             } catch (e) {
-                if (e.message === 'TRAFFIC_LIMIT_EXCEEDED') break;
-                throw e;
+                console.error(`  ❌ Failed to load list page: ${e.message}`);
+                break;
             }
 
-            const listHtml = iconv.decode(Buffer.from(listResponse.data), 'euc-kr');
+            const listHtml = await page.content();
             const $list = cheerio.load(listHtml);
 
-            // Try multiple selectors as fallback (site HTML may vary)
+            // Try multiple selectors
             let rows = $list('tr[bgcolor]');
             if (rows.length === 0) rows = $list('tr[onmouseover]');
-            if (rows.length === 0) rows = $list('table tr').filter((_, el) => $list(el).find('a[href*="id="], a[onclick*="id="]').length > 0);
+            if (rows.length === 0) rows = $list('table tr').filter((_, el) =>
+                $list(el).find('a[href*="id="], a[onclick*="id="]').length > 0
+            );
+
             if (rows.length === 0) {
                 console.log('⚠️ No rows found. List might be empty or selectors failed.');
-                console.log(`  ℹ️ HTML preview: ${listHtml.substring(0, 500)}`);
+                console.log(`  ℹ️ HTML preview: ${listHtml.substring(0, 400)}`);
                 break;
             }
             console.log(`  ✅ Found ${rows.length} rows.`);
@@ -109,117 +152,107 @@ async function scrapeBookEditor() {
                 const titleLink = $list(el).find('a.board');
                 const tds = $list(el).find('td');
 
-                if (titleLink.length > 0 && tds.length >= 5) {
-                    const titleText = titleLink.text().trim();
-                    const onclick = titleLink.attr('onclick') || '';
-                    const href = titleLink.attr('href') || '';
-                    const idMatch = (onclick + href).match(/id=(\d+)/);
-                    const postId = idMatch ? parseInt(idMatch[1]) : NaN;
+                if (titleLink.length === 0 || tds.length < 5) continue;
 
-                    if (isNaN(postId)) continue;
+                const titleText = titleLink.text().trim();
+                const onclick = titleLink.attr('onclick') || '';
+                const href = titleLink.attr('href') || '';
+                const idMatch = (onclick + href).match(/id=(\d+)/);
+                const postId = idMatch ? parseInt(idMatch[1]) : NaN;
 
-                    // Detail URL
-                    const detailUrl = `${baseUrl}/editorplaza/sub9/bread.php?id=${postId}&code=bepsub9&start=0`;
-                    
-                    // Pre-check skip
-                    if (existingUrls.has(detailUrl)) {
-                        console.log(`  ⏭ Skipping (already in DB): ${titleText.substring(0, 35)}...`);
+                if (isNaN(postId)) continue;
+
+                const detailUrl = `${baseUrl}/editorplaza/sub9/bread.php?id=${postId}&code=bepsub9&start=0`;
+
+                if (existingUrls.has(detailUrl)) {
+                    console.log(`  ⏭ Skipping (already in DB): ${titleText.substring(0, 35)}...`);
+                    continue;
+                }
+
+                if (!isValidPost(titleText) || titleText.includes('공지')) continue;
+                const lowerTitle = titleText.toLowerCase();
+                if (lowerTitle.startsWith('re:') || lowerTitle.startsWith('re ')) continue;
+
+                const author = $list(tds[4]).text().trim() || '익명';
+                const dateText = $list(tds[2]).text().trim() || $list(tds[3]).text().trim();
+
+                const dateMatch = dateText.match(/(\d{2,4})[-/](\d{2})[-/](\d{2})/);
+                if (dateMatch) {
+                    const year = dateMatch[1].length === 2 ? 2000 + parseInt(dateMatch[1]) : parseInt(dateMatch[1]);
+                    const postDate = new Date(year, parseInt(dateMatch[2]) - 1, parseInt(dateMatch[3]));
+                    if (postDate < startDate) {
+                        console.log(`  ⏭ Skipping (too old: ${dateText}): ${titleText.substring(0, 25)}...`);
+                        reachedOldPosts = true;
                         continue;
                     }
+                }
 
-                    // Filtering
-                    if (!isValidPost(titleText) || titleText.includes('공지')) continue;
-                    const lowerTitle = titleText.toLowerCase();
-                    if (lowerTitle.startsWith('re:') || lowerTitle.startsWith('re ')) continue;
+                // Fetch detail page
+                try {
+                    await page.goto(detailUrl, { waitUntil: 'networkidle2', timeout: 30000 });
+                    await waitForRealContent(page);
 
-                    const author = $list(tds[4]).text().trim() || '익명';
-                    const dateText = $list(tds[2]).text().trim() || $list(tds[3]).text().trim();
-                    
-                    // Date evaluation
-                    const dateMatch = dateText.match(/(\d{2,4})[-/](\d{2})[-/](\d{2})/);
-                    if (dateMatch) {
-                        const year = dateMatch[1].length === 2 ? 2000 + parseInt(dateMatch[1]) : parseInt(dateMatch[1]);
-                        const postDate = new Date(year, parseInt(dateMatch[2]) - 1, parseInt(dateMatch[3]));
-                        if (postDate < startDate) {
-                            console.log(`  ⏭ Skipping (too old: ${dateText}): ${titleText.substring(0, 25)}...`);
-                            reachedOldPosts = true;
-                            continue;
-                        }
+                    const detailHtml = await page.content();
+                    const $ = cheerio.load(detailHtml);
+                    $('script, style, link, meta, noscript').remove();
+
+                    let content = '';
+
+                    // Priority 1: style1 class
+                    const contentTd = $('td p.style1, .style1');
+                    if (contentTd.length > 0) {
+                        contentTd.each((_, p) => {
+                            const pHtml = $(p).html()?.trim();
+                            if (pHtml && pHtml.length > content.length) content = pHtml;
+                        });
                     }
 
-                    try {
-                        const detailResponse = await fetchWithRetry(detailUrl, {
-                            responseType: 'arraybuffer',
-                            headers: { 'Cookie': sessionCookie }
-                        });
-                        const detailHtml = iconv.decode(Buffer.from(detailResponse.data), 'euc-kr');
-                        const $ = cheerio.load(detailHtml);
-
-                        $('script, style, link, meta, noscript').remove();
-
-                        // Better content extraction with fallbacks
-                        let content = '';
-                        // Priority 1: style1 class in content area
-                        const contentTd = $('td p.style1, .style1');
-                        if (contentTd.length > 0) {
-                            contentTd.each((_, p) => {
-                                const pHtml = $(p).html()?.trim();
-                                if (pHtml && pHtml.length > content.length) content = pHtml;
-                            });
-                        }
-
-                        // Priority 2: width 575 table (legacy layout)
-                        if (content.length < 100) {
-                            $('table[width="575"], table[width="550"]').each((_, table) => {
-                                $(table).find('tr').each((_, tr) => {
-                                    const trText = $(tr).text().replace(/\s+/g, ' ').trim();
-                                    if (trText.length > 200 && !trText.startsWith('작성자')) {
-                                        const innerHtml = $(tr).find('td').html()?.trim();
-                                        if (innerHtml && innerHtml.length > content.length) content = innerHtml;
-                                    }
-                                });
-                            });
-                        }
-
-                        // Priority 3: Fallback search for any large text block
-                        if (content.length < 100) {
-                            $('td').each((_, td) => {
-                                const tdHtml = $(td).html()?.trim();
-                                if (tdHtml && tdHtml.length > 300 && !tdHtml.includes('<table')) {
-                                    if (tdHtml.length > content.length) content = tdHtml;
+                    // Priority 2: width 575/550 table
+                    if (content.length < 100) {
+                        $('table[width="575"], table[width="550"]').each((_, table) => {
+                            $(table).find('tr').each((_, tr) => {
+                                const trText = $(tr).text().replace(/\s+/g, ' ').trim();
+                                if (trText.length > 200 && !trText.startsWith('작성자')) {
+                                    const innerHtml = $(tr).find('td').html()?.trim();
+                                    if (innerHtml && innerHtml.length > content.length) content = innerHtml;
                                 }
                             });
-                        }
-
-                        if (content.length > 100) {
-                            // Clean up
-                            content = content
-                                .replace(/<!--[\s\S]*?-->/g, '')
-                                .replace(/<br\s*\/?>/gi, '<br>')
-                                .replace(/src="(?!http)([^"]+)"/g, `src="${baseUrl}/editorplaza/sub9/$1"`)
-                                .trim();
-
-                            posts.push({
-                                title: titleText,
-                                source_url: detailUrl,
-                                author: author,
-                                board_type: 'job',
-                                is_auto: true,
-                                content: `<div style="line-height:1.8;font-size:14px;">${content}</div>`
-                            });
-                            console.log(`  [${posts.length}] ✓ ${titleText.substring(0, 35)}... (${content.length} chars)`);
-                        } else {
-                            console.warn(`  ⚠️ Content extraction failed for: ${titleText.substring(0, 30)}...`);
-                        }
-
-                        await new Promise(r => setTimeout(r, 1500));
-                    } catch (err) {
-                        if (err.message === 'TRAFFIC_LIMIT_EXCEEDED') {
-                            reachedOldPosts = true; // Stop early
-                            break;
-                        }
-                        console.error(`  ❌ Failed detail: ${titleText.substring(0, 25)}... - ${err.message}`);
+                        });
                     }
+
+                    // Priority 3: Any large text block
+                    if (content.length < 100) {
+                        $('td').each((_, td) => {
+                            const tdHtml = $(td).html()?.trim();
+                            if (tdHtml && tdHtml.length > 300 && !tdHtml.includes('<table')) {
+                                if (tdHtml.length > content.length) content = tdHtml;
+                            }
+                        });
+                    }
+
+                    if (content.length > 100) {
+                        content = content
+                            .replace(/<!--[\s\S]*?-->/g, '')
+                            .replace(/<br\s*\/?>/gi, '<br>')
+                            .replace(/src="(?!http)([^"]+)"/g, `src="${baseUrl}/editorplaza/sub9/$1"`)
+                            .trim();
+
+                        posts.push({
+                            title: titleText,
+                            source_url: detailUrl,
+                            author: author,
+                            board_type: 'job',
+                            is_auto: true,
+                            content: `<div style="line-height:1.8;font-size:14px;">${content}</div>`
+                        });
+                        console.log(`  [${posts.length}] ✓ ${titleText.substring(0, 35)}... (${content.length} chars)`);
+                    } else {
+                        console.warn(`  ⚠️ Content extraction failed for: ${titleText.substring(0, 30)}...`);
+                    }
+
+                    await new Promise(r => setTimeout(r, 1500));
+                } catch (err) {
+                    console.error(`  ❌ Failed detail: ${titleText.substring(0, 25)}... - ${err.message}`);
                 }
             }
 
@@ -244,6 +277,8 @@ async function scrapeBookEditor() {
 
     } catch (err) {
         console.error('🔴 BookEditor scraper fatal error:', err.message);
+    } finally {
+        if (browser) await browser.close();
     }
 }
 
