@@ -15,10 +15,10 @@ const ALADIN_API_KEY = 'ttbsue_1201547001';
 const COMMON_CATEGORIES = [
   { name: '종합', yes24: '001', aladin: '0', kyobo: '0', ridi: 'general', millie: 'total' },
   { name: '소설', yes24: '001001046', aladin: '1', kyobo: '01', ridi: '100', millie: 'story' },
-  { name: '에세이/시', yes24: '001001047', aladin: '51387', kyobo: '03', ridi: '110', millie: 'essay' },
+  { name: '에세이/시', yes24: '001001047', aladin: '51387', kyobo: '03', ridi: '110', millie: 'poem' },
   { name: '인문', yes24: '001001019', aladin: '656', kyobo: '05', ridi: '120', millie: 'humanities' },
-  { name: '경제경영', yes24: '001001025', aladin: '170', kyobo: '13', ridi: '200', millie: 'business' },
-  { name: '자기계발', yes24: '001001026', aladin: '336', kyobo: '15', ridi: '300', millie: 'self_help' },
+  { name: '경제경영', yes24: '001001025', aladin: '170', kyobo: '13', ridi: '200', millie: 'economy' },
+  { name: '자기계발', yes24: '001001026', aladin: '336', kyobo: '15', ridi: '300', millie: 'self-development' },
   { name: '사회과학', yes24: '001001022', aladin: '798', kyobo: '17', ridi: '420', millie: 'humanities' },
   { name: '역사', yes24: '001001010', aladin: '74', kyobo: '19', ridi: '440', millie: 'humanities' },
   { name: '예술', yes24: '001001007', aladin: '517', kyobo: '21', ridi: '430', millie: 'hobby' },
@@ -400,9 +400,12 @@ async function scrapeKyobo(category, retries = 3) {
         const items = document.querySelectorAll('li.mt-9');
         
         items.forEach((el, idx) => {
-          // 타이틀 찾기: a.prod_link 중 텍스트가 있는 첫 번째 요소
+          // 타이틀 찾기: a.prod_link 중 line-clamp-2 클래스가 있거나 텍스트가 "새창보기"가 아닌 요소
           const links = Array.from(el.querySelectorAll('a.prod_link'));
-          const titleEl = links.find(a => a.innerText.trim().length > 0);
+          const titleEl = links.find(a => {
+            const text = a.innerText.trim();
+            return text.length > 0 && !text.includes('새창보기') && !text.includes('미리보기');
+          });
           
           // 정보(저자/출판사/날짜) 찾기: 내부 div 중 '·' 가 2개 이상 포함된 것 찾기
           const divs = Array.from(el.querySelectorAll('div'));
