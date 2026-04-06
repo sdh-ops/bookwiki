@@ -37,6 +37,9 @@ async function debug() {
     $('script, style').remove();
 
     console.log('=== BookEditor Page Structure ===\n');
+    console.log('Status:', response.status);
+    console.log('Content Length:', response.data.length);
+    console.log('HTML Start:', html.substring(0, 500));
 
     // Look at different areas
     console.log('Tables count:', $('table').length);

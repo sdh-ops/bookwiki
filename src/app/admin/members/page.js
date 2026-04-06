@@ -284,7 +284,7 @@ export default function AdminMembersPage() {
                                         </td>
                                         <td className="px-6 py-4">
                                             <span className={`px-2 py-1 rounded-full text-[10px] font-bold ${
-                                                m.role === '관리자' ? 'bg-red-100 text-red-600' : 
+                                                m.role === '운영자' ? 'bg-red-100 text-red-600' : 
                                                 m.role === '회원' ? 'bg-blue-100 text-blue-600' : 
                                                 'bg-gray-100 text-gray-600'
                                             }`}>

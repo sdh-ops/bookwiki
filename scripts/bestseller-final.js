@@ -176,10 +176,9 @@ async function fetchMissingInfo(title, author) {
     const book = items.find(i => titleMatches(i.title)) || items[0];
     if (book) {
       const result = {
-        publisher: book.publisher,
-        isbn: book.isbn13 || book.isbn,
         pubDate: book.pubDate,
-        description: book.description
+        description: book.description,
+        isbn: book.isbn
       };
       aladdinCache.set(cacheKey, result);
       return result;
@@ -360,12 +359,19 @@ async function scrapeKyobo(category, retries = 3) {
 
     try {
       await page.setUserAgent(HEADERS['User-Agent']);
-      // 국내도서(domestic) 필터 추가 및 per=50 설정
       const url = `https://store.kyobobook.co.kr/bestseller/online/daily/domestic?dsplDvsnCode=${category.kyobo}&per=50`;
       console.log(`  -> Visiting Kyobo URL: ${url}`);
       
       await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
-      // API 응답 캡처를 위해 조금 더 대기 (네트워크 상황 고려)
+      
+      // 리스트가 나타날 때까지 확실히 대기
+      try {
+        await page.waitForSelector('.prod_item', { timeout: 15000 });
+      } catch (e) {
+        console.log(`  [!] Timeout waiting for Kyobo .prod_item selector for ${category.name}`);
+      }
+
+      // API 응답 캡처를 위해 잠시 더 대기
       await new Promise(r => setTimeout(r, 3000));
 
       if (apiResponse && apiResponse.data && apiResponse.data.bestSeller) {
@@ -386,18 +392,25 @@ async function scrapeKyobo(category, retries = 3) {
       // DOM Fallback (만약 API 캡처 실패 시)
       const domBooks = await page.evaluate(() => {
         const list = [];
-        // 교보 신규 스토어는 ol > li 또는 .prod_item 구조 사용
-        const items = document.querySelectorAll('ol > li, .prod_item');
+        const items = document.querySelectorAll('.prod_item');
         items.forEach((el, idx) => {
-          const titleEl = el.querySelector('a.prod_link, .prod_name');
-          const infoEl = el.querySelector('div.text-gray-800, .prod_author'); 
+          const titleEl = el.querySelector('.prod_name, a.prod_link');
+          const authorEl = el.querySelector('.prod_author'); 
+          
           if (titleEl) {
-            const infoText = infoEl ? infoEl.innerText.trim() : '';
-            const author = infoText.split('·')[0].trim() || '알수없음';
+            const authorText = authorEl ? authorEl.innerText.trim() : '';
+            // "저자 · 출판사 · 날짜" 형식 분해
+            const parts = authorText.split('·').map(p => p.trim());
+            const author = parts[0] || '알수없음';
+            const pub = parts[1] || '알수없음';
+            const dateStr = parts[2] || '';
+
             list.push({
               rank: idx + 1,
               title: titleEl.innerText.trim(),
-              author: author
+              author: author,
+              publisher: pub,
+              pub_date: dateStr
             });
           }
         });
@@ -409,7 +422,8 @@ async function scrapeKyobo(category, retries = 3) {
       if (domBooks.length > 0) {
         return domBooks.map(b => ({
           ...b,
-          author: cleanAuthor(b.author)
+          author: cleanAuthor(b.author),
+          pub_date: formatDate(b.pub_date)
         })).filter(b => isValidBook(b.title, b.author));
       }
 
@@ -531,13 +545,36 @@ async function scrapeMillie(category, retries = 3) {
       // 밀리 v3 베스트셀러 주소 (서점 베스트 기준)
       const url = `https://www.millie.co.kr/v3/today/more/best/bookstore/${category.millie}`;
       await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
-      await new Promise(r => setTimeout(r, 2000));
+      await new Promise(r => setTimeout(r, 3000));
+
+      // [핵심] "밀리 랭킹만" 필터 해제 (가끔 1권만 나오는 현상 해결)
+      try {
+        await page.evaluate(() => {
+          const filterLabel = Array.from(document.querySelectorAll('label')).find(l => l.innerText.includes('밀리 랭킹만'));
+          if (filterLabel) {
+            const checkbox = filterLabel.querySelector('input[type="checkbox"]');
+            if (checkbox && checkbox.checked) {
+              filterLabel.click();
+              console.log('  -> Unchecked "Only Millie Rankings"');
+            }
+          }
+        });
+        await new Promise(r => setTimeout(r, 2000));
+      } catch (e) {
+        console.log('  [!] Failed to uncheck Millie filter, proceeding...');
+      }
 
       // 50개를 채우기 위해 스크롤 (밀리는 지연 로딩 발생 가능)
       await page.evaluate(async () => {
-        for (let i = 0; i < 5; i++) {
+        for (let i = 0; i < 20; i++) {
           window.scrollTo(0, document.body.scrollHeight);
-          await new Promise(r => setTimeout(r, 800));
+          await new Promise(r => setTimeout(r, 1200));
+          if (i % 4 === 0) {
+            window.scrollBy(0, -600);
+            await new Promise(r => setTimeout(r, 600));
+          }
+          const count = document.querySelectorAll('a.book-data, li.item').length;
+          if (count >= 60) break;
         }
       });
 
@@ -554,7 +591,6 @@ async function scrapeMillie(category, retries = 3) {
           
           if (titleEl) {
             const title = titleEl.innerText.trim();
-            // 제목 앞의 배지(오디오북 등) 제거 로직이 필요할 수 있으나 일단 포함
             const author = authorEl ? authorEl.innerText.trim() : '알수없음';
             
             // 중복 및 비정상 데이터 방지
@@ -607,7 +643,6 @@ async function sync(platform, books, categoryName, targetDate = null) {
       let pubDate = book.pub_date;
       let isbn = book.isbn;
       let description = book.description || null;
-
       const isInvalidIsbn = !isbn || (isbn.length < 10) || (!isbn.startsWith('978') && !isbn.startsWith('979'));
 
       if (pub === '알수없음' || pub === '밀리의서재' || !pubDate || isInvalidIsbn || platform === 'millie') {
@@ -721,32 +756,35 @@ async function main(targetDateStr = null) {
 
   await initBrowser();
 
-  // 카테고리 3개씩 병렬 처리 (Puppeteer 탭 수 = 최대 9개 동시)
-  const limit = withConcurrency(3);
+  // [중요] 세션 오류 방지를 위해 카테고리를 순차적으로 처리 (동시성 1로 제한)
+  // 15개 이상의 탭이 한꺼번에 열리는 것을 방지 함
+  const limit = withConcurrency(1);
 
   try {
-    await Promise.all(COMMON_CATEGORIES.map(category => limit(async () => {
-      console.log(`\n--- Scraping Category: ${category.name} ---`);
+    for (const category of COMMON_CATEGORIES) {
+      await limit(async () => {
+        console.log(`\n--- Scraping Category: ${category.name} ---`);
 
-      const [yes24, aladin, kyobo, ridi, millie] = await Promise.all([
-        scrapeYes24(category),
-        scrapeAladdin(category),
-        scrapeKyobo(category),
-        scrapeRidi(category),
-        scrapeMillie(category)
-      ]);
+        // 플랫폼 간에는 병렬 처리 가능 (최대 5개 탭)
+        const [yes24, aladin, kyobo, ridi, millie] = await Promise.all([
+          scrapeYes24(category),
+          scrapeAladdin(category),
+          scrapeKyobo(category),
+          scrapeRidi(category),
+          scrapeMillie(category)
+        ]);
 
-      // 플랫폼별 sync도 병렬 처리
-      await Promise.all([
-        sync('yes24', yes24, category.name, targetDate),
-        sync('aladin', aladin, category.name, targetDate),
-        sync('kyobo', kyobo, category.name, targetDate),
-        sync('ridi', ridi, category.name, targetDate),
-        sync('millie', millie, category.name, targetDate),
-      ]);
+        await Promise.all([
+          sync('yes24', yes24, category.name, targetDate),
+          sync('aladin', aladin, category.name, targetDate),
+          sync('kyobo', kyobo, category.name, targetDate),
+          sync('ridi', ridi, category.name, targetDate),
+          sync('millie', millie, category.name, targetDate),
+        ]);
 
-      console.log(`✅ Category ${category.name} completed.`);
-    })));
+        console.log(`✅ Category ${category.name} completed.`);
+      });
+    }
   } catch (error) {
     console.error('❌ Scraping session failed:', error);
   } finally {
