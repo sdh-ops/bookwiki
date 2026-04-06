@@ -23,7 +23,10 @@ export default function AdminDashboard() {
         boardStats: [],
         hotPosts: [],
         weeklyTrend: [],
-        recentPosts: []
+        recentPosts: [],
+        todayVisitors: 0,
+        todayPageviews: 0,
+        visitorTrend: []
     });
     const [loading, setLoading] = useState(true);
 
@@ -138,6 +141,34 @@ export default function AdminDashboard() {
                 .order("created_at", { ascending: false })
                 .limit(5);
 
+            // Today Visitors & Pageviews
+            const { data: todayViewData } = await supabase
+                .from("bw_page_views")
+                .select("session_id")
+                .gte("visited_at", today.toISOString());
+            const todayPageviews = todayViewData?.length || 0;
+            const todayVisitors = new Set(todayViewData?.map(v => v.session_id)).size;
+
+            // 7-day Visitor Trend
+            const { data: weekViewData } = await supabase
+                .from("bw_page_views")
+                .select("session_id, visited_at")
+                .gte("visited_at", oneWeekAgo.toISOString());
+            const visitorDaySessions = {};
+            for (let i = 6; i >= 0; i--) {
+                const d = new Date();
+                d.setDate(d.getDate() - i);
+                visitorDaySessions[d.toISOString().split('T')[0]] = new Set();
+            }
+            weekViewData?.forEach(v => {
+                const key = v.visited_at.split('T')[0];
+                if (visitorDaySessions[key]) visitorDaySessions[key].add(v.session_id);
+            });
+            const visitorTrend = Object.entries(visitorDaySessions).map(([date, sessions]) => ({
+                date: date.slice(5),
+                count: sessions.size
+            }));
+
             setStats({
                 totalUsers: totalUsers || 0,
                 todaySignups: todaySignups || 0,
@@ -150,7 +181,10 @@ export default function AdminDashboard() {
                 boardStats,
                 hotPosts: hotPosts || [],
                 weeklyTrend,
-                recentPosts: recentPosts || []
+                recentPosts: recentPosts || [],
+                todayVisitors,
+                todayPageviews,
+                visitorTrend
             });
             setLoading(false);
         }
@@ -198,6 +232,54 @@ export default function AdminDashboard() {
                 <div className="bg-white p-3 md:p-5 rounded-lg shadow-sm border border-gray-100">
                     <p className="text-[10px] font-bold text-gray-400 mb-1">활성 사용자 (7일)</p>
                     <p className="text-xl md:text-2xl font-bold text-orange-500">{stats.activeUsers.toLocaleString()}</p>
+                </div>
+            </div>
+
+            {/* Visitor Stats */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+                {/* Visitor Summary Cards */}
+                <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
+                    <div className="px-6 py-4 border-b border-gray-100">
+                        <h3 className="text-sm font-bold text-gray-700">방문자 현황</h3>
+                    </div>
+                    <div className="grid grid-cols-2 divide-x divide-gray-100">
+                        <div className="p-5">
+                            <p className="text-[10px] font-bold text-gray-400 mb-1">오늘 방문자</p>
+                            <p className="text-2xl font-bold text-sky-500">{stats.todayVisitors.toLocaleString()}</p>
+                            <p className="text-[10px] text-gray-300 mt-1">순 방문 세션</p>
+                        </div>
+                        <div className="p-5">
+                            <p className="text-[10px] font-bold text-gray-400 mb-1">오늘 페이지뷰</p>
+                            <p className="text-2xl font-bold text-cyan-500">{stats.todayPageviews.toLocaleString()}</p>
+                            <p className="text-[10px] text-gray-300 mt-1">총 페이지 조회</p>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Visitor Trend Chart */}
+                <div className="lg:col-span-2 bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
+                    <div className="px-6 py-4 border-b border-gray-100">
+                        <h3 className="text-sm font-bold text-gray-700">최근 7일 방문자 추이</h3>
+                    </div>
+                    <div className="p-6">
+                        {(() => {
+                            const maxV = Math.max(...stats.visitorTrend.map(d => d.count), 1);
+                            return (
+                                <div className="flex items-end justify-between gap-2 h-32">
+                                    {stats.visitorTrend.map((day, idx) => (
+                                        <div key={idx} className="flex-1 flex flex-col items-center gap-2">
+                                            <span className="text-[10px] font-bold text-gray-600">{day.count}</span>
+                                            <div
+                                                className="w-full bg-sky-400 rounded-t"
+                                                style={{ height: `${(day.count / maxV) * 80}px`, minHeight: day.count > 0 ? '4px' : '0' }}
+                                            />
+                                            <span className="text-[10px] text-gray-400">{day.date}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            );
+                        })()}
+                    </div>
                 </div>
             </div>
 
