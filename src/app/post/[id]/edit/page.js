@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import Editor from "@/components/Editor";
+import { uploadImage, uploadAttachment, formatFileSize } from "@/lib/upload";
 
 export default function EditPage() {
     const { id } = useParams();
@@ -15,6 +16,10 @@ export default function EditPage() {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isAdmin, setIsAdmin] = useState(false);
     const [showAdminBadge, setShowAdminBadge] = useState(false);
+    const [attachments, setAttachments] = useState([]);
+    const [uploadingFiles, setUploadingFiles] = useState(false);
+    const [attachDragOver, setAttachDragOver] = useState(false);
+    const attachFileRef = useRef(null);
     const router = useRouter();
 
     useEffect(() => {
@@ -70,6 +75,7 @@ export default function EditPage() {
             setTitle(data.title);
             setContent(data.content);
             setBoardType(data.board_type);
+            setAttachments(data.attachments || []);
             setShowAdminBadge(adminStatus && !isOwner);
             setLoading(false);
         }
@@ -86,7 +92,7 @@ export default function EditPage() {
         setIsSubmitting(true);
         const { error } = await supabase
             .from("bw_posts")
-            .update({ title, content, board_type: boardType })
+            .update({ title, content, board_type: boardType, attachments })
             .eq("id", id);
 
         if (error) {
@@ -157,7 +163,86 @@ export default function EditPage() {
                         <Editor
                             content={content}
                             onChange={setContent}
+                            onImageUpload={async (file) => {
+                                const result = await uploadImage(file);
+                                return result.url;
+                            }}
                         />
+                    </div>
+
+                    {/* 파일 첨부 */}
+                    <div>
+                        <label className="block text-sm font-bold text-gray-700 mb-2">파일 첨부</label>
+                        <div
+                            className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${attachDragOver ? "border-[#355E3B] bg-green-50" : "border-gray-200 hover:border-gray-300"}`}
+                            onDragOver={(e) => { e.preventDefault(); setAttachDragOver(true); }}
+                            onDragLeave={() => setAttachDragOver(false)}
+                            onDrop={async (e) => {
+                                e.preventDefault();
+                                setAttachDragOver(false);
+                                const files = Array.from(e.dataTransfer.files);
+                                if (!files.length) return;
+                                setUploadingFiles(true);
+                                const results = [];
+                                for (const file of files) {
+                                    try {
+                                        const result = await uploadAttachment(file);
+                                        results.push(result);
+                                    } catch (err) {
+                                        alert(`${file.name} 업로드 실패: ${err.message}`);
+                                    }
+                                }
+                                setAttachments(prev => [...prev, ...results]);
+                                setUploadingFiles(false);
+                            }}
+                            onClick={() => attachFileRef.current?.click()}
+                        >
+                            <p className="text-2xl mb-1">📎</p>
+                            <p className="text-sm text-gray-500">파일을 여기에 드래그하거나 클릭해서 선택</p>
+                            <p className="text-xs text-gray-400 mt-1">이미지 5MB · 기타 파일 20MB 이하</p>
+                        </div>
+                        <input
+                            ref={attachFileRef}
+                            type="file"
+                            multiple
+                            className="hidden"
+                            onChange={async (e) => {
+                                const files = Array.from(e.target.files);
+                                if (!files.length) return;
+                                setUploadingFiles(true);
+                                const results = [];
+                                for (const file of files) {
+                                    try {
+                                        const result = await uploadAttachment(file);
+                                        results.push(result);
+                                    } catch (err) {
+                                        alert(`${file.name} 업로드 실패: ${err.message}`);
+                                    }
+                                }
+                                setAttachments(prev => [...prev, ...results]);
+                                setUploadingFiles(false);
+                                e.target.value = "";
+                            }}
+                        />
+                        {uploadingFiles && <p className="text-xs text-[#355E3B] mt-2 font-medium">업로드 중...</p>}
+                        {attachments.length > 0 && (
+                            <div className="mt-3 space-y-2">
+                                {attachments.map((att, i) => (
+                                    <div key={i} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-100">
+                                        <span className="text-lg flex-shrink-0">{att.type.startsWith("image/") ? "🖼️" : "📄"}</span>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-sm font-medium text-gray-700 truncate">{att.name}</p>
+                                            <p className="text-xs text-gray-400">{formatFileSize(att.size)}</p>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => setAttachments(prev => prev.filter((_, idx) => idx !== i))}
+                                            className="text-gray-300 hover:text-red-500 transition-colors text-sm flex-shrink-0"
+                                        >✕</button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                     </div>
 
                     <div className="flex justify-end space-x-3 pt-4 border-t border-gray-100">

@@ -1,12 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 
-export default function EditorToolbar({ editor }) {
+export default function EditorToolbar({ editor, onImageUpload }) {
   const [showLinkInput, setShowLinkInput] = useState(false);
   const [linkUrl, setLinkUrl] = useState("");
   const [showImageInput, setShowImageInput] = useState(false);
   const [imageUrl, setImageUrl] = useState("");
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const imageFileRef = useRef(null);
 
   if (!editor) {
     return null;
@@ -34,6 +36,21 @@ export default function EditorToolbar({ editor }) {
       editor.chain().focus().setImage({ src: imageUrl }).run();
       setImageUrl("");
       setShowImageInput(false);
+    }
+  };
+
+  const handleImageFileChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file || !onImageUpload) return;
+    setUploadingImage(true);
+    try {
+      const url = await onImageUpload(file);
+      editor.chain().focus().setImage({ src: url }).run();
+    } catch (err) {
+      alert("이미지 업로드 실패: " + err.message);
+    } finally {
+      setUploadingImage(false);
+      e.target.value = "";
     }
   };
 
@@ -160,13 +177,33 @@ export default function EditorToolbar({ editor }) {
           🔗
         </ToolbarButton>
 
-        {/* Image */}
+        {/* Image: URL */}
         <ToolbarButton
           onClick={() => setShowImageInput(!showImageInput)}
-          title="이미지"
+          title="이미지 URL"
         >
           🖼️
         </ToolbarButton>
+
+        {/* Image: File Upload */}
+        {onImageUpload && (
+          <>
+            <ToolbarButton
+              onClick={() => imageFileRef.current?.click()}
+              disabled={uploadingImage}
+              title="이미지 파일 업로드"
+            >
+              {uploadingImage ? "⏳" : "📤"}
+            </ToolbarButton>
+            <input
+              ref={imageFileRef}
+              type="file"
+              accept="image/jpeg,image/png,image/gif,image/webp"
+              className="hidden"
+              onChange={handleImageFileChange}
+            />
+          </>
+        )}
 
         <div className="w-px bg-gray-300 mx-1" />
 
@@ -215,7 +252,7 @@ export default function EditorToolbar({ editor }) {
         </div>
       )}
 
-      {/* Image Input */}
+      {/* Image URL Input */}
       {showImageInput && (
         <div className="mt-2 flex gap-2">
           <input

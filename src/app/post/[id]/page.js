@@ -597,7 +597,7 @@ export default function PostDetailPage() {
                             display: block;
                         }
                     `}</style>
-                    <div className="post-content mb-10 overflow-x-auto" dangerouslySetInnerHTML={{ 
+                    <div className="post-content mb-6 overflow-x-auto" dangerouslySetInnerHTML={{
                         __html: DOMPurify.sanitize(post.content, {
                             ADD_TAGS: ['iframe'], // Keep for backward compatibility if any
                             ADD_ATTR: ['src', 'allowfullscreen', 'frameborder', 'allow'],
@@ -631,6 +631,36 @@ export default function PostDetailPage() {
                             ]
                         }) 
                     }}></div>
+
+                    {/* 첨부파일 */}
+                    {post.attachments?.length > 0 && (
+                        <div className="mb-8 p-4 bg-gray-50 rounded-xl border border-gray-100">
+                            <h4 className="text-xs font-bold text-gray-500 mb-3 uppercase tracking-wide">첨부파일 ({post.attachments.length})</h4>
+                            <div className="space-y-2">
+                                {post.attachments.map((att, i) => (
+                                    <a
+                                        key={i}
+                                        href={att.url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        download={att.name}
+                                        className="flex items-center gap-3 p-3 bg-white rounded-lg border border-gray-100 hover:border-[#355E3B] hover:shadow-sm transition-all group"
+                                    >
+                                        <span className="text-xl flex-shrink-0">{att.type?.startsWith("image/") ? "🖼️" : "📄"}</span>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-sm font-medium text-gray-700 truncate group-hover:text-[#355E3B]">{att.name}</p>
+                                            <p className="text-xs text-gray-400">
+                                                {att.size < 1024 ? att.size + " B"
+                                                    : att.size < 1024 * 1024 ? (att.size / 1024).toFixed(1) + " KB"
+                                                    : (att.size / (1024 * 1024)).toFixed(1) + " MB"}
+                                            </p>
+                                        </div>
+                                        <span className="text-xs text-gray-400 group-hover:text-[#355E3B] flex-shrink-0">↓ 다운로드</span>
+                                    </a>
+                                ))}
+                            </div>
+                        </div>
+                    )}
 
                     {/* 실시간 미리보기 필드 (새로운 방식) */}
                     {post.preview_url && (
