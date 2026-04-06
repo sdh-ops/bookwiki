@@ -19,6 +19,24 @@ const PLATFORMS = [
 
 const CATEGORIES = ["종합", "소설", "에세이/시", "인문", "경제경영", "자기계발", "사회과학", "역사", "예술", "종교", "과학", "기술/IT", "만화", "여행", "건강"];
 
+const CATEGORY_GUIDE = [
+  { name: '종합',    kyobo: '베스트셀러 전체', yes24: '전체',        aladin: '종합',        ridi: '종합',         millie: '전체' },
+  { name: '소설',    kyobo: '소설',           yes24: '국내소설',     aladin: '소설',        ridi: '소설/판타지',   millie: '스토리 ①' },
+  { name: '에세이/시', kyobo: '에세이/시',    yes24: '에세이',       aladin: '에세이',      ridi: '에세이',        millie: '에세이/시' },
+  { name: '인문',    kyobo: '인문',           yes24: '인문',         aladin: '인문',        ridi: '인문',          millie: '인문/사회 ②' },
+  { name: '경제경영', kyobo: '경제경영',      yes24: '경제경영',     aladin: '경제경영',    ridi: '경제경영',      millie: '경제경영' },
+  { name: '자기계발', kyobo: '자기계발',      yes24: '자기계발',     aladin: '자기계발',    ridi: '자기계발',      millie: '자기계발' },
+  { name: '사회과학', kyobo: '사회과학',      yes24: '사회과학',     aladin: '사회과학',    ridi: '정치/사회',     millie: '인문/사회 ②' },
+  { name: '역사',    kyobo: '역사',           yes24: '역사',         aladin: '역사',        ridi: '역사',          millie: '인문/사회 ②' },
+  { name: '예술',    kyobo: '예술',           yes24: '예술',         aladin: '예술',        ridi: '예술/대중문화', millie: '취미/라이프 ③' },
+  { name: '종교',    kyobo: '종교/역학',      yes24: '종교',         aladin: '종교',        ridi: '종교',          millie: '인문/사회 ②' },
+  { name: '과학',    kyobo: '자연과학',       yes24: '과학',         aladin: '과학',        ridi: '과학',          millie: '취미/라이프 ③' },
+  { name: '기술/IT', kyobo: 'IT/컴퓨터',     yes24: 'IT/컴퓨터',   aladin: 'IT/컴퓨터',   ridi: 'IT/컴퓨터',     millie: '취미/라이프 ③' },
+  { name: '만화',    kyobo: '만화',           yes24: '만화',         aladin: '만화',        ridi: '만화',          millie: '스토리 ①' },
+  { name: '여행',    kyobo: '여행',           yes24: '여행',         aladin: '여행',        ridi: '여행',          millie: '취미/라이프 ③' },
+  { name: '건강',    kyobo: '건강/취미',      yes24: '건강',         aladin: '건강/의학',   ridi: '건강',          millie: '취미/라이프 ③' },
+];
+
 function formatSalesPoint(n) {
   if (!n) return null;
   if (n >= 10000) return `${(n / 10000).toFixed(1).replace(/\.0$/, '')}만`;
@@ -39,6 +57,7 @@ function normalizeTitle(title) {
 
 export default function BestsellerPage() {
   const [activeTab, setActiveTab] = useState("current"); // current | trend
+  const [showGuide, setShowGuide] = useState(false);
   const [loading, setLoading] = useState(true);
   const [platformData, setPlatformData] = useState({});
   const [selectedCategory, setSelectedCategory] = useState("종합");
@@ -587,6 +606,13 @@ export default function BestsellerPage() {
                   onChange={(e) => setSelectedDate(e.target.value)}
                   className="px-4 py-2 border border-gray-200 bg-white rounded-lg text-[13px] font-medium focus:outline-none focus:border-[#355E3B] transition-colors"
                 />
+                <button
+                  onClick={() => setShowGuide(true)}
+                  title="페이지 안내"
+                  className="w-8 h-8 rounded-full border border-gray-200 bg-white text-gray-400 hover:bg-[#355E3B] hover:text-white hover:border-[#355E3B] transition-all text-sm font-black flex items-center justify-center flex-shrink-0 leading-none"
+                >
+                  ?
+                </button>
               </div>
             </div>
 
@@ -847,6 +873,82 @@ export default function BestsellerPage() {
           </div>
         )}
       </main>
+
+      {/* Guide Modal */}
+      {showGuide && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm" onClick={() => setShowGuide(false)}>
+          <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[85vh] overflow-y-auto shadow-2xl" onClick={e => e.stopPropagation()}>
+            <div className="p-7">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h2 className="text-lg font-black text-gray-900">베스트셀러 페이지 안내</h2>
+                  <p className="text-xs text-gray-400 mt-0.5">5개 서점의 일별 베스트셀러를 수집·비교합니다</p>
+                </div>
+                <button onClick={() => setShowGuide(false)} className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 flex items-center justify-center transition-colors text-sm font-bold">✕</button>
+              </div>
+
+              {/* Section 1: Data fields */}
+              <div className="mb-7">
+                <h3 className="text-xs font-black text-[#355E3B] mb-3 tracking-widest uppercase">데이터 항목</h3>
+                <div className="bg-gray-50 rounded-xl p-4 space-y-2.5">
+                  {[
+                    { label: "순위",    desc: "해당 서점 베스트셀러 상위 20위" },
+                    { label: "순위변동", desc: "전일 대비 변동 (▲ 상승 / ▼ 하락 / NEW 신규진입)" },
+                    { label: "도서명",  desc: "책 제목 — 클릭 시 상세 정보(설명·ISBN) 확인 가능" },
+                    { label: "저자",    desc: "저자명 (역자·편저자 포함, 복수 저자는 대표 1인 표시)" },
+                    { label: "출판사",  desc: "출판사명 — 상단 검색창에 입력하면 해당 출판사 강조 표시" },
+                    { label: "출간일",  desc: "최초 출판 날짜" },
+                    { label: "판매지수", desc: "예스24·알라딘에서 제공하는 판매량 기반 지수 (교보·리디·밀리는 미제공)" },
+                    { label: "전자책",  desc: "전자책 여부 표시 — 리디북스·밀리의서재는 전자책 전용 플랫폼" },
+                  ].map(({ label, desc }) => (
+                    <div key={label} className="flex gap-3 text-sm">
+                      <span className="w-[72px] font-bold text-gray-700 shrink-0">{label}</span>
+                      <span className="text-gray-500 leading-relaxed">{desc}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Section 2: Category mapping */}
+              <div>
+                <h3 className="text-xs font-black text-[#355E3B] mb-1.5 tracking-widest uppercase">서점별 분야 대응</h3>
+                <p className="text-xs text-gray-400 mb-3">북위키의 공통 분야가 각 서점에서 어떤 카테고리로 수집되는지 나타냅니다.</p>
+                <div className="overflow-x-auto rounded-xl border border-gray-100">
+                  <table className="text-xs w-full border-collapse">
+                    <thead>
+                      <tr className="bg-gray-50 border-b border-gray-100">
+                        <th className="px-3 py-2 text-left font-bold text-gray-500 whitespace-nowrap">분야</th>
+                        <th className="px-3 py-2 text-center font-bold whitespace-nowrap" style={{color: '#1E40AF'}}>교보문고</th>
+                        <th className="px-3 py-2 text-center font-bold whitespace-nowrap" style={{color: '#FF6B00'}}>예스24</th>
+                        <th className="px-3 py-2 text-center font-bold whitespace-nowrap" style={{color: '#B8860B'}}>알라딘</th>
+                        <th className="px-3 py-2 text-center font-bold whitespace-nowrap" style={{color: '#5B4FFF'}}>리디북스</th>
+                        <th className="px-3 py-2 text-center font-bold whitespace-nowrap" style={{color: '#00C73C'}}>밀리의서재</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {CATEGORY_GUIDE.map((row, i) => (
+                        <tr key={row.name} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50/60'}>
+                          <td className="px-3 py-1.5 font-bold text-gray-700 border-b border-gray-50 whitespace-nowrap">{row.name}</td>
+                          <td className="px-3 py-1.5 text-center text-gray-500 border-b border-gray-50 whitespace-nowrap">{row.kyobo}</td>
+                          <td className="px-3 py-1.5 text-center text-gray-500 border-b border-gray-50 whitespace-nowrap">{row.yes24}</td>
+                          <td className="px-3 py-1.5 text-center text-gray-500 border-b border-gray-50 whitespace-nowrap">{row.aladin}</td>
+                          <td className="px-3 py-1.5 text-center text-gray-500 border-b border-gray-50 whitespace-nowrap">{row.ridi}</td>
+                          <td className="px-3 py-1.5 text-center text-gray-500 border-b border-gray-50 whitespace-nowrap">{row.millie}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="mt-3 space-y-1">
+                  <p className="text-[11px] text-gray-400"><span className="font-bold text-gray-500">① 밀리 스토리</span> — 소설·판타지·만화를 하나의 카테고리로 운영</p>
+                  <p className="text-[11px] text-gray-400"><span className="font-bold text-gray-500">② 밀리 인문/사회</span> — 인문·사회과학·역사·종교를 하나의 카테고리로 운영</p>
+                  <p className="text-[11px] text-gray-400"><span className="font-bold text-gray-500">③ 밀리 취미/라이프</span> — 예술·과학·기술/IT·여행·건강을 하나의 카테고리로 운영</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Book Details Modal */}
       {selectedBook && !selectedTrendBook && (
