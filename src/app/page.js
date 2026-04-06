@@ -101,6 +101,7 @@ function PostList() {
         .select("id, title, view_count, comment_count, board_type, created_at")
         .eq("is_deleted", false)
         .gte("created_at", oneWeekAgo.toISOString())
+        .gte("view_count", 10)
         .order("view_count", { ascending: false })
         .limit(50);
 
@@ -125,13 +126,15 @@ function PostList() {
           .select("*")
           .eq("is_deleted", false)
           .gte("created_at", oneWeekAgo.toISOString())
+          .gte("view_count", 10)
           .order("view_count", { ascending: false })
           .range(offset, offset + POSTS_PER_PAGE - 1);
         countQuery = supabase
           .from("bw_posts")
           .select("*", { count: "exact", head: true })
           .eq("is_deleted", false)
-          .gte("created_at", oneWeekAgo.toISOString());
+          .gte("created_at", oneWeekAgo.toISOString())
+          .gte("view_count", 10);
       } else if (currentBoard === "all") {
         query = supabase
           .from("bw_posts")
