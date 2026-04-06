@@ -542,20 +542,24 @@ async function scrapeMillie(category, retries = 3) {
 
     try {
       await page.setUserAgent(HEADERS['User-Agent']);
-      // 밀리 v3 베스트셀러 주소 (서점 베스트 기준)
-      const url = `https://www.millie.co.kr/v3/today/more/best/bookstore/${category.millie}`;
+      // 밀리 v3 베스트셀러 주소 (밀리 랭킹 기준)
+      const url = `https://www.millie.co.kr/v3/today/more/best/ranking/${category.millie}`;
       await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
-      await new Promise(r => setTimeout(r, 3000));
+      await new Promise(r => setTimeout(r, 4000));
 
-      // [핵심] "밀리 랭킹만" 필터 해제 (가끔 1권만 나오는 현상 해결)
+      // [핵심] "서점 베스트만" 필터 해제 (밀리 자체 랭킹으로 빈 곳 채우기)
       try {
         await page.evaluate(() => {
-          const filterLabel = Array.from(document.querySelectorAll('label')).find(l => l.innerText.includes('밀리 랭킹만'));
+          // '서점 베스트만' 텍스트를 포함하는 label 찾기
+          const labels = Array.from(document.querySelectorAll('label.mds-check-box'));
+          const filterLabel = labels.find(l => l.innerText.includes('서점 베스트만'));
+          
           if (filterLabel) {
-            const checkbox = filterLabel.querySelector('input[type="checkbox"]');
-            if (checkbox && checkbox.checked) {
+            // mds-check-box--checked 클래스가 있으면 체크된 상태임
+            const isChecked = filterLabel.classList.contains('mds-check-box--checked');
+            if (isChecked) {
               filterLabel.click();
-              console.log('  -> Unchecked "Only Millie Rankings"');
+              console.log('  -> Unchecked "Only Bookstore Bestsellers"');
             }
           }
         });
