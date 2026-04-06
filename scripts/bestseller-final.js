@@ -15,19 +15,19 @@ const ALADIN_API_KEY = 'ttbsue_1201547001';
 const COMMON_CATEGORIES = [
   { name: '종합', yes24: '001', aladin: '0', kyobo: '0', ridi: 'general', millie: 'total' },
   { name: '소설', yes24: '001001046', aladin: '1', kyobo: '01', ridi: '100', millie: 'story' },
-  { name: '에세이/시', yes24: '001001047', aladin: '51387', kyobo: '03', ridi: '110', millie: 'poem' },
+  { name: '에세이/시', yes24: '001001047', aladin: '51387', kyobo: '03', ridi: '110', millie: 'essay' },
   { name: '인문', yes24: '001001019', aladin: '656', kyobo: '05', ridi: '120', millie: 'humanities' },
-  { name: '경제경영', yes24: '001001025', aladin: '170', kyobo: '13', ridi: '200', millie: 'economy' },
-  { name: '자기계발', yes24: '001001026', aladin: '336', kyobo: '15', ridi: '300', millie: 'self-development' },
-  { name: '사회과학', yes24: '001001022', aladin: '798', kyobo: '17', ridi: '420', millie: 'total' },
-  { name: '역사', yes24: '001001010', aladin: '74', kyobo: '19', ridi: '440', millie: 'total' },
-  { name: '예술', yes24: '001001007', aladin: '517', kyobo: '21', ridi: '430', millie: 'total' },
-  { name: '종교', yes24: '001001021', aladin: '1237', kyobo: '23', ridi: '700', millie: 'total' },
-  { name: '과학', yes24: '001001002', aladin: '987', kyobo: '25', ridi: '1100', millie: 'total' },
-  { name: '기술/IT', yes24: '001001003', aladin: '351', kyobo: '27', ridi: '2200', millie: 'total' },
-  { name: '만화', yes24: '001001008', aladin: '2551', kyobo: '47', ridi: '1500', millie: 'total' },
+  { name: '경제경영', yes24: '001001025', aladin: '170', kyobo: '13', ridi: '200', millie: 'business' },
+  { name: '자기계발', yes24: '001001026', aladin: '336', kyobo: '15', ridi: '300', millie: 'self_help' },
+  { name: '사회과학', yes24: '001001022', aladin: '798', kyobo: '17', ridi: '420', millie: 'humanities' },
+  { name: '역사', yes24: '001001010', aladin: '74', kyobo: '19', ridi: '440', millie: 'humanities' },
+  { name: '예술', yes24: '001001007', aladin: '517', kyobo: '21', ridi: '430', millie: 'hobby' },
+  { name: '종교', yes24: '001001021', aladin: '1237', kyobo: '23', ridi: '700', millie: 'humanities' },
+  { name: '과학', yes24: '001001002', aladin: '987', kyobo: '25', ridi: '1100', millie: 'hobby' },
+  { name: '기술/IT', yes24: '001001003', aladin: '351', kyobo: '27', ridi: '2200', millie: 'hobby' },
+  { name: '만화', yes24: '001001008', aladin: '2551', kyobo: '47', ridi: '1500', millie: 'story' },
   { name: '여행', yes24: '001001009', aladin: '1196', kyobo: '32', ridi: '800', millie: 'hobby' },
-  { name: '건강', yes24: '001001011', aladin: '55890', kyobo: '07' /*교보 건강은 07*/, ridi: '500', millie: 'hobby' }
+  { name: '건강', yes24: '001001011', aladin: '55890', kyobo: '07', ridi: '500', millie: 'hobby' }
 ];
 
 const HEADERS = {
@@ -45,8 +45,20 @@ async function initBrowser() {
   if (!browser) {
     browser = await puppeteer.launch({
       headless: 'new',
-      args: ['--no-sandbox', '--disable-setuid-sandbox']
+      args: [
+        '--no-sandbox', 
+        '--disable-setuid-sandbox',
+        '--disable-blink-features=AutomationControlled'
+      ]
     });
+    
+    // 블로킹 우회: navigator.webdriver 속성 숨기기
+    const pages = await browser.pages();
+    if (pages.length > 0) {
+      await pages[0].evaluateOnNewDocument(() => {
+        Object.defineProperty(navigator, 'webdriver', { get: () => false });
+      });
+    }
   }
   return browser;
 }
@@ -338,75 +350,76 @@ async function scrapeAladdin(category, retries = 3) {
   return [];
 }
 
-// 교보 - Puppeteer + API Response (재시도 로직 포함)
+// -------------------------------------------------------------------------
+// 3. 교보문고
+// -------------------------------------------------------------------------
+// 교보 - Puppeteer + Direct API Fetch (카테고리 중복 방지 강화)
 async function scrapeKyobo(category, retries = 3) {
   console.log(`[Kyobo] ${category.name}...`);
 
   for (let attempt = 1; attempt <= retries; attempt++) {
     const page = await browser.newPage();
-    let apiResponse = null;
-
-    page.on('response', async (response) => {
-      if (response.url().includes('best-seller/online')) {
-        try {
-          const json = await response.json();
-          if (json.data && json.data.bestSeller) {
-            apiResponse = json;
-          }
-        } catch (e) {}
-      }
-    });
-
     try {
+      // 블로킹 우회: navigator.webdriver 속성 숨기기
+      await page.evaluateOnNewDocument(() => {
+        Object.defineProperty(navigator, 'webdriver', { get: () => false });
+      });
+
       await page.setUserAgent(HEADERS['User-Agent']);
-      const url = `https://store.kyobobook.co.kr/bestseller/online/daily/domestic?dsplDvsnCode=${category.kyobo}&per=50`;
-      console.log(`  -> Visiting Kyobo URL: ${url}`);
+      await page.setViewport({ width: 1920, height: 1080 });
       
-      await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
+      const categoryCode = category.kyobo;
+      const url = categoryCode === '0'
+        ? 'https://store.kyobobook.co.kr/bestseller/online/daily/domestic'
+        : `https://store.kyobobook.co.kr/bestseller/online/daily/domestic/${categoryCode}`;
+
+      await page.setExtraHTTPHeaders({
+        'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
+        'Referer': 'https://www.google.com/'
+      });
+
+      console.log(`  -> Navigating to: ${url}`);
+      await page.goto(url, { 
+        waitUntil: 'networkidle2', 
+        timeout: 60000 
+      });
       
-      // 리스트가 나타날 때까지 확실히 대기
-      try {
-        await page.waitForSelector('.prod_item', { timeout: 15000 });
-      } catch (e) {
-        console.log(`  [!] Timeout waiting for Kyobo .prod_item selector for ${category.name}`);
-      }
+      // 50개를 채우기 위한 스크롤링 (스크롤 횟수 증가)
+      await page.evaluate(async () => {
+        for (let i = 0; i < 5; i++) {
+          window.scrollBy(0, 1200);
+          await new Promise(r => setTimeout(r, 1500));
+        }
+      });
 
-      // API 응답 캡처를 위해 잠시 더 대기
-      await new Promise(r => setTimeout(r, 3000));
+      // 도서 리스트 로딩 대기
+      await page.waitForSelector('li.mt-9', { timeout: 15000 }).catch(() => null);
 
-      if (apiResponse && apiResponse.data && apiResponse.data.bestSeller) {
-        const kyoboBooks = apiResponse.data.bestSeller.slice(0, 50).map((item, idx) => ({
-          rank: item.prstRnkn || (idx + 1),
-          title: item.cmdtName,
-          author: cleanAuthor(item.chrcName),
-          publisher: item.pbcmName || '알수없음',
-          pub_date: formatDate(item.rlseDate),
-          isbn: item.cmdtCode
-        })).filter(b => isValidBook(b.title, b.author));
-
-        await page.close();
-        if (kyoboBooks.length > 0) return kyoboBooks;
-      }
-
-      console.log(`  [!] API response not captured for Kyobo ${category.name}, trying DOM fallback...`);
-      // DOM Fallback (만약 API 캡처 실패 시)
-      const domBooks = await page.evaluate(() => {
+      const scrapedBooks = await page.evaluate(() => {
         const list = [];
-        const items = document.querySelectorAll('.prod_item');
+        const items = document.querySelectorAll('li.mt-9');
+        
         items.forEach((el, idx) => {
-          const titleEl = el.querySelector('.prod_name, a.prod_link');
-          const authorEl = el.querySelector('.prod_author'); 
+          // 타이틀 찾기: a.prod_link 중 텍스트가 있는 첫 번째 요소
+          const links = Array.from(el.querySelectorAll('a.prod_link'));
+          const titleEl = links.find(a => a.innerText.trim().length > 0);
           
-          if (titleEl) {
-            const authorText = authorEl ? authorEl.innerText.trim() : '';
-            // "저자 · 출판사 · 날짜" 형식 분해
-            const parts = authorText.split('·').map(p => p.trim());
+          // 정보(저자/출판사/날짜) 찾기: 내부 div 중 '·' 가 2개 이상 포함된 것 찾기
+          const divs = Array.from(el.querySelectorAll('div'));
+          const infoEl = divs.find(d => d.innerText.includes('·') && d.innerText.length < 200 && d.innerText.split('·').length >= 2);
+          const infoText = infoEl ? infoEl.innerText.trim() : '';
+          
+          if (titleEl && infoText) {
+            const parts = infoText.split('·').map(p => p.trim());
             const author = parts[0] || '알수없음';
             const pub = parts[1] || '알수없음';
             const dateStr = parts[2] || '';
+            
+            const rankEl = el.querySelector('.rank');
+            const rank = rankEl ? parseInt(rankEl.innerText, 10) : (idx + 1);
 
             list.push({
-              rank: idx + 1,
+              rank: rank,
               title: titleEl.innerText.trim(),
               author: author,
               publisher: pub,
@@ -419,8 +432,9 @@ async function scrapeKyobo(category, retries = 3) {
 
       await page.close();
 
-      if (domBooks.length > 0) {
-        return domBooks.map(b => ({
+      if (scrapedBooks.length > 0) {
+        console.log(`  [Kyobo] Found ${scrapedBooks.length} items.`);
+        return scrapedBooks.map(b => ({
           ...b,
           author: cleanAuthor(b.author),
           pub_date: formatDate(b.pub_date)
@@ -433,7 +447,7 @@ async function scrapeKyobo(category, retries = 3) {
       }
     } catch (e) {
       console.error(`  [!] Attempt ${attempt} failed: ${e.message}`);
-      await page.close();
+      try { await page.close(); } catch(err) {}
       if (attempt === retries) return [];
       await new Promise(r => setTimeout(r, 2000));
     }
