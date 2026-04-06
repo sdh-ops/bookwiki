@@ -25,10 +25,10 @@ const SUPABASE_URL = process.env.SUPABASE_URL || 'https://oryxiptdxmuubszuhvvf.s
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || 'sb_publishable_XY6W-bFCgz6bamD0Hp8PKg_dBbV6iUV';
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || null;
 
-// 일반 클라이언트 (읽기/쓰기, RLS 적용)
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// 스크립트용 클라이언트: 서비스 롤 키가 있으면 RLS 우회, 없으면 어논 키 사용
+const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY || SUPABASE_ANON_KEY);
 
-// 관리자 클라이언트 (RLS 우회 - 삭제 등 관리 작업용)
+// 관리자 클라이언트 (명시적 RLS 우회 - 삭제 등 관리 작업용)
 const supabaseAdmin = SUPABASE_SERVICE_ROLE_KEY
   ? createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
   : null;

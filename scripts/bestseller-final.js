@@ -592,7 +592,7 @@ async function sync(platform, books, categoryName, targetDate = null) {
 
   try {
     // Step 2: bw_books 배치 upsert
-    const { data: upsertedBooks } = await supabase
+    const { data: upsertedBooks, error: booksError } = await supabase
       .from('bw_books')
       .upsert(
         enrichedBooks.map(b => ({
@@ -603,7 +603,14 @@ async function sync(platform, books, categoryName, targetDate = null) {
       )
       .select('id, title, author');
 
-    if (!upsertedBooks) return;
+    if (booksError) {
+      console.error(`  [!] bw_books upsert error [${platform}/${categoryName}]:`, booksError.message, booksError.code);
+      return;
+    }
+    if (!upsertedBooks || upsertedBooks.length === 0) {
+      console.error(`  [!] bw_books upsert returned no data [${platform}/${categoryName}] - check RLS/service role key`);
+      return;
+    }
 
     // Step 3: book_id 매핑 후 스냅샷 배치 upsert
     const bookIdMap = new Map(upsertedBooks.map(b => [`${b.title}|||${b.author}`, b.id]));
