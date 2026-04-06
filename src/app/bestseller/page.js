@@ -128,30 +128,10 @@ export default function BestsellerPage() {
 
   async function fetchAllData() {
     setLoading(true);
-    const { data } = await supabase
-      .from("bw_bestseller_snapshots")
-      .select(`
-        rank,
-        rank_change,
-        sales_point,
-        platform,
-        snapshot_date,
-        is_ebook,
-        bw_books!inner (
-          id,
-          isbn,
-          title,
-          author,
-          publisher,
-          cover_url,
-          description,
-          pub_date
-        )
-      `)
-      .eq("period_type", "daily")
-      .eq("common_category", selectedCategory)
-      .eq("snapshot_date", selectedDate)
-      .order("rank", { ascending: true });
+    const res = await fetch(
+      `/api/bestseller?category=${encodeURIComponent(selectedCategory)}&date=${selectedDate}`
+    );
+    const data = res.ok ? await res.json() : [];
 
     const grouped = {};
     PLATFORMS.forEach(p => {
