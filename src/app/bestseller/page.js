@@ -613,21 +613,52 @@ export default function BestsellerPage() {
             </div>
 
             {/* Publisher Insights Summary (Visible when publisher is set) */}
-            {publisherHighlight && publisherInsights && (
-              <div className="mb-6 animate-in fade-in slide-in-from-top-2 duration-300">
-                <div className="bg-[#355E3B] text-white p-6 rounded-2xl border border-[#355E3B] shadow-sm flex flex-col md:flex-row justify-between items-center gap-6 relative overflow-hidden">
-                  <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-2xl"></div>
-                  <div className="relative">
-                    <h3 className="text-xl font-black mb-1 flex items-center gap-2">
-                       🏢 {publisherHighlight} <span className="text-xs font-normal opacity-80">마켓 인사이트</span>
-                    </h3>
-                    <p className="text-sm opacity-90 font-medium">검색된 베스트셀러: <span className="font-black text-white">{publisherInsights.allBooks.filter(item => item.bw_books.publisher?.includes(publisherHighlight)).length}</span>권</p>
+            {publisherHighlight && publisherInsights && (() => {
+              const matchedBooks = publisherInsights.allBooks.filter(item => item.bw_books.publisher?.includes(publisherHighlight));
+              const groupedByTitle = {};
+              matchedBooks.forEach(item => {
+                const key = item.bw_books.title;
+                if (!groupedByTitle[key]) groupedByTitle[key] = { title: item.bw_books.title, author: item.bw_books.author, entries: [] };
+                groupedByTitle[key].entries.push({ platform: item.platform, rank: item.rank });
+              });
+              const bookGroups = Object.values(groupedByTitle);
+              return (
+                <div className="mb-6 animate-in fade-in slide-in-from-top-2 duration-300">
+                  <div className="bg-[#355E3B] text-white p-6 rounded-2xl shadow-sm relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-2xl"></div>
+                    <div className="relative flex flex-col gap-4">
+                      <div className="flex items-center gap-3">
+                        <span className="text-xl">🏢</span>
+                        <div>
+                          <h3 className="text-lg font-black leading-tight">{publisherHighlight} <span className="text-xs font-normal opacity-70">마켓 인사이트</span></h3>
+                          <p className="text-xs opacity-80 mt-0.5"><span className="font-black text-white text-sm">{matchedBooks.length}</span>건 ({bookGroups.length}종) · {selectedCategory} 분야</p>
+                        </div>
+                      </div>
+                      {bookGroups.length > 0 && (
+                        <div className="space-y-2">
+                          {bookGroups.map(book => (
+                            <div key={book.title} className="flex flex-wrap items-center gap-2">
+                              <span className="text-sm font-bold truncate max-w-[280px]">{book.title}</span>
+                              <span className="text-xs opacity-60 font-medium">{book.author}</span>
+                              <div className="flex flex-wrap gap-1 ml-auto">
+                                {book.entries.sort((a,b) => a.rank - b.rank).map(e => {
+                                  const p = PLATFORMS.find(pl => pl.id === e.platform);
+                                  return (
+                                    <span key={e.platform} className="px-2 py-0.5 rounded-full text-[11px] font-black" style={{backgroundColor: p?.color ?? '#888'}}>
+                                      {p?.name} {e.rank}위
+                                    </span>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
-                  
-                  {/* Report Download removed */}
                 </div>
-              </div>
-            )}
+              );
+            })()}
 
             {/* Platform Columns Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
