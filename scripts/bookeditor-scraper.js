@@ -205,7 +205,7 @@ async function scrapeBookEditor() {
                             console.warn(`  ⚠️ Content extraction failed for: ${titleText.substring(0, 30)}...`);
                         }
 
-                        await new Promise(r => setTimeout(r, 200));
+                        await new Promise(r => setTimeout(r, 1500));
                     } catch (err) {
                         if (err.message === 'TRAFFIC_LIMIT_EXCEEDED') {
                             reachedOldPosts = true; // Stop early
