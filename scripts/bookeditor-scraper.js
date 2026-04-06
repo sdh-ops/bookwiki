@@ -55,11 +55,13 @@ async function scrapeBookEditor() {
                 validateStatus: (status) => status >= 200 && status < 400
             });
             const cookies = loginResponse.headers['set-cookie'];
-            sessionCookie = cookies ? cookies.join('; ') : '';
+            // Extract only name=value part (before first ';') to avoid bleeding cookie attributes
+            sessionCookie = cookies ? cookies.map(c => c.split(';')[0]).join('; ') : '';
             if (!sessionCookie) {
                 console.warn('  ⚠️ No session cookie received. Site might be down or login failed.');
+                console.warn(`  ℹ️ Login status: ${loginResponse.status}, headers: ${JSON.stringify(Object.keys(loginResponse.headers))}`);
             } else {
-                console.log('  ✅ Login successful (session captured).');
+                console.log(`  ✅ Login successful. Cookies: ${sessionCookie.substring(0, 60)}...`);
             }
         } catch (e) {
             if (e.message === 'TRAFFIC_LIMIT_EXCEEDED') {
@@ -91,11 +93,16 @@ async function scrapeBookEditor() {
             const listHtml = iconv.decode(Buffer.from(listResponse.data), 'euc-kr');
             const $list = cheerio.load(listHtml);
 
-            const rows = $list('tr[bgcolor]');
+            // Try multiple selectors as fallback (site HTML may vary)
+            let rows = $list('tr[bgcolor]');
+            if (rows.length === 0) rows = $list('tr[onmouseover]');
+            if (rows.length === 0) rows = $list('table tr').filter((_, el) => $list(el).find('a[href*="id="], a[onclick*="id="]').length > 0);
             if (rows.length === 0) {
                 console.log('⚠️ No rows found. List might be empty or selectors failed.');
+                console.log(`  ℹ️ HTML preview: ${listHtml.substring(0, 500)}`);
                 break;
             }
+            console.log(`  ✅ Found ${rows.length} rows.`);
 
             for (let i = 0; i < rows.length && posts.length < MAX_POSTS; i++) {
                 const el = rows[i];
