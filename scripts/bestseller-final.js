@@ -202,7 +202,7 @@ async function scrapeYes24(category, retries = 3) {
       const seenTitles = new Set();
 
       $('#yesBestList li, .itemUnit').each((i, el) => {
-        if (books.length >= 20) return;
+        if (books.length >= 50) return;
 
         const titleText = $(el).find('.gd_name').text().trim();
         const authorRaw = $(el).find('.info_auth, .info_pub').first().text().trim();
@@ -273,7 +273,7 @@ async function scrapeAladdin(category, retries = 3) {
       const seenTitles = new Set();
 
       $('.ss_book_box').each((i, el) => {
-        if (books.length >= 20) return;
+        if (books.length >= 50) return;
 
         // 알라딘 리스트는 굿즈나 사은품 안내가 섞여 있어 li 태그들을 순회하며 실제 제목 탐색
         let titleLink = null;
@@ -362,13 +362,14 @@ async function scrapeKyobo(category, retries = 3) {
       await page.setUserAgent(HEADERS['User-Agent']);
       // 국내도서(domestic) 필터 추가 및 per=50 설정
       const url = `https://store.kyobobook.co.kr/bestseller/online/daily/domestic?dsplDvsnCode=${category.kyobo}&per=50`;
-      await page.goto(url, { waitUntil: 'networkidle2', timeout: 60000 });
-      await new Promise(r => setTimeout(r, 1500));
+      console.log(`  -> Visiting Kyobo URL: ${url}`);
+      
+      await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
+      // API 응답 캡처를 위해 조금 더 대기 (네트워크 상황 고려)
+      await new Promise(r => setTimeout(r, 3000));
 
-      await page.close();
-
-      if (apiResponse && apiResponse.data.bestSeller) {
-        return apiResponse.data.bestSeller.slice(0, 50).map((item, idx) => ({
+      if (apiResponse && apiResponse.data && apiResponse.data.bestSeller) {
+        const kyoboBooks = apiResponse.data.bestSeller.slice(0, 50).map((item, idx) => ({
           rank: item.prstRnkn || (idx + 1),
           title: item.cmdtName,
           author: cleanAuthor(item.chrcName),
@@ -376,11 +377,45 @@ async function scrapeKyobo(category, retries = 3) {
           pub_date: formatDate(item.rlseDate),
           isbn: item.cmdtCode
         })).filter(b => isValidBook(b.title, b.author));
+
+        await page.close();
+        if (kyoboBooks.length > 0) return kyoboBooks;
+      }
+
+      console.log(`  [!] API response not captured for Kyobo ${category.name}, trying DOM fallback...`);
+      // DOM Fallback (만약 API 캡처 실패 시)
+      const domBooks = await page.evaluate(() => {
+        const list = [];
+        // 교보 신규 스토어는 ol > li 또는 .prod_item 구조 사용
+        const items = document.querySelectorAll('ol > li, .prod_item');
+        items.forEach((el, idx) => {
+          const titleEl = el.querySelector('a.prod_link, .prod_name');
+          const infoEl = el.querySelector('div.text-gray-800, .prod_author'); 
+          if (titleEl) {
+            const infoText = infoEl ? infoEl.innerText.trim() : '';
+            const author = infoText.split('·')[0].trim() || '알수없음';
+            list.push({
+              rank: idx + 1,
+              title: titleEl.innerText.trim(),
+              author: author
+            });
+          }
+        });
+        return list;
+      });
+
+      await page.close();
+
+      if (domBooks.length > 0) {
+        return domBooks.map(b => ({
+          ...b,
+          author: cleanAuthor(b.author)
+        })).filter(b => isValidBook(b.title, b.author));
       }
 
       if (attempt < retries) {
-        console.log(`  [!] Retry ${attempt}/${retries}...`);
-        await new Promise(r => setTimeout(r, 2000));
+        console.log(`  [!] Kyobo Retry ${attempt}/${retries}...`);
+        await new Promise(r => setTimeout(r, 3000));
       }
     } catch (e) {
       console.error(`  [!] Attempt ${attempt} failed: ${e.message}`);
@@ -495,31 +530,42 @@ async function scrapeMillie(category, retries = 3) {
       await page.setUserAgent(HEADERS['User-Agent']);
       // 밀리 v3 베스트셀러 주소 (서점 베스트 기준)
       const url = `https://www.millie.co.kr/v3/today/more/best/bookstore/${category.millie}`;
-
-      await page.goto(url, { waitUntil: 'networkidle2', timeout: 60000 });
+      await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
       await new Promise(r => setTimeout(r, 2000));
+
+      // 50개를 채우기 위해 스크롤 (밀리는 지연 로딩 발생 가능)
+      await page.evaluate(async () => {
+        for (let i = 0; i < 5; i++) {
+          window.scrollTo(0, document.body.scrollHeight);
+          await new Promise(r => setTimeout(r, 800));
+        }
+      });
 
       const books = await page.evaluate(() => {
         const list = [];
-        // v3 도서 리스트 아이템 셀렉터
-        const items = document.querySelectorAll('li.item');
+        // 밀리 v3 도서 리스트 아이템 셀렉터 (a.book-data 또는 li.item)
+        const items = document.querySelectorAll('a.book-data, li.item');
         
         items.forEach((el, idx) => {
           if (list.length >= 50) return;
           
-          const titleEl = el.querySelector('.book-data p.title');
-          const authorEl = el.querySelector('.book-data p.author');
+          const titleEl = el.querySelector('p.title, .title');
+          const authorEl = el.querySelector('p.author, .author');
           
           if (titleEl) {
             const title = titleEl.innerText.trim();
+            // 제목 앞의 배지(오디오북 등) 제거 로직이 필요할 수 있으나 일단 포함
             const author = authorEl ? authorEl.innerText.trim() : '알수없음';
             
-            list.push({
-              rank: idx + 1,
-              title,
-              author,
-              publisher: '밀리의서재' // 밀리는 기본 제공 안함 -> sync에서 보완
-            });
+            // 중복 및 비정상 데이터 방지
+            if (title && !list.some(b => b.title === title)) {
+              list.push({
+                rank: list.length + 1,
+                title,
+                author,
+                publisher: '밀리의서재'
+              });
+            }
           }
         });
         return list;
@@ -592,23 +638,40 @@ async function sync(platform, books, categoryName, targetDate = null) {
 
   try {
     // Step 2: bw_books 배치 upsert
-    const { data: upsertedBooks, error: booksError } = await supabase
-      .from('bw_books')
-      .upsert(
-        enrichedBooks.map(b => ({
-          title: b.title, author: b.author, publisher: b.publisher,
-          pub_date: b.pub_date, isbn: b.isbn, description: b.description
-        })),
-        { onConflict: 'title,author' }
-      )
-      .select('id, title, author');
+    // 개별적으로 처리하여 한 권의 에러가 전체 배치를 망치지 않게 함
+    const upsertResults = await Promise.all(enrichedBooks.map(async (b) => {
+      try {
+        const { data, error } = await supabase
+          .from('bw_books')
+          .upsert(
+            {
+              title: b.title, author: b.author, publisher: b.publisher,
+              pub_date: b.pub_date, isbn: b.isbn, description: b.description
+            },
+            { onConflict: 'title,author', ignoreDuplicates: false }
+          )
+          .select('id, title, author')
+          .single();
+        
+        if (error) {
+          // ISBN 중복일 경우 처리 시도 (ISBN이 다를 수 있음)
+          if (error.message.includes('bw_books_isbn_key')) {
+             const { data: existing } = await supabase.from('bw_books').select('id, title, author').eq('isbn', b.isbn).single();
+             if (existing) return existing;
+          }
+          console.error(`      [!] Upsert failed for "${b.title}":`, error.message);
+          return null;
+        }
+        return data;
+      } catch (e) {
+        return null;
+      }
+    }));
 
-    if (booksError) {
-      console.error(`  [!] bw_books upsert error [${platform}/${categoryName}]:`, booksError.message, booksError.code);
-      return;
-    }
-    if (!upsertedBooks || upsertedBooks.length === 0) {
-      console.error(`  [!] bw_books upsert returned no data [${platform}/${categoryName}] - check RLS/service role key`);
+    const upsertedBooks = upsertResults.filter(Boolean);
+
+    if (upsertedBooks.length === 0) {
+      console.error(`  [!] No books upserted for [${platform}/${categoryName}]`);
       return;
     }
 
