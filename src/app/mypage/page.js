@@ -233,7 +233,11 @@ function MyPageContent() {
             }
         } catch (error) {
             console.error("Nickname change error:", error);
-            setNicknameMessage("닉네임 변경 중 오류가 발생했습니다.");
+            if (error.message?.includes("profiles_nickname_key")) {
+                setNicknameMessage("이미 사용 중인 닉네임입니다.");
+            } else {
+                setNicknameMessage("닉네임 변경 중 오류가 발생했습니다.");
+            }
         }
 
         setNicknameLoading(false);

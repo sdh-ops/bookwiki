@@ -24,6 +24,7 @@ export default function LoginPage() {
     const [checkingEmail, setCheckingEmail] = useState(false);
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState("");
+    const [foundUsername, setFoundUsername] = useState(""); // 찾은 아이디 저장
 
     // 닉네임 금지 단어 체크
     const containsBannedWord = (text) => {
@@ -247,10 +248,14 @@ export default function LoginPage() {
 
         if (error) {
             // 상세 에러 메시지
-            if (error.message.includes("already registered")) {
-                setMessage("이미 가입된 이메일입니다.");
-            } else if (error.message.includes("invalid")) {
-                setMessage("유효하지 않은 이메일 형식입니다.");
+            if (error.message.includes("already registered") || error.message.includes("email_address_invalid")) {
+                setMessage("이미 가입된 이메일이거나 유효하지 않은 형식입니다.");
+            } else if (error.message.includes("닉네임")) {
+                setMessage("이미 사용 중인 닉네임입니다. 다른 닉네임을 사용해주세요.");
+                setNicknameAvailable(false);
+            } else if (error.message.includes("username")) {
+                setMessage("이미 사용 중인 아이디입니다.");
+                setUsernameAvailable(false);
             } else {
                 setMessage("회원가입 실패: " + error.message);
             }
@@ -281,11 +286,12 @@ export default function LoginPage() {
         setLoading(false);
     };
 
-    // 아이디 찾기 (매직 링크 - 이메일 로그인 방식)
+    // 아이디 찾기 (이메일로 조회 후 표시)
     const handleFindId = async (e) => {
         e.preventDefault();
         setLoading(true);
         setMessage("");
+        setFoundUsername("");
 
         // 1. 해당 이메일로 가입된 계정이 있는지 확인
         const { data: userData, error: lookupError } = await supabase
@@ -300,50 +306,58 @@ export default function LoginPage() {
             return;
         }
 
-        // 2. 매직 링크(OTP) 발송
-        const { error } = await supabase.auth.signInWithOtp({
-            email: email.toLowerCase(),
-            options: {
-                emailRedirectTo: window.location.origin,
-            }
-        });
-
-        if (error) {
-            setMessage("링크 발송 실패: " + error.message);
+        // 아이디 마스킹 (예: abcdef -> ab****)
+        const username = userData.username;
+        let masked = "";
+        if (username.length <= 2) {
+            masked = username[0] + "*";
+        } else if (username.length <= 4) {
+            masked = username.substring(0, 2) + "*".repeat(username.length - 2);
         } else {
-            setMessage("로그인 링크가 포함된 보안 이메일을 발송했습니다. 이메일함(또는 스팸함)을 확인해주세요. 링크를 누르면 즉시 로그인되며 아이디를 확인하실 수 있습니다.");
+            masked = username.substring(0, 3) + "*".repeat(username.length - 3);
         }
+        
+        setFoundUsername(masked);
+        setMessage(`회원님의 아이디는 [ ${masked} ] 입니다. 보안을 위해 일부가 마스킹되었습니다.`);
         setLoading(false);
     };
 
-    // 비밀번호 재설정 이메일 발송
+    // 비밀번호 재설정 이메일 발송 (아이디 또는 이메일로 가능)
     const handleResetPassword = async (e) => {
         e.preventDefault();
         setLoading(true);
         setMessage("");
 
-        // 먼저 아이디로 이메일 조회
-        const { data: userData, error: lookupError } = await supabase
-            .from("bw_usernames")
-            .select("email")
-            .eq("username", username.toLowerCase())
-            .single();
+        let targetEmail = "";
 
-        if (lookupError || !userData) {
-            setMessage("존재하지 않는 아이디입니다.");
-            setLoading(false);
-            return;
+        // 1. 입력값이 이메일 형식인지 확인
+        if (username.includes("@")) {
+            targetEmail = username.toLowerCase();
+        } else {
+            // 2. 아이디로 이메일 조회
+            const { data: userData, error: lookupError } = await supabase
+                .from("bw_usernames")
+                .select("email")
+                .eq("username", username.toLowerCase())
+                .single();
+
+            if (lookupError || !userData) {
+                setMessage("존재하지 않는 사용자 정보입니다. 아이디 또는 이메일을 확인해주세요.");
+                setLoading(false);
+                return;
+            }
+            targetEmail = userData.email;
         }
 
         // 비밀번호 재설정 이메일 발송
-        const { error } = await supabase.auth.resetPasswordForEmail(userData.email, {
+        const { error } = await supabase.auth.resetPasswordForEmail(targetEmail, {
             redirectTo: `${window.location.origin}/reset-password`,
         });
 
         if (error) {
             setMessage("이메일 발송 실패: " + error.message);
         } else {
-            setMessage(`비밀번호 재설정 링크가 ${userData.email}로 발송되었습니다. 이메일을 확인해주세요.`);
+            setMessage(`비밀번호 재설정 링크가 ${targetEmail}로 발송되었습니다. 이메일을 확인해주세요.`);
         }
         setLoading(false);
     };
@@ -414,7 +428,7 @@ export default function LoginPage() {
                             ) : (
                                 <div>
                                     <label htmlFor="username" className="block text-sm font-medium text-gray-700">
-                                        아이디
+                                        아이디 또는 이메일
                                     </label>
                                     <div className="mt-1">
                                         <input
@@ -424,17 +438,17 @@ export default function LoginPage() {
                                             value={username}
                                             onChange={(e) => setUsername(e.target.value)}
                                             className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-[#355E3B] focus:border-[#355E3B] sm:text-sm"
-                                            placeholder="가입한 아이디 입력"
+                                            placeholder="가입한 아이디 또는 이메일 입력"
                                         />
                                     </div>
-                                    <p className="mt-1 text-xs text-gray-500">입력한 아이디의 이메일로 비밀번호 재설정 링크가 발송됩니다.</p>
+                                    <p className="mt-1 text-xs text-gray-500">입력한 정보에 등록된 이메일로 비밀번호 재설정 링크가 발송됩니다.</p>
                                 </div>
                             )}
 
-                            {findType === "id" && (
-                                <div className="p-3 bg-yellow-50 border border-yellow-100 rounded-lg">
-                                    <p className="text-xs text-yellow-700 leading-relaxed font-medium">
-                                        <span className="font-bold">⚠️ 알림:</span> 아이디 확인을 위한 보안 이메일(Magic Link)은 <span className="font-bold underline">영문으로 발송</span>됩니다. 이로 인해 국내 메일 서비스에서 <span className="font-bold">스팸으로 분류</span>될 수 있으니, 메일이 오지 않는다면 반드시 <strong>스팸함</strong>을 확인해 주세요.
+                            {findType === "id" && !foundUsername && (
+                                <div className="p-3 bg-blue-50 border border-blue-100 rounded-lg">
+                                    <p className="text-xs text-blue-700 leading-relaxed">
+                                        가입 시 사용한 이메일을 입력하시면 매칭되는 아이디를 찾으실 수 있습니다.
                                     </p>
                                 </div>
                             )}
