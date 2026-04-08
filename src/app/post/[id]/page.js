@@ -142,6 +142,7 @@ export default function PostDetailPage() {
     const [targetBoard, setTargetBoard] = useState("");
     const [tempPassword, setTempPassword] = useState("");
     const [managementType, setManagementType] = useState("");
+    const [submitting, setSubmitting] = useState(false);
     const router = useRouter();
 
     // Comment management states
@@ -208,6 +209,11 @@ export default function PostDetailPage() {
 
         if (id) fetchData();
     }, [id, router]);
+    
+    const handleLogout = async () => {
+        await supabase.auth.signOut();
+        window.location.reload();
+    };
 
     // Auto-set nickname for users
     useEffect(() => {
