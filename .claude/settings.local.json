@@ -25,7 +25,10 @@
       "Bash(ping:*)",
       "Bash(ls:*)",
       "Read(//c/Users/15Z990/Desktop/더난/북위키/**)",
-      "Bash(xargs cat:*)"
+      "Bash(xargs cat:*)",
+      "Bash(npm list:*)",
+      "Bash(echo \"PID: $!\")",
+      "Bash(gh run:*)"
     ]
   }
 }
