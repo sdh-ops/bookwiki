@@ -141,6 +141,13 @@ function getYesterdayKST() {
   return kstNow.toISOString().split('T')[0];
 }
 
+// 특정 날짜의 전일 가져오기 (YYYY-MM-DD 기준)
+function getPreviousDate(dateStr) {
+  const d = new Date(dateStr);
+  d.setDate(d.getDate() - 1);
+  return d.toISOString().split('T')[0];
+}
+
 // 누락된 출판사/출간일 정보를 알라딘 API를 통해 보완 (Fallback)
 async function fetchMissingInfo(title, author) {
   const cacheKey = `${title}|||${author}`;
@@ -726,10 +733,11 @@ async function sync(platform, books, categoryName, targetDate = null) {
 
   try {
     // Step 2: bw_books 배치 upsert
-    // 개별적으로 처리하여 한 권의 에러가 전체 배치를 망치지 않게 함
+    // ... (기존 upsert 로직 유지)
+
     const upsertResults = await Promise.all(enrichedBooks.map(async (b) => {
+      // ... (기존 구현 유지)
       try {
-        // 기존 도서 정보 확인 (제목 + 저자 기준)
         const { data: existing } = await supabase
           .from('bw_books')
           .select('id, publisher, isbn, pub_date, description')
@@ -743,60 +751,27 @@ async function sync(platform, books, categoryName, targetDate = null) {
         let finalDescription = b.description;
 
         if (existing) {
-          // 기존 데이터가 '밀리의서재'나 '알수없음'이 아니고 유효하다면 보존
           const isInvalid = (val) => !val || val === '알수없음' || val === '밀리의서재' || val === '밀리';
-          
-          // 1. 출판사 보존/업데이트 로직
           if (!isInvalid(existing.publisher)) {
-            // 기존 정보가 유효하면 유지 (새 정보가 placeholder면 무시)
-            if (isInvalid(b.publisher) || b.publisher === '밀리의서재') {
-              finalPublisher = existing.publisher;
-            }
+            if (isInvalid(b.publisher) || b.publisher === '밀리의서재') finalPublisher = existing.publisher;
           } else if (!isInvalid(b.publisher)) {
-            // 기존 정보가 placeholder인데 새 정보가 유효하면 업데이트
             finalPublisher = b.publisher;
           }
-
-          // 2. ISBN 보존/업데이트
-          if (!isInvalid(existing.isbn)) {
-            finalIsbn = existing.isbn;
-          } else if (!isInvalid(b.isbn)) {
-            finalIsbn = b.isbn;
-          }
-
-          // 3. 출간일 보존/업데이트
-          if (!isInvalid(existing.pub_date)) {
-            finalPubDate = existing.pub_date;
-          } else if (!isInvalid(b.pub_date)) {
-            finalPubDate = b.pub_date;
-          }
-
-          // 4. 설명 보존/업데이트
-          if (!isInvalid(existing.description)) {
-            finalDescription = existing.description;
-          } else if (!isInvalid(b.description)) {
-            finalDescription = b.description;
-          }
+          if (!isInvalid(existing.isbn)) finalIsbn = existing.isbn; else if (!isInvalid(b.isbn)) finalIsbn = b.isbn;
+          if (!isInvalid(existing.pub_date)) finalPubDate = existing.pub_date; else if (!isInvalid(b.pub_date)) finalPubDate = b.pub_date;
+          if (!isInvalid(existing.description)) finalDescription = existing.description; else if (!isInvalid(b.description)) finalDescription = b.description;
         }
 
         const { data, error } = await supabase
           .from('bw_books')
           .upsert(
-            {
-              title: b.title, 
-              author: b.author, 
-              publisher: finalPublisher,
-              pub_date: finalPubDate, 
-              isbn: finalIsbn, 
-              description: finalDescription
-            },
+            { title: b.title, author: b.author, publisher: finalPublisher, pub_date: finalPubDate, isbn: finalIsbn, description: finalDescription },
             { onConflict: 'title,author', ignoreDuplicates: false }
           )
           .select('id, title, author')
           .single();
         
         if (error) {
-          // ISBN 중복일 경우 처리 시도
           if (error.message.includes('bw_books_isbn_key')) {
              const { data: existingByIsbn } = await supabase.from('bw_books').select('id, title, author').eq('isbn', b.isbn).single();
              if (existingByIsbn) return existingByIsbn;
@@ -805,31 +780,53 @@ async function sync(platform, books, categoryName, targetDate = null) {
           return null;
         }
         return data;
-      } catch (e) {
-        return null;
-      }
+      } catch (e) { return null; }
     }));
 
     const upsertedBooks = upsertResults.filter(Boolean);
+    if (upsertedBooks.length === 0) return;
 
-    if (upsertedBooks.length === 0) {
-      console.error(`  [!] No books upserted for [${platform}/${categoryName}]`);
-      return;
+    // Step 3: 전일 순위 데이터 가져와서 변동성(rank_change) 계산
+    const prevDate = getPreviousDate(snapshotDate);
+    const { data: prevRanks } = await supabase
+      .from('bw_bestseller_snapshots')
+      .select('book_id, rank')
+      .eq('platform', platform)
+      .eq('common_category', categoryName)
+      .eq('period_type', 'daily')
+      .eq('snapshot_date', prevDate);
+
+    const prevRankMap = new Map();
+    if (prevRanks) {
+      prevRanks.forEach(pr => prevRankMap.set(pr.book_id, pr.rank));
     }
 
-    // Step 3: book_id 매핑 후 스냅샷 배치 upsert
     const bookIdMap = new Map(upsertedBooks.map(b => [`${b.title}|||${b.author}`, b.id]));
     const snapshots = enrichedBooks
       .map(book => {
         const id = bookIdMap.get(`${book.title}|||${book.author}`);
         if (!id) return null;
-        return { book_id: id, platform, period_type: 'daily', rank: book.rank, common_category: categoryName, snapshot_date: snapshotDate, sales_point: book.sales_point || null };
+        
+        // 순위 변동 계산: 전일 순위 - 오늘 순위 (상승 시 양수)
+        const prevRank = prevRankMap.get(id);
+        const rankChange = prevRank ? (prevRank - book.rank) : 0;
+
+        return { 
+          book_id: id, 
+          platform, 
+          period_type: 'daily', 
+          rank: book.rank, 
+          rank_change: rankChange,
+          common_category: categoryName, 
+          snapshot_date: snapshotDate, 
+          sales_point: book.sales_point || null 
+        };
       })
       .filter(Boolean);
 
     if (snapshots.length > 0) {
       await supabase.from('bw_bestseller_snapshots')
-        .upsert(snapshots, { onConflict: 'book_id,platform,period_type,snapshot_date,common_category', ignoreDuplicates: true });
+        .upsert(snapshots, { onConflict: 'book_id,platform,period_type,snapshot_date,common_category', ignoreDuplicates: false });
     }
   } catch (err) {
     console.error(`  [!] Sync error for ${platform}/${categoryName}:`, err.message);

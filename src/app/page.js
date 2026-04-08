@@ -98,23 +98,24 @@ function PostList() {
       // This combines views and engagement (comments are weighted higher)
       const { data: hotPosts } = await supabase
         .from("bw_posts")
-        .select("id, title, view_count, comment_count, board_type, created_at")
+        .select("id, title, author, view_count, comment_count, board_type, created_at, is_notice, user_id")
         .eq("is_deleted", false)
         .gte("created_at", oneWeekAgo.toISOString())
         .gte("view_count", 10)
         .order("view_count", { ascending: false })
-        .limit(50);
+        .limit(100);
 
       if (hotPosts) {
-        // Calculate composite score and sort
-        const scored = hotPosts.map(p => ({
+        scoredCandidates = hotPosts.map(p => ({
           ...p,
           hotScore: (p.view_count || 0) + ((p.comment_count || 0) * 10)
         }));
-        scored.sort((a, b) => b.hotScore - a.hotScore);
-        const top10 = scored.slice(0, 10);
-        setHotPostIds(top10.map(p => p.id));
+        scoredCandidates.sort((a, b) => b.hotScore - a.hotScore);
+        
+        // 상위 10개만 사이드바 및 HOT 배지용
+        const top10 = scoredCandidates.slice(0, 10);
         setBestPosts(top10);
+        setHotPostIds(top10.map(p => p.id));
       }
 
       let query;
@@ -126,15 +127,15 @@ function PostList() {
           .select("*")
           .eq("is_deleted", false)
           .gte("created_at", oneWeekAgo.toISOString())
-          .gte("view_count", 10)
-          .order("created_at", { ascending: false })
+          .gte("view_count", 30)
+          .order("view_count", { ascending: false })
           .range(offset, offset + POSTS_PER_PAGE - 1);
         countQuery = supabase
           .from("bw_posts")
           .select("*", { count: "exact", head: true })
           .eq("is_deleted", false)
           .gte("created_at", oneWeekAgo.toISOString())
-          .gte("view_count", 10);
+          .gte("view_count", 30);
       } else if (currentBoard === "all") {
         query = supabase
           .from("bw_posts")
