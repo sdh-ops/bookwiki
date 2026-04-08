@@ -101,41 +101,63 @@ function PostList() {
         .select("id, title, author, view_count, comment_count, board_type, created_at, is_notice, user_id")
         .eq("is_deleted", false)
         .gte("created_at", oneWeekAgo.toISOString())
-        .gte("view_count", 10)
-        .order("view_count", { ascending: false })
-        .limit(100);
+        .gte("view_count", 5) // 후보군을 넉넉히 가져옴
+        .order("created_at", { ascending: false })
+        .limit(300);
 
       if (hotPosts) {
-        scoredCandidates = hotPosts.map(p => ({
+        // 1. 점수 계산
+        const scored = hotPosts.map(p => ({
           ...p,
           hotScore: (p.view_count || 0) + ((p.comment_count || 0) * 10)
         }));
-        scoredCandidates.sort((a, b) => b.hotScore - a.hotScore);
-        
-        // 상위 10개만 사이드바 및 HOT 배지용
-        const top10 = scoredCandidates.slice(0, 10);
-        setBestPosts(top10);
-        setHotPostIds(top10.map(p => p.id));
+
+        // 2. 날짜별 그룹화 (KST 기준 날짜 문자열)
+        const groups = {};
+        scored.forEach(p => {
+          const kstDate = new Date(new Date(p.created_at).getTime() + (9 * 60 * 60 * 1000));
+          const dateStr = kstDate.toISOString().split('T')[0];
+          if (!groups[dateStr]) groups[dateStr] = [];
+          groups[dateStr].push(p);
+        });
+
+        // 3. 날짜별 TOP 10 선정 및 누적 (최근 날짜부터)
+        let accumulatedHot = [];
+        const sortedDates = Object.keys(groups).sort((a, b) => b.localeCompare(a));
+        sortedDates.forEach(date => {
+          const dayTop10 = groups[date]
+            .sort((a, b) => b.hotScore - a.hotScore)
+            .slice(0, 10);
+          accumulatedHot = [...accumulatedHot, ...dayTop10];
+        });
+
+        // 4. 사이드바용 전체 실시간 TOP 10 (가장 점수 높은 순)
+        const overallTop10 = [...accumulatedHot]
+          .sort((a, b) => b.hotScore - a.hotScore)
+          .slice(0, 10);
+        setBestPosts(overallTop10);
+
+        // 5. HOT 게시판 누적 데이터 (배지 부여용 ID 포함)
+        // 핫 게시판에서는 최신 등록일순으로 보여줌
+        const finalHotList = accumulatedHot.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+        setHotPostIds(finalHotList.map(p => p.id));
+
+        if (currentBoard === "hot") {
+          // 페이징 처리 (JS 슬라이싱)
+          const start = offset;
+          const end = offset + POSTS_PER_PAGE;
+          setPosts(finalHotList.slice(start, end));
+          setTotalCount(finalHotList.length);
+          setLoading(false);
+          return;
+        }
       }
 
       let query;
       let countQuery;
 
       if (currentBoard === "hot") {
-        query = supabase
-          .from("bw_posts")
-          .select("*")
-          .eq("is_deleted", false)
-          .gte("created_at", oneWeekAgo.toISOString())
-          .gte("view_count", 30)
-          .order("view_count", { ascending: false })
-          .range(offset, offset + POSTS_PER_PAGE - 1);
-        countQuery = supabase
-          .from("bw_posts")
-          .select("*", { count: "exact", head: true })
-          .eq("is_deleted", false)
-          .gte("created_at", oneWeekAgo.toISOString())
-          .gte("view_count", 30);
+        // (위의 누적 로직에서 처리됨)
       } else if (currentBoard === "all") {
         query = supabase
           .from("bw_posts")
