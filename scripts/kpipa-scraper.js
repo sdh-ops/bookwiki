@@ -16,10 +16,12 @@ function isValidPost(title) {
 }
 
 const MAX_POSTS = 100;
-const LOOKBACK_DAYS = 45; // Look back 45 days dynamically
+const LOOKBACK_DAYS = 1; // 어제($T-1$) 및 오늘의 공고만 수집하도록 축소 (Today: 2026-04-08 -> Lookback: 2026-04-07)
 
 async function scrapeKPIPA() {
     console.log('🚀 Starting KPIPA scraping...');
+    console.log(`📅 Current System Time: ${new Date().toLocaleString()}`);
+    console.log(`⚙️ Configured Lookback Days: ${LOOKBACK_DAYS}`);
     const baseUrl = 'https://www.kpipa.or.kr';
     const posts = [];
     let page = 1;

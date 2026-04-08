@@ -65,6 +65,7 @@ export default function AdminLayout({ children }) {
                     <nav className="p-4 space-y-2">
                         <Link href="/admin" onClick={() => setMenuOpen(false)} className="block px-4 py-2 text-sm rounded hover:bg-[#34495e] transition">대시보드</Link>
                         <Link href="/admin/posts" onClick={() => setMenuOpen(false)} className="block px-4 py-2 text-sm rounded hover:bg-[#34495e] transition">게시물 관리</Link>
+                        <Link href="/admin/comments" onClick={() => setMenuOpen(false)} className="block px-4 py-2 text-sm rounded hover:bg-[#34495e] transition">댓글 관리</Link>
                         <Link href="/admin/members" onClick={() => setMenuOpen(false)} className="block px-4 py-2 text-sm rounded hover:bg-[#34495e] transition">회원 관리</Link>
                         <Link href="/admin/deleted-posts" onClick={() => setMenuOpen(false)} className="block px-4 py-2 text-sm rounded hover:bg-[#34495e] transition">삭제된 게시물</Link>
                         <Link href="/admin/users" onClick={() => setMenuOpen(false)} className="block px-4 py-2 text-sm rounded hover:bg-[#34495e] transition">운영자 관리</Link>
@@ -84,6 +85,7 @@ export default function AdminLayout({ children }) {
                 <nav className="flex-1 p-4 space-y-2">
                     <Link href="/admin" className="block px-4 py-2 text-sm rounded hover:bg-[#34495e] transition">대시보드</Link>
                     <Link href="/admin/posts" className="block px-4 py-2 text-sm rounded hover:bg-[#34495e] transition">게시물 관리</Link>
+                    <Link href="/admin/comments" className="block px-4 py-2 text-sm rounded hover:bg-[#34495e] transition">댓글 관리</Link>
                     <Link href="/admin/members" className="block px-4 py-2 text-sm rounded hover:bg-[#34495e] transition">회원 관리</Link>
                     <Link href="/admin/deleted-posts" className="block px-4 py-2 text-sm rounded hover:bg-[#34495e] transition">삭제된 게시물</Link>
                     <Link href="/admin/users" className="block px-4 py-2 text-sm rounded hover:bg-[#34495e] transition">운영자 관리</Link>

@@ -24,9 +24,9 @@ const NOUNS = [
 
 // 톡톡 게시판 카테고리
 const freeBoardCategories = [
-    { id: "모집", name: "[모집]" },
-    { id: "후기", name: "[후기]" },
     { id: "잡담", name: "[잡담]" },
+    { id: "후기", name: "[후기]" },
+    { id: "모집", name: "[모집]" },
 ];
 
 function WritePageContent() {
@@ -158,7 +158,7 @@ function WritePageContent() {
         if (error) {
             alert("글 작성에 실패했습니다: " + error.message);
         } else {
-            router.push("/");
+            router.push(`/?board=${boardType}`);
             router.refresh();
         }
         setIsSubmitting(false);
@@ -183,7 +183,7 @@ function WritePageContent() {
         <main className="min-h-screen bg-white">
             <header className="bg-[#355E3B] text-white py-3">
                 <div className="max-w-3xl mx-auto px-4 flex items-center">
-                    <Link href="/" className="text-xl font-bold tracking-tighter">북위키</Link>
+                    <Link href="/?board=all" className="text-xl font-bold tracking-tighter">북위키</Link>
                     <span className="ml-4 text-sm font-medium opacity-80">글쓰기</span>
                 </div>
             </header>

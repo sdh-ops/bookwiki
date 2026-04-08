@@ -70,6 +70,21 @@ export default function AdminPostsPage() {
         }
     };
 
+    const toggleAutoStatus = async (postId, currentAutoStatus) => {
+        const { error } = await supabase
+            .from("bw_posts")
+            .update({ is_auto: !currentAutoStatus })
+            .eq("id", postId);
+
+        if (error) {
+            alert("상태 변경 실패: " + error.message);
+        } else {
+            setPosts(posts.map(p =>
+                p.id === postId ? { ...p, is_auto: !currentAutoStatus } : p
+            ));
+        }
+    };
+
     const deletePost = async (postId) => {
         if (!confirm("정말 삭제하시겠습니까?")) return;
 
@@ -199,6 +214,16 @@ export default function AdminPostsPage() {
                                                 {post.is_notice ? "해제" : "공지"}
                                             </button>
                                             <button
+                                                onClick={() => toggleAutoStatus(post.id, post.is_auto)}
+                                                className={`px-2 py-1 text-[10px] rounded ${
+                                                    post.is_auto
+                                                        ? "bg-green-100 text-green-700"
+                                                        : "bg-gray-100 text-gray-700"
+                                                }`}
+                                            >
+                                                {post.is_auto ? "직접 전환" : "자동 전환"}
+                                            </button>
+                                            <button
                                                 onClick={() => deletePost(post.id)}
                                                 className="px-2 py-1 text-[10px] rounded bg-red-100 text-red-700"
                                             >
@@ -273,6 +298,16 @@ export default function AdminPostsPage() {
                                                     }`}
                                                 >
                                                     {post.is_notice ? "해제" : "공지"}
+                                                </button>
+                                                <button
+                                                    onClick={() => toggleAutoStatus(post.id, post.is_auto)}
+                                                    className={`px-1.5 py-1 text-[10px] rounded ${
+                                                        post.is_auto
+                                                            ? "bg-green-100 text-green-700 hover:bg-green-200"
+                                                            : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                                                    }`}
+                                                >
+                                                    {post.is_auto ? "직접" : "자동"}
                                                 </button>
                                                 <button
                                                     onClick={() => deletePost(post.id)}

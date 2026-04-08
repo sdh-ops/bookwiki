@@ -15,7 +15,7 @@ function isValidPost(title) {
 }
 
 const MAX_POSTS = 100;
-const LOOKBACK_DAYS = 60;
+const LOOKBACK_DAYS = 1; // 어제($T-1$) 및 오늘의 최신 공고만 선별적으로 수집 (Today: 2026-04-08 -> Lookback: 2026-04-07)
 const BE_USER = process.env.BOOKEDITOR_ID || 'sdh0815';
 const BE_PASS = process.env.BOOKEDITOR_PW || 'Sk18061806!';
 
@@ -35,6 +35,8 @@ async function waitForRealContent(page, timeout = 15000) {
 
 async function scrapeBookEditor() {
     console.log('🚀 Starting BookEditor scraping...');
+    console.log(`📅 Current System Time: ${new Date().toLocaleString()}`);
+    console.log(`⚙️ Configured Lookback Days: ${LOOKBACK_DAYS}`);
     const baseUrl = 'http://bookeditor.org';
     const posts = [];
 

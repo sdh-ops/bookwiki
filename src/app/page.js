@@ -18,9 +18,9 @@ const POSTS_PER_PAGE = 20;
 // 톡톡 게시판 카테고리
 const freeBoardCategories = [
   { id: "all", name: "전체" },
-  { id: "모집", name: "모집" },
-  { id: "후기", name: "후기" },
   { id: "잡담", name: "잡담" },
+  { id: "후기", name: "후기" },
+  { id: "모집", name: "모집" },
 ];
 
 function PostList() {
@@ -127,7 +127,7 @@ function PostList() {
           .eq("is_deleted", false)
           .gte("created_at", oneWeekAgo.toISOString())
           .gte("view_count", 10)
-          .order("view_count", { ascending: false })
+          .order("created_at", { ascending: false })
           .range(offset, offset + POSTS_PER_PAGE - 1);
         countQuery = supabase
           .from("bw_posts")
@@ -361,14 +361,28 @@ function PostList() {
       {/* Header */}
       <header className="bg-[#355E3B] text-white">
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center space-x-6">
-            {/* 모바일: 북위키 클릭 시 메뉴 토글 */}
+          <div className="flex items-center space-x-2 md:space-x-6">
+            {/* 햄버거 버튼 (모바일 전용) */}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="text-2xl font-bold tracking-tighter md:pointer-events-none"
+              className="md:hidden p-1 hover:bg-white/10 rounded transition"
+              aria-label="메뉴 열기"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                {mobileMenuOpen ? (
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                ) : (
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                )}
+              </svg>
+            </button>
+            <Link 
+              href="/?board=all" 
+              className="text-2xl font-bold tracking-tighter"
+              onClick={() => setMobileMenuOpen(false)}
             >
               북위키
-            </button>
+            </Link>
             <nav className="hidden md:flex space-x-4 text-sm font-medium">
               {boardCategories.map((cat) => (
                 <button

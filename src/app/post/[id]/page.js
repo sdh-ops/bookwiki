@@ -133,7 +133,8 @@ export default function PostDetailPage() {
     const [commentAuthor, setCommentAuthor] = useState("");
     const [commentPassword, setCommentPassword] = useState("");
     const [loading, setLoading] = useState(true);
-    const [submitting, setSubmitting] = useState(false);
+    const [isDeleting, setIsDeleting] = useState(false);
+    const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [user, setUser] = useState(null);
     const [isAdmin, setIsAdmin] = useState(false);
     const [showPasswordModal, setShowPasswordModal] = useState(false);
@@ -184,15 +185,9 @@ export default function PostDetailPage() {
                 return;
             }
 
-            // Increment view count (같은 세션에서 같은 글 재방문 시 중복 카운트 방지)
-            const viewKey = `bw_viewed_${id}`;
-            const alreadyViewed = sessionStorage.getItem(viewKey);
-            let displayViewCount = postData.view_count || 0;
-            if (!alreadyViewed) {
-                sessionStorage.setItem(viewKey, "1");
-                await supabase.rpc("increment_view_count", { post_id: id });
-                displayViewCount += 1;
-            }
+            // Increment view count (요청에 따라 모든 클릭/방문 시 카운트 증가)
+            await supabase.rpc("increment_view_count", { post_id: id });
+            let displayViewCount = (postData.view_count || 0) + 1;
 
             setPost({ ...postData, view_count: displayViewCount });
 
@@ -508,10 +503,24 @@ export default function PostDetailPage() {
         <main className="min-h-screen bg-white">
             <header className="bg-[#355E3B] text-white py-3">
                 <div className="max-w-4xl mx-auto px-4 flex items-center justify-between">
-                    <div className="flex items-center space-x-6">
-                        <Link href="/" className="text-xl font-bold tracking-tighter">북위키</Link>
+                    <div className="flex items-center space-x-2 md:space-x-6">
+                        {/* 햄버거 버튼 (모바일 전용) */}
+                        <button
+                            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                            className="md:hidden p-1 hover:bg-white/10 rounded transition"
+                            aria-label="메뉴 열기"
+                        >
+                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                {mobileMenuOpen ? (
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                ) : (
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                                )}
+                            </svg>
+                        </button>
+                        <Link href="/?board=all" className="text-xl font-bold tracking-tighter">북위키</Link>
                         <nav className="hidden md:flex space-x-4 text-sm font-medium">
-                            <Link href="/" className="hover:underline">전체</Link>
+                            <Link href="/?board=all" className="hover:underline">전체</Link>
                             <Link href="/?board=hot" className="hover:underline">HOT</Link>
                             <Link href="/?board=job" className="hover:underline">구인구직</Link>
                             <Link href="/?board=support" className="hover:underline">지원사업</Link>
@@ -526,11 +535,34 @@ export default function PostDetailPage() {
                                 <Link href="/mypage" className="hover:underline opacity-80 hidden md:inline">내 활동</Link>
                             </>
                         ) : (
-                            <Link href="/login" className="hover:underline opacity-80">로그인</Link>
+                            <Link href="/login" className="hover:underline opacity-80 hidden md:inline">로그인</Link>
                         )}
-                        <Link href="/write" className="hover:underline font-bold">글쓰기</Link>
+                        <Link href="/write" className="hover:underline font-bold bg-white/20 px-3 py-1 rounded">글쓰기</Link>
                     </div>
                 </div>
+                {/* 모바일 메뉴 드롭다운 */}
+                {mobileMenuOpen && (
+                    <div className="md:hidden bg-[#2A4A2E] border-t border-[#355E3B]">
+                        <nav className="px-4 py-2 space-y-1">
+                            <Link href="/?board=all" className="block px-3 py-2 text-sm rounded hover:bg-[#355E3B]/50">전체</Link>
+                            <Link href="/?board=hot" className="block px-3 py-2 text-sm rounded hover:bg-[#355E3B]/50">HOT인기글</Link>
+                            <Link href="/?board=job" className="block px-3 py-2 text-sm rounded hover:bg-[#355E3B]/50">구인구직</Link>
+                            <Link href="/?board=support" className="block px-3 py-2 text-sm rounded hover:bg-[#355E3B]/50">지원사업</Link>
+                            <Link href="/?board=free" className="block px-3 py-2 text-sm rounded hover:bg-[#355E3B]/50">톡톡</Link>
+                            <Link href="/?board=ai" className="block px-3 py-2 text-sm rounded hover:bg-[#355E3B]/50">AI허브</Link>
+                            <div className="border-t border-[#355E3B] pt-2 mt-2">
+                                {user ? (
+                                    <>
+                                        <Link href="/mypage" className="block px-3 py-2 text-sm hover:bg-[#355E3B]/50 rounded">내 활동</Link>
+                                        <button onClick={handleLogout} className="block w-full text-left px-3 py-2 text-sm hover:bg-[#355E3B]/50 rounded">로그아웃</button>
+                                    </>
+                                ) : (
+                                    <Link href="/login" className="block px-3 py-2 text-sm hover:bg-[#355E3B]/50 rounded">로그인/회원가입</Link>
+                                )}
+                            </div>
+                        </nav>
+                    </div>
+                )}
             </header>
 
             <article className="max-w-4xl mx-auto px-4 py-8">
@@ -600,7 +632,7 @@ export default function PostDetailPage() {
                             display: block;
                         }
                     `}</style>
-                    <div className="post-content mb-6 overflow-x-auto" dangerouslySetInnerHTML={{
+                    <div className="post-content prose prose-sm max-w-none mb-6 overflow-x-auto" dangerouslySetInnerHTML={{
                         __html: DOMPurify.sanitize(post.content, {
                             ADD_TAGS: ['iframe'], // Keep for backward compatibility if any
                             ADD_ATTR: ['src', 'allowfullscreen', 'frameborder', 'allow'],
