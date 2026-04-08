@@ -15,9 +15,13 @@ SET nickname = p.nickname || '(' || (d.rn - 1) || ')'
 FROM duplicates d
 WHERE p.id = d.id AND d.rn > 1;
 
--- 2. 닉네임 컬럼에 UNIQUE 제약 조건 추가
-ALTER TABLE public.profiles
-ADD CONSTRAINT profiles_nickname_key UNIQUE (nickname);
+-- 2. 닉네임 컬럼에 UNIQUE 제약 조건 추가 (존재하지 않을 경우에만)
+DO $$ 
+BEGIN 
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'profiles_nickname_key') THEN
+        ALTER TABLE public.profiles ADD CONSTRAINT profiles_nickname_key UNIQUE (nickname);
+    END IF;
+END $$;
 
 -- 3. Auth 트리거 강화 (중복 닉네임 시 가입 차단)
 CREATE OR REPLACE FUNCTION public.handle_new_user()
