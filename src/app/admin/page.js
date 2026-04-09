@@ -111,20 +111,28 @@ export default function AdminDashboard() {
                 .order("view_count", { ascending: false })
                 .limit(5);
 
+            // Helper to get KST date string (YYYY-MM-DD)
+            const getKSTDateString = (dateObjOrStr) => {
+                const d = new Date(dateObjOrStr);
+                const kstDate = new Date(d.getTime() + (9 * 60 * 60 * 1000));
+                return kstDate.toISOString().split('T')[0];
+            };
+
             // Weekly Trend (posts per day for last 7 days)
             const { data: weekPosts } = await supabase
                 .from("bw_posts")
                 .select("created_at")
                 .gte("created_at", oneWeekAgo.toISOString());
+            
             const dayCounts = {};
             for (let i = 6; i >= 0; i--) {
                 const d = new Date();
                 d.setDate(d.getDate() - i);
-                const key = d.toISOString().split('T')[0];
+                const key = getKSTDateString(d);
                 dayCounts[key] = 0;
             }
             weekPosts?.forEach(p => {
-                const key = p.created_at.split('T')[0];
+                const key = getKSTDateString(p.created_at);
                 if (dayCounts[key] !== undefined) {
                     dayCounts[key]++;
                 }
@@ -154,14 +162,16 @@ export default function AdminDashboard() {
                 .from("bw_page_views")
                 .select("session_id, visited_at")
                 .gte("visited_at", oneWeekAgo.toISOString());
+            
             const visitorDaySessions = {};
             for (let i = 6; i >= 0; i--) {
                 const d = new Date();
                 d.setDate(d.getDate() - i);
-                visitorDaySessions[d.toISOString().split('T')[0]] = new Set();
+                const key = getKSTDateString(d);
+                visitorDaySessions[key] = new Set();
             }
             weekViewData?.forEach(v => {
-                const key = v.visited_at.split('T')[0];
+                const key = getKSTDateString(v.visited_at);
                 if (visitorDaySessions[key]) visitorDaySessions[key].add(v.session_id);
             });
             const visitorTrend = Object.entries(visitorDaySessions).map(([date, sessions]) => ({
