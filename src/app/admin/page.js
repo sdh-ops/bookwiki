@@ -32,11 +32,20 @@ export default function AdminDashboard() {
 
     useEffect(() => {
         async function fetchStats() {
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
+            // Calculate bullet-proof KST today and oneWeekAgo to UTC timeframes
+            const now = new Date();
+            const kstTime = new Date(now.getTime() + (9 * 60 * 60 * 1000));
+            
+            // Start of Today in KST (converted back to UTC for Supabase queries)
+            const kstTodayString = kstTime.toISOString().split('T')[0];
+            const kstStartOfDayUTC = new Date(kstTodayString + 'T00:00:00.000Z').getTime() - (9 * 60 * 60 * 1000);
+            const today = new Date(kstStartOfDayUTC);
 
-            const oneWeekAgo = new Date();
-            oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+            // Start of 7 Days Ago in KST (converted back to UTC)
+            const kstOneWeekAgo = new Date(kstTime.getTime() - (7 * 24 * 60 * 60 * 1000));
+            const kstOneWeekAgoString = kstOneWeekAgo.toISOString().split('T')[0];
+            const kstOneWeekAgoStartUTC = new Date(kstOneWeekAgoString + 'T00:00:00.000Z').getTime() - (9 * 60 * 60 * 1000);
+            const oneWeekAgo = new Date(kstOneWeekAgoStartUTC);
 
             // Total Users (from RPC function)
             const { data: totalUsers } = await supabase.rpc('get_user_count');
