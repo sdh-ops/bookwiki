@@ -1,0 +1,19 @@
+User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /api/
+Disallow: /mypage/
+Disallow: /write/
+Disallow: /reset-password/
+Disallow: /login/
+
+User-agent: Yeti
+Allow: /
+Disallow: /admin/
+Disallow: /api/
+Disallow: /mypage/
+Disallow: /write/
+Disallow: /reset-password/
+Disallow: /login/
+
+Sitemap: https://bookwiki.co.kr/sitemap.xml
