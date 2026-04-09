@@ -93,57 +93,40 @@ function PostList() {
       const oneWeekAgo = new Date();
       oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
 
-      // Fetch HOT posts (top 10 by composite score in last week)
-      // HOT Score = view_count + (comment_count * 10)
-      // This combines views and engagement (comments are weighted higher)
+      // Fetch HOT posts (top candidates in last week)
       const { data: hotPosts } = await supabase
         .from("bw_posts")
         .select("id, title, author, view_count, comment_count, board_type, created_at, is_notice, user_id")
         .eq("is_deleted", false)
         .gte("created_at", oneWeekAgo.toISOString())
-        .gte("view_count", 5) // 후보군을 넉넉히 가져옴
-        .order("created_at", { ascending: false })
-        .limit(300);
+        .limit(400);
 
       if (hotPosts) {
-        // 1. 점수 계산
-        const scored = hotPosts.map(p => ({
-          ...p,
-          hotScore: (p.view_count || 0) + ((p.comment_count || 0) * 10)
-        }));
+        // 1. 점수 계산 및 필터링 (최소 임계점 20점)
+        // HOT Score = (view_count + comment_count * 10) / (days_old + 1)
+        const now = new Date();
+        const scored = hotPosts.map(p => {
+          const createdAt = new Date(p.created_at);
+          const daysOld = Math.floor((now - createdAt) / (1000 * 60 * 60 * 24));
+          const baseScore = (p.view_count || 0) + ((p.comment_count || 0) * 10);
+          const hotScore = baseScore / (daysOld + 1); // 시간 경과에 따른 점수 감쇄
+          return { ...p, baseScore, hotScore };
+        }).filter(p => p.baseScore >= 20); // 최소 점수 20점 이상만 HOT 자격 부여
 
-        // 2. 날짜별 그룹화 (KST 기준 날짜 문자열)
-        const groups = {};
-        scored.forEach(p => {
-          const kstDate = new Date(new Date(p.created_at).getTime() + (9 * 60 * 60 * 1000));
-          const dateStr = kstDate.toISOString().split('T')[0];
-          if (!groups[dateStr]) groups[dateStr] = [];
-          groups[dateStr].push(p);
-        });
-
-        // 3. 날짜별 TOP 10 선정 및 누적 (최근 날짜부터)
-        let accumulatedHot = [];
-        const sortedDates = Object.keys(groups).sort((a, b) => b.localeCompare(a));
-        sortedDates.forEach(date => {
-          const dayTop10 = groups[date]
-            .sort((a, b) => b.hotScore - a.hotScore)
-            .slice(0, 10);
-          accumulatedHot = [...accumulatedHot, ...dayTop10];
-        });
-
-        // 4. 사이드바용 전체 실시간 TOP 10 (가장 점수 높은 순)
-        const overallTop10 = [...accumulatedHot]
+        // 2. 전체 상위 20개 선정 (날짜별 Top 10 남발 방지)
+        const top20 = scored
           .sort((a, b) => b.hotScore - a.hotScore)
-          .slice(0, 10);
-        setBestPosts(overallTop10);
+          .slice(0, 20);
 
-        // 5. HOT 게시판 누적 데이터 (배지 부여용 ID 포함)
-        // 핫 게시판에서는 최신 등록일순으로 보여줌
-        const finalHotList = accumulatedHot.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+        // 3. 사이드바용 TOP 10 (가장 점수 높은 순)
+        setBestPosts(top20.slice(0, 10));
+
+        // 4. HOT 게시판 데이터 및 배지 부여용 ID
+        // 최신 등록일순으로 정렬하여 리스트 구성
+        const finalHotList = [...top20].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
         setHotPostIds(finalHotList.map(p => p.id));
 
         if (currentBoard === "hot") {
-          // 페이징 처리 (JS 슬라이싱)
           const start = offset;
           const end = offset + POSTS_PER_PAGE;
           setPosts(finalHotList.slice(start, end));
