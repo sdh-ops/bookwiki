@@ -90,35 +90,36 @@ export default function AdminDashboard() {
 
             try {
                 if (activeTab === "visitors") {
-                    const { data: viewData, error } = await supabase
-                        .from("bw_page_views")
-                        .select("session_id, visited_at, user_id")
-                        .gte("visited_at", limitDate.toISOString());
-                    
-                    if (error) {
-                        console.error("[Dashboard] bw_page_views 조회 오류:", error.message, error.code);
-                    }
-                    if (!error && viewData) {
-                        const groups = {};
-                        viewData.forEach(v => {
-                            const key = getGroupKey(v.visited_at, period);
-                            if (!groups[key]) groups[key] = { date: key, totalPageviews: 0, sessions: new Set(), members: 0, nonMembers: 0 };
-                            
-                            groups[key].totalPageviews++;
-                            groups[key].sessions.add(v.session_id);
-                            if (v.user_id) groups[key].members++;
-                            else groups[key].nonMembers++;
-                        });
+                    const { data: rpcData, error } = await supabase
+                        .rpc('get_page_view_stats', { days_back: 180 });
 
-                        const table = Object.values(groups).map(g => ({
-                            date: g.date,
-                            pageviews: g.totalPageviews,
-                            visitors: g.sessions.size,
-                            members: g.members,
-                            nonMembers: g.nonMembers
-                        })).sort((a,b) => b.date.localeCompare(a.date));
-                        
-                        setTableData(table);
+                    if (error) {
+                        console.error("[Dashboard] get_page_view_stats 오류:", error.message, error.code);
+                    }
+                    if (!error && rpcData) {
+                        if (period === "daily") {
+                            const table = rpcData.map(row => ({
+                                date: row.kst_date,
+                                pageviews: Number(row.total_pageviews),
+                                visitors: Number(row.unique_sessions),
+                                members: Number(row.member_pageviews),
+                                nonMembers: Number(row.non_member_pageviews),
+                            }));
+                            setTableData(table);
+                        } else {
+                            // 주간/월간: 일별 집계 결과를 재그룹핑
+                            const groups = {};
+                            rpcData.forEach(row => {
+                                const key = getGroupKey(row.kst_date + 'T12:00:00+09:00', period);
+                                if (!groups[key]) groups[key] = { date: key, pageviews: 0, visitors: 0, members: 0, nonMembers: 0 };
+                                groups[key].pageviews += Number(row.total_pageviews);
+                                groups[key].visitors += Number(row.unique_sessions);
+                                groups[key].members += Number(row.member_pageviews);
+                                groups[key].nonMembers += Number(row.non_member_pageviews);
+                            });
+                            const table = Object.values(groups).sort((a, b) => b.date.localeCompare(a.date));
+                            setTableData(table);
+                        }
                     }
                 } 
                 else if (activeTab === "posts") {
