@@ -230,15 +230,15 @@ export default function AdminDashboard() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
                 <div className="bg-white p-5 rounded-lg shadow-sm border border-gray-200">
                     <p className="text-sm font-bold text-gray-500 mb-1">총 회원 수</p>
-                    <p className="text-2xl font-black text-indigo-600">{stats.totalUsers.toLocaleString()}</p>
+                    <p className="text-2xl font-black text-indigo-600">{(stats.totalUsers || 0).toLocaleString()}</p>
                 </div>
                 <div className="bg-white p-5 rounded-lg shadow-sm border border-gray-200">
                     <p className="text-sm font-bold text-gray-500 mb-1">총 누적 게시글</p>
-                    <p className="text-2xl font-black text-emerald-600">{stats.totalPosts.toLocaleString()}</p>
+                    <p className="text-2xl font-black text-emerald-600">{(stats.totalPosts || 0).toLocaleString()}</p>
                 </div>
                 <div className="bg-white p-5 rounded-lg shadow-sm border border-gray-200">
                     <p className="text-sm font-bold text-gray-500 mb-1">총 누적 댓글</p>
-                    <p className="text-2xl font-black text-emerald-600">{stats.totalComments.toLocaleString()}</p>
+                    <p className="text-2xl font-black text-emerald-600">{(stats.totalComments || 0).toLocaleString()}</p>
                 </div>
                 <div className="bg-white p-5 rounded-lg shadow-sm border border-gray-200">
                     <p className="text-sm font-bold text-gray-500 mb-1">총 페이지 조회수</p>
@@ -354,33 +354,33 @@ export default function AdminDashboard() {
                                         tableData.map((row, i) => (
                                             <tr key={i} className="hover:bg-gray-50">
                                                 <td className="px-6 py-4 font-bold text-gray-700">{row.date}</td>
-                                                <td className="px-6 py-4">{row.visitors.toLocaleString()} <span className="text-[10px] text-gray-400">명</span></td>
-                                                <td className="px-6 py-4 font-bold text-emerald-700">{row.pageviews.toLocaleString()}</td>
-                                                <td className="px-6 py-4 bg-gray-50/50">{row.members.toLocaleString()}</td>
-                                                <td className="px-6 py-4 text-gray-500">{row.nonMembers.toLocaleString()}</td>
+                                                <td className="px-6 py-4">{(row.visitors || 0).toLocaleString()} <span className="text-[10px] text-gray-400">명</span></td>
+                                                <td className="px-6 py-4 font-bold text-emerald-700">{(row.pageviews || 0).toLocaleString()}</td>
+                                                <td className="px-6 py-4 bg-gray-50/50">{(row.members || 0).toLocaleString()}</td>
+                                                <td className="px-6 py-4 text-gray-500">{(row.nonMembers || 0).toLocaleString()}</td>
                                             </tr>
                                         ))
                                     ) : activeTab === "posts" ? (
                                         tableData.map((row, i) => (
                                             <tr key={i} className="hover:bg-gray-50">
                                                 <td className="px-6 py-4 font-bold text-gray-700">{row.date}</td>
-                                                <td className="px-6 py-4 font-bold text-indigo-700">{row.postTotal.toLocaleString()}</td>
-                                                <td className="px-6 py-4">{row.postMember.toLocaleString()}</td>
-                                                <td className="px-6 py-4 text-gray-500">{row.postNon.toLocaleString()}</td>
-                                                <td className="px-6 py-4 font-bold text-teal-700 bg-teal-50/30">{row.cmtTotal.toLocaleString()}</td>
-                                                <td className="px-6 py-4">{row.cmtMember.toLocaleString()}</td>
-                                                <td className="px-6 py-4 text-gray-500">{row.cmtNon.toLocaleString()}</td>
+                                                <td className="px-6 py-4 font-bold text-indigo-700">{(row.postTotal || 0).toLocaleString()}</td>
+                                                <td className="px-6 py-4">{(row.postMember || 0).toLocaleString()}</td>
+                                                <td className="px-6 py-4 text-gray-500">{(row.postNon || 0).toLocaleString()}</td>
+                                                <td className="px-6 py-4 font-bold text-teal-700 bg-teal-50/30">{(row.cmtTotal || 0).toLocaleString()}</td>
+                                                <td className="px-6 py-4">{(row.cmtMember || 0).toLocaleString()}</td>
+                                                <td className="px-6 py-4 text-gray-500">{(row.cmtNon || 0).toLocaleString()}</td>
                                             </tr>
                                         ))
                                     ) : activeTab === "boardViews" ? (
                                         tableData.map((row, i) => (
                                             <tr key={i} className="hover:bg-gray-50">
                                                 <td className="px-6 py-4 font-bold text-gray-700">{row.date}</td>
-                                                <td className="px-6 py-4 font-bold text-orange-700">{row.total.toLocaleString()}</td>
-                                                <td className="px-6 py-4 bg-gray-50/50">{row.job.toLocaleString()}</td>
-                                                <td className="px-6 py-4">{row.support.toLocaleString()}</td>
-                                                <td className="px-6 py-4 bg-gray-50/50">{row.free.toLocaleString()}</td>
-                                                <td className="px-6 py-4">{row.ai.toLocaleString()}</td>
+                                                <td className="px-6 py-4 font-bold text-orange-700">{(row.total || 0).toLocaleString()}</td>
+                                                <td className="px-6 py-4 bg-gray-50/50">{(row.job || 0).toLocaleString()}</td>
+                                                <td className="px-6 py-4">{(row.support || 0).toLocaleString()}</td>
+                                                <td className="px-6 py-4 bg-gray-50/50">{(row.free || 0).toLocaleString()}</td>
+                                                <td className="px-6 py-4">{(row.ai || 0).toLocaleString()}</td>
                                             </tr>
                                         ))
                                     ) : activeTab === "postViews" ? (
@@ -390,7 +390,7 @@ export default function AdminDashboard() {
                                                 <td className="px-6 py-4"><span className="bg-gray-100 text-gray-600 px-2 py-1 rounded text-xs">{row.board}</span></td>
                                                 <td className="px-6 py-4 font-medium max-w-[300px] truncate">{row.title}</td>
                                                 <td className="px-6 py-4 text-gray-500">{row.author}</td>
-                                                <td className="px-6 py-4 font-bold text-purple-700">{row.views.toLocaleString()}</td>
+                                                <td className="px-6 py-4 font-bold text-purple-700">{(row.views || 0).toLocaleString()}</td>
                                             </tr>
                                         ))
                                     ) : null

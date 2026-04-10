@@ -154,7 +154,10 @@ export default function PostDetailPage() {
         try {
             const { error } = await supabase
                 .from('bw_posts')
-                .update({ is_hot: newHotStatus })
+                .update({ 
+                    is_hot: newHotStatus,
+                    admin_hot_override: !newHotStatus // 해제할 때 오버라이드를 활성화하여 트리거 방지
+                })
                 .eq('id', id);
             
             if (error) throw error;
