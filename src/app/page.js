@@ -27,7 +27,6 @@ function PostList() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [user, setUser] = useState(null);
   const [posts, setPosts] = useState([]);
-  const [hotPostIds, setHotPostIds] = useState([]);
   const [bestPosts, setBestPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [totalCount, setTotalCount] = useState(0);
@@ -89,50 +88,57 @@ function PostList() {
         return;
       }
 
-      // Calculate one week ago for HOT posts
+      // 사이드바 주간 베스트 및 자동 HOT 승격 병렬 처리
       const oneWeekAgo = new Date();
       oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
 
-      // Fetch HOT posts (top candidates in last week)
-      const { data: hotPosts } = await supabase
-        .from("bw_posts")
-        .select("id, title, author, view_count, comment_count, board_type, created_at, is_notice, user_id")
-        .eq("is_deleted", false)
-        .gte("created_at", oneWeekAgo.toISOString())
-        .limit(400);
+      const [{ data: hotPosts }, { data: candidates }] = await Promise.all([
+        // 사이드바용: 최근 1주일 게시글
+        supabase
+          .from("bw_posts")
+          .select("id, title, author, view_count, comment_count, board_type, created_at, is_notice, user_id")
+          .eq("is_deleted", false)
+          .gte("created_at", oneWeekAgo.toISOString())
+          .limit(400),
+        // 자동 HOT 승격 후보: 아직 HOT이 아닌 게시글 전체
+        supabase
+          .from("bw_posts")
+          .select("id, board_type, view_count, comment_count, admin_hot_override")
+          .eq("is_deleted", false)
+          .eq("is_hot", false),
+      ]);
 
+      // 사이드바 주간 베스트 계산 (점수 기반 Top 10)
       if (hotPosts) {
-        // 1. 점수 계산 및 필터링 (최소 임계점 20점)
-        // HOT Score = (view_count + comment_count * 10) / (days_old + 1)
         const now = new Date();
         const scored = hotPosts.map(p => {
           const createdAt = new Date(p.created_at);
           const daysOld = Math.floor((now - createdAt) / (1000 * 60 * 60 * 24));
           const baseScore = (p.view_count || 0) + ((p.comment_count || 0) * 10);
-          const hotScore = baseScore / (daysOld + 1); // 시간 경과에 따른 점수 감쇄
+          const hotScore = baseScore / (daysOld + 1);
           return { ...p, baseScore, hotScore };
-        }).filter(p => p.baseScore >= 20); // 최소 점수 20점 이상만 HOT 자격 부여
+        }).filter(p => p.baseScore >= 20);
 
-        // 2. 전체 상위 20개 선정 (날짜별 Top 10 남발 방지)
-        const top20 = scored
-          .sort((a, b) => b.hotScore - a.hotScore)
-          .slice(0, 20);
-
-        // 3. 사이드바용 TOP 10 (가장 점수 높은 순)
+        const top20 = scored.sort((a, b) => b.hotScore - a.hotScore).slice(0, 20);
         setBestPosts(top20.slice(0, 10));
+      }
 
-        // 4. HOT 게시판 데이터 및 배지 부여용 ID
-        // 최신 등록일순으로 정렬하여 리스트 구성
-        const finalHotList = [...top20].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-        setHotPostIds(finalHotList.map(p => p.id));
+      // 자동 HOT 승격: 임계점 도달 시 is_hot=true로 영구 설정 (한 번 HOT 되면 유지)
+      // 점수 = 조회수 + 댓글수 × 10
+      // 구인구직: 점수 200 이상 / 나머지 게시판: 점수 100 이상
+      if (candidates?.length) {
+        const toPromote = candidates.filter(p => {
+          if (p.admin_hot_override === true) return false; // 관리자가 수동 취소한 게시글 제외
+          const score = (p.view_count || 0) + (p.comment_count || 0) * 10;
+          const threshold = p.board_type === "job" ? 200 : 100;
+          return score >= threshold;
+        });
 
-        if (currentBoard === "hot") {
-          const start = offset;
-          const end = offset + POSTS_PER_PAGE;
-          setPosts(finalHotList.slice(start, end));
-          setTotalCount(finalHotList.length);
-          setLoading(false);
-          return;
+        if (toPromote.length > 0) {
+          await supabase
+            .from("bw_posts")
+            .update({ is_hot: true })
+            .in("id", toPromote.map(p => p.id));
         }
       }
 
@@ -140,7 +146,18 @@ function PostList() {
       let countQuery;
 
       if (currentBoard === "hot") {
-        // (위의 누적 로직에서 처리됨)
+        query = supabase
+          .from("bw_posts")
+          .select("*")
+          .eq("is_deleted", false)
+          .eq("is_hot", true)
+          .order("created_at", { ascending: false })
+          .range(offset, offset + POSTS_PER_PAGE - 1);
+        countQuery = supabase
+          .from("bw_posts")
+          .select("*", { count: "exact", head: true })
+          .eq("is_deleted", false)
+          .eq("is_hot", true);
       } else if (currentBoard === "all") {
         query = supabase
           .from("bw_posts")
@@ -607,7 +624,7 @@ function PostList() {
                       <tr key={post.id} className="bg-green-50 hover:bg-green-100 cursor-pointer" onClick={() => router.push(`/post/${post.id}`)}>
                         <td className="px-2 py-2 text-xs text-green-600 font-bold">직접</td>
                         <td className="px-2 py-2 font-medium text-gray-800">
-                          {hotPostIds.includes(post.id) && (
+                          {post.is_hot && (
                             <span className="text-[10px] bg-red-500 text-white px-1.5 py-0.5 mr-1.5 rounded-sm font-bold">HOT</span>
                           )}
                           <span className="text-[#355E3B] mr-2 text-[10px] font-bold">[{boardTypeNames[post.board_type] || post.board_type}]</span>
@@ -640,7 +657,7 @@ function PostList() {
                       <tr key={post.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => router.push(`/post/${post.id}`)}>
                         <td className="px-2 py-2 text-xs text-gray-400">{totalCount - filteredPosts.filter(p => p.is_notice).length - (currentBoard === "job" ? filteredPosts.filter(p => !p.is_notice && !p.is_auto).length : 0) - ((currentPage - 1) * POSTS_PER_PAGE) - idx}</td>
                         <td className="px-2 py-2 font-medium text-gray-800">
-                          {hotPostIds.includes(post.id) && (
+                          {post.is_hot && (
                             <span className="text-[10px] bg-red-500 text-white px-1.5 py-0.5 mr-1.5 rounded-sm font-bold">HOT</span>
                           )}
                           <span className="text-[#355E3B] mr-2 text-[10px] font-bold">[{boardTypeNames[post.board_type] || post.board_type}]</span>
@@ -716,7 +733,7 @@ function PostList() {
                     >
                       <div className="flex items-start gap-2 mb-1">
                         <span className="text-[10px] bg-green-500 text-white px-1.5 py-0.5 rounded font-bold shrink-0">직접</span>
-                        {hotPostIds.includes(post.id) && (
+                        {post.is_hot && (
                           <span className="text-[10px] bg-red-500 text-white px-1.5 py-0.5 rounded font-bold shrink-0">HOT</span>
                         )}
                       </div>
@@ -744,7 +761,7 @@ function PostList() {
                       onClick={() => router.push(`/post/${post.id}`)}
                     >
                       <div className="flex items-start gap-2 mb-1">
-                        {hotPostIds.includes(post.id) && (
+                        {post.is_hot && (
                           <span className="text-[10px] bg-red-500 text-white px-1.5 py-0.5 rounded font-bold shrink-0">HOT</span>
                         )}
                       </div>
