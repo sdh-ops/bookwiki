@@ -365,8 +365,8 @@ function PostList() {
   return (
     <div className="flex flex-col min-h-screen pt-4">
       {/* Banner */}
-      <div className="max-w-6xl mx-auto px-4 mt-4">
-        <div className="bg-black h-20 md:h-24 rounded flex items-center justify-center text-white text-sm">
+      <div className="w-full max-w-6xl mx-auto px-4 mt-4">
+        <div className="w-full bg-black h-20 md:h-24 rounded flex items-center justify-center text-white text-sm">
           광고 배너 영역
         </div>
       </div>
