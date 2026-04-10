@@ -95,6 +95,9 @@ export default function AdminDashboard() {
                         .select("session_id, visited_at, user_id")
                         .gte("visited_at", limitDate.toISOString());
                     
+                    if (error) {
+                        console.error("[Dashboard] bw_page_views 조회 오류:", error.message, error.code);
+                    }
                     if (!error && viewData) {
                         const groups = {};
                         viewData.forEach(v => {

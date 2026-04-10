@@ -21,7 +21,17 @@ export default function PageTracker() {
       sessionStorage.setItem("bw_sid", sessionId);
     }
 
-    supabase.from("bw_page_views").insert({ path: pathname, session_id: sessionId }).then();
+    async function track() {
+      const { data: { user } } = await supabase.auth.getUser();
+      const { error } = await supabase.from("bw_page_views").insert({
+        path: pathname,
+        session_id: sessionId,
+        user_id: user?.id ?? null,
+      });
+      if (error) console.error("[PageTracker] insert error:", error.message);
+    }
+
+    track();
   }, [pathname]);
 
   return null;
