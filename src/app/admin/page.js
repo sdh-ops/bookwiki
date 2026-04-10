@@ -27,18 +27,28 @@ function downloadCSV(rows, filename) {
 // -------------------------------------------------------------
 function getGroupKey(dateStr, period) {
     const d = new Date(dateStr);
-    const kstTime = new Date(d.getTime() + (9 * 60 * 60 * 1000));
-    const year = kstTime.getFullYear();
-    const month = String(kstTime.getMonth() + 1).padStart(2, '0');
-    const date = String(kstTime.getDate()).padStart(2, '0');
+    const kst = new Intl.DateTimeFormat('ko-KR', {
+        timeZone: 'Asia/Seoul',
+        year: 'numeric', month: '2-digit', day: '2-digit',
+        weekday: 'short',
+    }).formatToParts(d);
+    const get = (type) => kst.find(p => p.type === type)?.value ?? '';
+    const year = get('year');
+    const month = get('month');
+    const date = get('day');
 
     if (period === "daily") {
         return `${year}-${month}-${date}`;
     } else if (period === "weekly") {
-        // Get the Monday of this week
-        const diff = kstTime.getDate() - kstTime.getDay() + (kstTime.getDay() === 0 ? -6 : 1);
-        const monday = new Date(kstTime.setDate(diff));
-        return `${monday.getFullYear()}-${String(monday.getMonth() + 1).padStart(2,'0')}-${String(monday.getDate()).padStart(2,'0')} (주간)`;
+        // 해당 주의 월요일 날짜 구하기 (KST 기준)
+        const dayOfWeek = d.toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul', weekday: 'short' });
+        const dayMap = { '일': 0, '월': 1, '화': 2, '수': 3, '목': 4, '금': 5, '토': 6 };
+        const dow = dayMap[dayOfWeek] ?? d.getDay();
+        const diff = dow === 0 ? -6 : 1 - dow;
+        const monday = new Date(d);
+        monday.setDate(d.getDate() + diff);
+        const monStr = monday.toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit' });
+        return `${monStr} (주간)`;
     } else if (period === "monthly") {
         return `${year}-${month}`;
     }
