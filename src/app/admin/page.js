@@ -27,32 +27,22 @@ function downloadCSV(rows, filename) {
 // -------------------------------------------------------------
 function getGroupKey(dateStr, period) {
     const d = new Date(dateStr);
-    const kst = new Intl.DateTimeFormat('ko-KR', {
-        timeZone: 'Asia/Seoul',
-        year: 'numeric', month: '2-digit', day: '2-digit',
-        weekday: 'short',
-    }).formatToParts(d);
-    const get = (type) => kst.find(p => p.type === type)?.value ?? '';
-    const year = get('year');
-    const month = get('month');
-    const date = get('day');
+    // en-CA 로케일은 항상 YYYY-MM-DD 형식으로 반환 (KST 기준)
+    const kstDate = d.toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' }); // "2026-04-09"
 
     if (period === "daily") {
-        return `${year}-${month}-${date}`;
+        return kstDate;
     } else if (period === "weekly") {
-        // 해당 주의 월요일 날짜 구하기 (KST 기준)
-        const dayOfWeek = d.toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul', weekday: 'short' });
-        const dayMap = { '일': 0, '월': 1, '화': 2, '수': 3, '목': 4, '금': 5, '토': 6 };
-        const dow = dayMap[dayOfWeek] ?? d.getDay();
+        const kstMidnight = new Date(`${kstDate}T00:00:00+09:00`);
+        const dow = kstMidnight.getDay(); // 0=일, 1=월 ...
         const diff = dow === 0 ? -6 : 1 - dow;
-        const monday = new Date(d);
-        monday.setDate(d.getDate() + diff);
-        const monStr = monday.toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit' });
-        return `${monStr} (주간)`;
+        kstMidnight.setDate(kstMidnight.getDate() + diff);
+        const monday = kstMidnight.toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' });
+        return `${monday} (주간)`;
     } else if (period === "monthly") {
-        return `${year}-${month}`;
+        return kstDate.slice(0, 7); // "2026-04"
     }
-    return `${year}-${month}-${date}`;
+    return kstDate;
 }
 
 export default function AdminDashboard() {
