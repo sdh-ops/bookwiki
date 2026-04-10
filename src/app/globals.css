@@ -61,3 +61,9 @@ body {
   list-style-type: decimal;
   padding-left: 1.5rem;
 }
+
+/* Fix empty paragraphs collapsing (double enter) */
+.prose p:empty::before,
+.ProseMirror p:empty::before {
+  content: "\00a0";
+}

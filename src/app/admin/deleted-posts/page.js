@@ -79,17 +79,7 @@ export default function DeletedPostsPage() {
 
     return (
         <div className="min-h-screen bg-gray-50">
-            <header className="bg-[#355E3B] text-white py-3 sticky top-0 z-10">
-                <div className="max-w-7xl mx-auto px-4">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-4">
-                            <Link href="/" className="text-xl font-bold tracking-tighter">북위키</Link>
-                            <span className="text-sm opacity-80">관리자</span>
-                        </div>
-                        <Link href="/admin" className="text-sm hover:underline">관리자 홈</Link>
-                    </div>
-                </div>
-            </header>
+            
 
             <main className="max-w-7xl mx-auto px-4 py-8">
                 <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">

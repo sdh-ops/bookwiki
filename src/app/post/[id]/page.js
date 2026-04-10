@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabase";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import DOMPurify from "isomorphic-dompurify";
+import PollWidget from "@/components/PollWidget";
 import MentionInput from "@/components/MentionInput";
 
 // Board type to Korean name mapping
@@ -144,6 +145,26 @@ export default function PostDetailPage() {
     const [managementType, setManagementType] = useState("");
     const [submitting, setSubmitting] = useState(false);
     const router = useRouter();
+
+    const handleToggleHot = async () => {
+        if (!isAdmin) return;
+        const newHotStatus = !post.is_hot;
+        if (!confirm(`게시글을 HOT게시판으로 ${newHotStatus ? '지정' : '해제'}하시겠습니까?`)) return;
+        
+        try {
+            const { error } = await supabase
+                .from('bw_posts')
+                .update({ is_hot: newHotStatus })
+                .eq('id', id);
+            
+            if (error) throw error;
+            
+            setPost(prev => ({ ...prev, is_hot: newHotStatus }));
+            alert(`HOT게시판에서 ${newHotStatus ? '지정' : '해제'} 처리되었습니다.`);
+        } catch (e) {
+            alert('상태 변경 중 오류가 발생했습니다: ' + e.message);
+        }
+    };
 
     // Comment management states
     const [commentModal, setCommentModal] = useState({ show: false, type: '', commentId: null });
@@ -507,69 +528,7 @@ export default function PostDetailPage() {
 
     return (
         <main className="min-h-screen bg-white">
-            <header className="bg-[#355E3B] text-white py-3">
-                <div className="max-w-4xl mx-auto px-4 flex items-center justify-between">
-                    <div className="flex items-center space-x-2 md:space-x-6">
-                        {/* 햄버거 버튼 (모바일 전용) */}
-                        <button
-                            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                            className="md:hidden p-1 hover:bg-white/10 rounded transition"
-                            aria-label="메뉴 열기"
-                        >
-                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                {mobileMenuOpen ? (
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                ) : (
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                                )}
-                            </svg>
-                        </button>
-                        <Link href="/?board=all" className="text-xl font-bold tracking-tighter">북위키</Link>
-                        <nav className="hidden md:flex space-x-4 text-sm font-medium">
-                            <Link href="/?board=all" className="hover:underline">전체</Link>
-                            <Link href="/?board=hot" className="hover:underline">HOT</Link>
-                            <Link href="/?board=job" className="hover:underline">구인구직</Link>
-                            <Link href="/?board=support" className="hover:underline">지원사업</Link>
-                            <Link href="/?board=free" className="hover:underline">톡톡</Link>
-                            <Link href="/?board=ai" className="hover:underline">AI허브</Link>
-                        </nav>
-                    </div>
-                    <div className="flex items-center space-x-3 text-xs">
-                        {user ? (
-                            <>
-                                <span className="text-white/60 hidden md:inline">{user.user_metadata?.nickname || user.email?.split('@')[0]}</span>
-                                <Link href="/mypage" className="hover:underline opacity-80 hidden md:inline">내 활동</Link>
-                            </>
-                        ) : (
-                            <Link href="/login" className="hover:underline opacity-80 hidden md:inline">로그인</Link>
-                        )}
-                        <Link href="/write" className="hover:underline font-bold bg-white/20 px-3 py-1 rounded">글쓰기</Link>
-                    </div>
-                </div>
-                {/* 모바일 메뉴 드롭다운 */}
-                {mobileMenuOpen && (
-                    <div className="md:hidden bg-[#2A4A2E] border-t border-[#355E3B]">
-                        <nav className="px-4 py-2 space-y-1">
-                            <Link href="/?board=all" className="block px-3 py-2 text-sm rounded hover:bg-[#355E3B]/50">전체</Link>
-                            <Link href="/?board=hot" className="block px-3 py-2 text-sm rounded hover:bg-[#355E3B]/50">HOT인기글</Link>
-                            <Link href="/?board=job" className="block px-3 py-2 text-sm rounded hover:bg-[#355E3B]/50">구인구직</Link>
-                            <Link href="/?board=support" className="block px-3 py-2 text-sm rounded hover:bg-[#355E3B]/50">지원사업</Link>
-                            <Link href="/?board=free" className="block px-3 py-2 text-sm rounded hover:bg-[#355E3B]/50">톡톡</Link>
-                            <Link href="/?board=ai" className="block px-3 py-2 text-sm rounded hover:bg-[#355E3B]/50">AI허브</Link>
-                            <div className="border-t border-[#355E3B] pt-2 mt-2">
-                                {user ? (
-                                    <>
-                                        <Link href="/mypage" className="block px-3 py-2 text-sm hover:bg-[#355E3B]/50 rounded">내 활동</Link>
-                                        <button onClick={handleLogout} className="block w-full text-left px-3 py-2 text-sm hover:bg-[#355E3B]/50 rounded">로그아웃</button>
-                                    </>
-                                ) : (
-                                    <Link href="/login" className="block px-3 py-2 text-sm hover:bg-[#355E3B]/50 rounded">로그인/회원가입</Link>
-                                )}
-                            </div>
-                        </nav>
-                    </div>
-                )}
-            </header>
+
 
             <article className="max-w-4xl mx-auto px-4 py-8">
                 <div className="border-b-2 border-gray-200 pb-4 mb-6">
@@ -586,7 +545,12 @@ export default function PostDetailPage() {
                                     <button onClick={() => handleManagement('edit')} className="hover:text-black">수정</button>
                                 )}
                                 {isAdmin && (
-                                    <button onClick={() => handleManagement('move')} className="text-blue-500 hover:underline">이동</button>
+                                    <>
+                                        <button onClick={handleToggleHot} className="text-red-500 hover:underline">
+                                            {post.is_hot ? '🔥HOT해제' : '♨️HOT지정'}
+                                        </button>
+                                        <button onClick={() => handleManagement('move')} className="text-blue-500 hover:underline">이동</button>
+                                    </>
                                 )}
                                 <button onClick={() => handleManagement('delete')} className="hover:text-red-500">삭제</button>
                             </div>
@@ -672,6 +636,11 @@ export default function PostDetailPage() {
                             ]
                         }) 
                     }}></div>
+
+                    {/* 투표 (Poll) 렌더링 */}
+                    {post.poll_options && post.poll_options.length > 0 && (
+                        <PollWidget postId={id} pollOptions={post.poll_options} user={user} />
+                    )}
 
                     {/* 첨부파일 */}
                     {post.attachments?.length > 0 && (

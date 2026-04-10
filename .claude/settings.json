@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git pull:*)",
+      "Bash(timeout:*)",
+      "Bash(find \"c:\\\\Users\\\\15Z990\\\\Desktop\\\\더난\\\\북위키\" -name \"package.json\" -exec grep -l \"notion\\\\|approval\\\\|expense\" {} \\\\;)",
+      "Bash(grep -E \"\\\\.js$\")",
+      "Bash(xargs grep:*)",
+      "Bash(grep -n \"dangerouslySetInnerHTML\\\\|content\\\\|innerHTML\\\\|setImage\\\\|img\\\\|image\" src/app/post/[id]/page.js -i)",
+      "Bash(grep -i \"upload\\\\|image\\\\|file\\\\|storage\" scripts/*.md -n)"
+    ]
+  }
+}

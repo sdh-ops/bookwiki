@@ -3,12 +3,7 @@ import Link from "next/link";
 export default function PrivacyPage() {
     return (
         <main className="min-h-screen bg-white">
-            <header className="bg-[#355E3B] text-white py-3">
-                <div className="max-w-4xl mx-auto px-4 flex items-center">
-                    <Link href="/" className="text-xl font-bold tracking-tighter">북위키</Link>
-                    <span className="ml-4 text-sm font-medium opacity-80">개인정보처리방침</span>
-                </div>
-            </header>
+            
 
             <article className="max-w-4xl mx-auto px-4 py-8">
                 <h1 className="text-2xl font-bold text-gray-900 mb-8">북위키 개인정보 처리방침</h1>

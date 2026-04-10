@@ -316,18 +316,7 @@ function MyPageContent() {
 
     return (
         <main className="min-h-screen bg-white">
-            <header className="bg-[#355E3B] text-white py-3">
-                <div className="max-w-4xl mx-auto px-4 flex items-center justify-between">
-                    <div className="flex items-center">
-                        <Link href="/" className="text-xl font-bold tracking-tighter">북위키</Link>
-                        <span className="ml-4 text-sm font-medium opacity-80">내 활동</span>
-                    </div>
-                    <div className="flex items-center space-x-4">
-                        <span className="text-xs text-white/70">{nickname}</span>
-                        <button onClick={handleLogout} className="text-xs text-white/70 hover:text-white">로그아웃</button>
-                    </div>
-                </div>
-            </header>
+            
 
             <section className="max-w-4xl mx-auto px-4 py-8">
                 {/* 계정 정보 카드 */}

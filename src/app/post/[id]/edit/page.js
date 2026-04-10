@@ -22,6 +22,10 @@ export default function EditPage() {
     const attachFileRef = useRef(null);
     const router = useRouter();
 
+    // 투표 기능
+    const [usePoll, setUsePoll] = useState(false);
+    const [pollOptions, setPollOptions] = useState([{ id: 1, text: "" }, { id: 2, text: "" }]);
+
     useEffect(() => {
         async function fetchPost() {
             // Check user and admin status
@@ -76,6 +80,12 @@ export default function EditPage() {
             setContent(data.content);
             setBoardType(data.board_type);
             setAttachments(data.attachments || []);
+            
+            if (data.poll_options && data.poll_options.length > 0) {
+                setUsePoll(true);
+                setPollOptions(data.poll_options);
+            }
+
             setShowAdminBadge(adminStatus && !isOwner);
             setLoading(false);
         }
@@ -90,9 +100,23 @@ export default function EditPage() {
         }
 
         setIsSubmitting(true);
+
+        const updateData = { title, content, board_type: boardType, attachments };
+        if (usePoll) {
+            const validOptions = pollOptions.filter(opt => opt.text.trim() !== "");
+            if (validOptions.length < 2) {
+                alert("투표 항목을 2개 이상 입력해주세요.");
+                setIsSubmitting(false);
+                return;
+            }
+            updateData.poll_options = validOptions;
+        } else {
+            updateData.poll_options = null;
+        }
+
         const { error } = await supabase
             .from("bw_posts")
-            .update({ title, content, board_type: boardType, attachments })
+            .update(updateData)
             .eq("id", id);
 
         if (error) {
@@ -115,15 +139,7 @@ export default function EditPage() {
 
     return (
         <main className="min-h-screen bg-white">
-            <header className="bg-[#355E3B] text-white py-3">
-                <div className="max-w-3xl mx-auto px-4 flex items-center">
-                    <Link href="/" className="text-xl font-bold tracking-tighter">북위키</Link>
-                    <span className="ml-4 text-sm font-medium opacity-80">글 수정하기</span>
-                    {isAdmin && showAdminBadge && (
-                        <span className="ml-2 text-[10px] bg-red-500 px-2 py-0.5 rounded font-bold">관리자 수정</span>
-                    )}
-                </div>
-            </header>
+            
 
             <section className="max-w-3xl mx-auto px-4 py-8">
                 <form onSubmit={handleSubmit} className="space-y-6">
@@ -241,6 +257,57 @@ export default function EditPage() {
                                         >✕</button>
                                     </div>
                                 ))}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* 투표 (Poll) 설정란 */}
+                    <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                        <label className="flex items-center cursor-pointer mb-2">
+                            <input
+                                type="checkbox"
+                                checked={usePoll}
+                                onChange={(e) => setUsePoll(e.target.checked)}
+                                className="w-4 h-4 text-[#355E3B] border-gray-300 rounded focus:ring-[#355E3B]"
+                            />
+                            <span className="ml-2 font-bold text-gray-700 text-sm">참여형 투표 기능 사용하기</span>
+                        </label>
+                        
+                        {usePoll && (
+                            <div className="mt-4 space-y-3 pl-6 border-l-2 border-[#355E3B]">
+                                <p className="text-xs text-gray-500 mb-2">항목은 최소 2개 이상 필요합니다.</p>
+                                {pollOptions.map((opt, index) => (
+                                    <div key={opt.id} className="flex items-center gap-2">
+                                        <span className="text-sm text-gray-500 w-5">{index + 1}.</span>
+                                        <input
+                                            type="text"
+                                            value={opt.text}
+                                            onChange={(e) => {
+                                                const newOpts = [...pollOptions];
+                                                newOpts[index].text = e.target.value;
+                                                setPollOptions(newOpts);
+                                            }}
+                                            placeholder={`투표 항목 ${index + 1}`}
+                                            className="flex-1 px-3 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:border-[#355E3B]"
+                                        />
+                                        {pollOptions.length > 2 && (
+                                            <button
+                                                type="button"
+                                                onClick={() => setPollOptions(pollOptions.filter(o => o.id !== opt.id))}
+                                                className="text-gray-400 hover:text-red-500 font-bold px-2"
+                                            >✕</button>
+                                        )}
+                                    </div>
+                                ))}
+                                {pollOptions.length < 10 && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setPollOptions([...pollOptions, { id: Math.max(0, ...pollOptions.map(o => o.id)) + 1, text: "" }])}
+                                        className="text-xs text-[#355E3B] font-bold hover:underline mt-2 flex items-center gap-1"
+                                    >
+                                        <span>+</span> 항목 추가
+                                    </button>
+                                )}
                             </div>
                         )}
                     </div>

@@ -1,0 +1,803 @@
+
+╔═══════════════════════════════════════════════╗
+║  베스트셀러 스크레이퍼 V2 - 완전 개선판  ║
+╚═══════════════════════════════════════════════╝
+
+📅 Date: 2026-03-19
+📚 Categories: 10
+🏪 Platforms: 5 (Kyobo, YES24, Aladin, Ridi, Millie)
+
+
+[1/10] 📖 CATEGORY: 종합
+──────────────────────────────────────────────────
+[Yes24] 종합...
+[Aladdin] 종합...
+[Kyobo] 종합...
+[Ridi] 종합...
+[Millie] 종합...
+  [✓] Found 20 books
+  [✓] Found 20 books
+  [✓] Found 20 books
+  [✓] Found 20 books
+  [✓] Found 20 books
+  -> Syncing 20 items for kyobo...
+    [i] Found existing "완벽한 원시인" by title+author (different ISBN)
+    [i] Found existing "괴테는 모든 것을 말했다" by title+author (different ISBN)
+    [i] Found existing "무례한 세상에서 나를 지키는 법" by title+author (different ISBN)
+    [i] Found existing "나의 완벽한 장례식" by title+author (different ISBN)
+    [i] Found existing "엄마와 딸들의 미친년의 역사" by title+author (different ISBN)
+    [i] Found existing "부처님 말씀대로 살아보니" by title+author (different ISBN)
+    [i] Found existing "인생을 위한 최소한의 생각" by title+author (different ISBN)
+    [i] Found existing "모순" by title+author (different ISBN)
+    [i] Found existing "싯다르타" by title+author (different ISBN)
+    [i] Found existing "느슨한 균형" by title+author (different ISBN)
+    [i] Found existing "박태웅의 AI 강의 2026" by title+author (different ISBN)
+  ✅ Successfully synced 20/20 books
+  ✅ kyobo: 1-20위 모두 수집 완료
+  -> Syncing 20 items for yes24...
+  ✅ Successfully synced 20/20 books
+  ✅ yes24: 1-20위 모두 수집 완료
+  -> Syncing 20 items for aladdin...
+    [i] Found existing "프로젝트 헤일메리" by title+author (different ISBN)
+    [i] Found existing "모순" by title+author (different ISBN)
+    [i] Found existing "싯다르타" by title+author (different ISBN)
+  ✅ Successfully synced 20/20 books
+  ✅ aladdin: 1-20위 모두 수집 완료
+  -> Syncing 20 items for ridi...
+  ✅ Successfully synced 20/20 books
+  ✅ ridi: 1-20위 모두 수집 완료
+  -> Syncing 20 items for millie...
+  ✅ Successfully synced 20/20 books
+  ✅ millie: 1-20위 모두 수집 완료
+✅ Category "종합" complete
+
+
+[2/10] 📖 CATEGORY: 소설
+──────────────────────────────────────────────────
+[Yes24] 소설...
+[Aladdin] 소설...
+[Kyobo] 소설...
+[Ridi] 소설...
+[Millie] 소설...
+  [✓] Found 20 books
+  [✓] Found 20 books
+  [✓] Found 20 books
+  [✓] Found 20 books
+  [✓] Found 20 books
+  -> Syncing 20 items for kyobo...
+    [i] Found existing "완벽한 원시인" by title+author (different ISBN)
+    [i] Found existing "괴테는 모든 것을 말했다" by title+author (different ISBN)
+    [i] Found existing "무례한 세상에서 나를 지키는 법" by title+author (different ISBN)
+    [i] Found existing "나의 완벽한 장례식" by title+author (different ISBN)
+    [i] Found existing "엄마와 딸들의 미친년의 역사" by title+author (different ISBN)
+    [i] Found existing "부처님 말씀대로 살아보니" by title+author (different ISBN)
+    [i] Found existing "인생을 위한 최소한의 생각" by title+author (different ISBN)
+    [i] Found existing "모순" by title+author (different ISBN)
+    [i] Found existing "싯다르타" by title+author (different ISBN)
+    [i] Found existing "느슨한 균형" by title+author (different ISBN)
+    [i] Found existing "박태웅의 AI 강의 2026" by title+author (different ISBN)
+  ✅ Successfully synced 20/20 books
+  ⚠️  kyobo: 누락 순위 2위 - 재시도 중...
+[Kyobo] 소설...
+  [✓] Found 20 books
+  -> Syncing 20 items for kyobo...
+    [i] Found existing "완벽한 원시인" by title+author (different ISBN)
+    [i] Found existing "괴테는 모든 것을 말했다" by title+author (different ISBN)
+    [i] Found existing "무례한 세상에서 나를 지키는 법" by title+author (different ISBN)
+    [i] Found existing "나의 완벽한 장례식" by title+author (different ISBN)
+    [i] Found existing "엄마와 딸들의 미친년의 역사" by title+author (different ISBN)
+    [i] Found existing "부처님 말씀대로 살아보니" by title+author (different ISBN)
+    [i] Found existing "인생을 위한 최소한의 생각" by title+author (different ISBN)
+    [i] Found existing "모순" by title+author (different ISBN)
+    [i] Found existing "싯다르타" by title+author (different ISBN)
+    [i] Found existing "느슨한 균형" by title+author (different ISBN)
+    [i] Found existing "박태웅의 AI 강의 2026" by title+author (different ISBN)
+  ✅ Successfully synced 20/20 books
+[Kyobo] 소설...
+  [✓] Found 20 books
+  -> Syncing 20 items for kyobo...
+    [i] Found existing "완벽한 원시인" by title+author (different ISBN)
+    [i] Found existing "괴테는 모든 것을 말했다" by title+author (different ISBN)
+    [i] Found existing "무례한 세상에서 나를 지키는 법" by title+author (different ISBN)
+    [i] Found existing "나의 완벽한 장례식" by title+author (different ISBN)
+    [i] Found existing "엄마와 딸들의 미친년의 역사" by title+author (different ISBN)
+    [i] Found existing "부처님 말씀대로 살아보니" by title+author (different ISBN)
+    [i] Found existing "인생을 위한 최소한의 생각" by title+author (different ISBN)
+    [i] Found existing "모순" by title+author (different ISBN)
+    [i] Found existing "싯다르타" by title+author (different ISBN)
+    [i] Found existing "느슨한 균형" by title+author (different ISBN)
+    [i] Found existing "박태웅의 AI 강의 2026" by title+author (different ISBN)
+  ✅ Successfully synced 20/20 books
+  ⚠️  kyobo: 재시도 후에도 누락 2위
+  -> Syncing 20 items for yes24...
+  ✅ Successfully synced 20/20 books
+  ✅ yes24: 1-20위 모두 수집 완료
+  -> Syncing 20 items for aladdin...
+    [i] Found existing "프로젝트 헤일메리" by title+author (different ISBN)
+    [i] Found existing "모순" by title+author (different ISBN)
+    [i] Found existing "싯다르타" by title+author (different ISBN)
+    [i] Found existing "혼모노" by title+author (different ISBN)
+    [i] Found existing "급류" by title+author (different ISBN)
+    [i] Found existing "브람스를 좋아하세요..." by title+author (different ISBN)
+  ✅ Successfully synced 20/20 books
+  ✅ aladdin: 1-20위 모두 수집 완료
+  -> Syncing 20 items for ridi...
+  ✅ Successfully synced 20/20 books
+  ✅ ridi: 1-20위 모두 수집 완료
+  -> Syncing 20 items for millie...
+  ✅ Successfully synced 20/20 books
+  ✅ millie: 1-20위 모두 수집 완료
+✅ Category "소설" complete
+
+
+[3/10] 📖 CATEGORY: 에세이/시
+──────────────────────────────────────────────────
+[Yes24] 에세이/시...
+[Aladdin] 에세이/시...
+[Kyobo] 에세이/시...
+[Ridi] 에세이/시...
+[Millie] 에세이/시...
+  [✓] Found 8 books
+  [✓] Found 20 books
+  [✓] Found 20 books
+  [✓] Found 20 books
+  [✓] Found 20 books
+  -> Syncing 20 items for kyobo...
+    [i] Found existing "완벽한 원시인" by title+author (different ISBN)
+    [i] Found existing "괴테는 모든 것을 말했다" by title+author (different ISBN)
+    [i] Found existing "무례한 세상에서 나를 지키는 법" by title+author (different ISBN)
+    [i] Found existing "나의 완벽한 장례식" by title+author (different ISBN)
+    [i] Found existing "엄마와 딸들의 미친년의 역사" by title+author (different ISBN)
+    [i] Found existing "부처님 말씀대로 살아보니" by title+author (different ISBN)
+    [i] Found existing "인생을 위한 최소한의 생각" by title+author (different ISBN)
+    [i] Found existing "모순" by title+author (different ISBN)
+    [i] Found existing "싯다르타" by title+author (different ISBN)
+    [i] Found existing "느슨한 균형" by title+author (different ISBN)
+    [i] Found existing "박태웅의 AI 강의 2026" by title+author (different ISBN)
+  ✅ Successfully synced 20/20 books
+  ⚠️  kyobo: 누락 순위 2위 - 재시도 중...
+[Kyobo] 에세이/시...
+  [✓] Found 20 books
+  -> Syncing 20 items for kyobo...
+    [i] Found existing "완벽한 원시인" by title+author (different ISBN)
+    [i] Found existing "괴테는 모든 것을 말했다" by title+author (different ISBN)
+    [i] Found existing "무례한 세상에서 나를 지키는 법" by title+author (different ISBN)
+    [i] Found existing "나의 완벽한 장례식" by title+author (different ISBN)
+    [i] Found existing "엄마와 딸들의 미친년의 역사" by title+author (different ISBN)
+    [i] Found existing "부처님 말씀대로 살아보니" by title+author (different ISBN)
+    [i] Found existing "인생을 위한 최소한의 생각" by title+author (different ISBN)
+    [i] Found existing "모순" by title+author (different ISBN)
+    [i] Found existing "싯다르타" by title+author (different ISBN)
+    [i] Found existing "느슨한 균형" by title+author (different ISBN)
+    [i] Found existing "박태웅의 AI 강의 2026" by title+author (different ISBN)
+  ✅ Successfully synced 20/20 books
+[Kyobo] 에세이/시...
+  [✓] Found 20 books
+  -> Syncing 20 items for kyobo...
+    [i] Found existing "완벽한 원시인" by title+author (different ISBN)
+    [i] Found existing "괴테는 모든 것을 말했다" by title+author (different ISBN)
+    [i] Found existing "무례한 세상에서 나를 지키는 법" by title+author (different ISBN)
+    [i] Found existing "나의 완벽한 장례식" by title+author (different ISBN)
+    [i] Found existing "엄마와 딸들의 미친년의 역사" by title+author (different ISBN)
+    [i] Found existing "부처님 말씀대로 살아보니" by title+author (different ISBN)
+    [i] Found existing "인생을 위한 최소한의 생각" by title+author (different ISBN)
+    [i] Found existing "모순" by title+author (different ISBN)
+    [i] Found existing "싯다르타" by title+author (different ISBN)
+    [i] Found existing "느슨한 균형" by title+author (different ISBN)
+    [i] Found existing "박태웅의 AI 강의 2026" by title+author (different ISBN)
+  ✅ Successfully synced 20/20 books
+  ⚠️  kyobo: 재시도 후에도 누락 2위
+  -> Syncing 20 items for yes24...
+  ✅ Successfully synced 20/20 books
+  ✅ yes24: 1-20위 모두 수집 완료
+  -> Syncing 20 items for aladdin...
+    [i] Found existing "불안" by title+author (different ISBN)
+  ✅ Successfully synced 20/20 books
+  ✅ aladdin: 1-20위 모두 수집 완료
+  -> Syncing 20 items for ridi...
+  ✅ Successfully synced 20/20 books
+  ✅ ridi: 1-20위 모두 수집 완료
+  -> Syncing 8 items for millie...
+  ✅ Successfully synced 8/8 books
+  ⚠️  millie: 누락 순위 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20위 - 재시도 중...
+[Millie] 에세이/시...
+  [✓] Found 8 books
+  -> Syncing 8 items for millie...
+  ✅ Successfully synced 8/8 books
+[Millie] 에세이/시...
+  [✓] Found 8 books
+  -> Syncing 8 items for millie...
+  ✅ Successfully synced 8/8 books
+  ⚠️  millie: 재시도 후에도 누락 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20위
+✅ Category "에세이/시" complete
+
+
+[4/10] 📖 CATEGORY: 인문
+──────────────────────────────────────────────────
+[Yes24] 인문...
+[Aladdin] 인문...
+[Kyobo] 인문...
+[Ridi] 인문...
+[Millie] 인문...
+  [✓] Found 18 books
+  [✓] Found 20 books
+  [✓] Found 20 books
+  [✓] Found 20 books
+  [✓] Found 20 books
+  -> Syncing 20 items for kyobo...
+    [i] Found existing "완벽한 원시인" by title+author (different ISBN)
+    [i] Found existing "괴테는 모든 것을 말했다" by title+author (different ISBN)
+    [i] Found existing "무례한 세상에서 나를 지키는 법" by title+author (different ISBN)
+    [i] Found existing "나의 완벽한 장례식" by title+author (different ISBN)
+    [i] Found existing "엄마와 딸들의 미친년의 역사" by title+author (different ISBN)
+    [i] Found existing "부처님 말씀대로 살아보니" by title+author (different ISBN)
+    [i] Found existing "인생을 위한 최소한의 생각" by title+author (different ISBN)
+    [i] Found existing "모순" by title+author (different ISBN)
+    [i] Found existing "싯다르타" by title+author (different ISBN)
+    [i] Found existing "느슨한 균형" by title+author (different ISBN)
+    [i] Found existing "박태웅의 AI 강의 2026" by title+author (different ISBN)
+  ✅ Successfully synced 20/20 books
+  ⚠️  kyobo: 누락 순위 2위 - 재시도 중...
+[Kyobo] 인문...
+  [✓] Found 20 books
+  -> Syncing 20 items for kyobo...
+    [i] Found existing "완벽한 원시인" by title+author (different ISBN)
+    [i] Found existing "괴테는 모든 것을 말했다" by title+author (different ISBN)
+    [i] Found existing "무례한 세상에서 나를 지키는 법" by title+author (different ISBN)
+    [i] Found existing "나의 완벽한 장례식" by title+author (different ISBN)
+    [i] Found existing "엄마와 딸들의 미친년의 역사" by title+author (different ISBN)
+    [i] Found existing "부처님 말씀대로 살아보니" by title+author (different ISBN)
+    [i] Found existing "인생을 위한 최소한의 생각" by title+author (different ISBN)
+    [i] Found existing "모순" by title+author (different ISBN)
+    [i] Found existing "싯다르타" by title+author (different ISBN)
+    [i] Found existing "느슨한 균형" by title+author (different ISBN)
+    [i] Found existing "박태웅의 AI 강의 2026" by title+author (different ISBN)
+  ✅ Successfully synced 20/20 books
+[Kyobo] 인문...
+  [✓] Found 20 books
+  -> Syncing 20 items for kyobo...
+    [i] Found existing "완벽한 원시인" by title+author (different ISBN)
+    [i] Found existing "괴테는 모든 것을 말했다" by title+author (different ISBN)
+    [i] Found existing "무례한 세상에서 나를 지키는 법" by title+author (different ISBN)
+    [i] Found existing "나의 완벽한 장례식" by title+author (different ISBN)
+    [i] Found existing "엄마와 딸들의 미친년의 역사" by title+author (different ISBN)
+    [i] Found existing "부처님 말씀대로 살아보니" by title+author (different ISBN)
+    [i] Found existing "인생을 위한 최소한의 생각" by title+author (different ISBN)
+    [i] Found existing "모순" by title+author (different ISBN)
+    [i] Found existing "싯다르타" by title+author (different ISBN)
+    [i] Found existing "느슨한 균형" by title+author (different ISBN)
+    [i] Found existing "박태웅의 AI 강의 2026" by title+author (different ISBN)
+  ✅ Successfully synced 20/20 books
+  ⚠️  kyobo: 재시도 후에도 누락 2위
+  -> Syncing 20 items for yes24...
+  ✅ Successfully synced 20/20 books
+  ✅ yes24: 1-20위 모두 수집 완료
+  -> Syncing 20 items for aladdin...
+    [i] Found existing "빅터 프랭클의 죽음의 수용소에서" by title+author (different ISBN)
+    [i] Found existing "사랑의 기술" by title+author (different ISBN)
+  ✅ Successfully synced 20/20 books
+  ✅ aladdin: 1-20위 모두 수집 완료
+  -> Syncing 20 items for ridi...
+  ✅ Successfully synced 20/20 books
+  ✅ ridi: 1-20위 모두 수집 완료
+  -> Syncing 18 items for millie...
+  ✅ Successfully synced 18/18 books
+  ⚠️  millie: 누락 순위 19, 20위 - 재시도 중...
+[Millie] 인문...
+  [✓] Found 18 books
+  -> Syncing 18 items for millie...
+  ✅ Successfully synced 18/18 books
+[Millie] 인문...
+  [✓] Found 18 books
+  -> Syncing 18 items for millie...
+  ✅ Successfully synced 18/18 books
+  ⚠️  millie: 재시도 후에도 누락 19, 20위
+✅ Category "인문" complete
+
+
+[5/10] 📖 CATEGORY: 역사
+──────────────────────────────────────────────────
+[Yes24] 역사...
+[Aladdin] 역사...
+[Kyobo] 역사...
+[Ridi] 역사...
+[Millie] 역사...
+  [✓] Found 20 books
+  [✓] Found 20 books
+  [✓] Found 20 books
+  [✓] Found 20 books
+  [✓] Found 20 books
+  -> Syncing 20 items for kyobo...
+    [i] Found existing "완벽한 원시인" by title+author (different ISBN)
+    [i] Found existing "괴테는 모든 것을 말했다" by title+author (different ISBN)
+    [i] Found existing "무례한 세상에서 나를 지키는 법" by title+author (different ISBN)
+    [i] Found existing "나의 완벽한 장례식" by title+author (different ISBN)
+    [i] Found existing "엄마와 딸들의 미친년의 역사" by title+author (different ISBN)
+    [i] Found existing "부처님 말씀대로 살아보니" by title+author (different ISBN)
+    [i] Found existing "인생을 위한 최소한의 생각" by title+author (different ISBN)
+    [i] Found existing "모순" by title+author (different ISBN)
+    [i] Found existing "싯다르타" by title+author (different ISBN)
+    [i] Found existing "느슨한 균형" by title+author (different ISBN)
+    [i] Found existing "박태웅의 AI 강의 2026" by title+author (different ISBN)
+  ✅ Successfully synced 20/20 books
+  ⚠️  kyobo: 누락 순위 2위 - 재시도 중...
+[Kyobo] 역사...
+  [✓] Found 20 books
+  -> Syncing 20 items for kyobo...
+    [i] Found existing "완벽한 원시인" by title+author (different ISBN)
+    [i] Found existing "괴테는 모든 것을 말했다" by title+author (different ISBN)
+    [i] Found existing "무례한 세상에서 나를 지키는 법" by title+author (different ISBN)
+    [i] Found existing "나의 완벽한 장례식" by title+author (different ISBN)
+    [i] Found existing "엄마와 딸들의 미친년의 역사" by title+author (different ISBN)
+    [i] Found existing "부처님 말씀대로 살아보니" by title+author (different ISBN)
+    [i] Found existing "인생을 위한 최소한의 생각" by title+author (different ISBN)
+    [i] Found existing "모순" by title+author (different ISBN)
+    [i] Found existing "싯다르타" by title+author (different ISBN)
+    [i] Found existing "느슨한 균형" by title+author (different ISBN)
+    [i] Found existing "박태웅의 AI 강의 2026" by title+author (different ISBN)
+  ✅ Successfully synced 20/20 books
+[Kyobo] 역사...
+  [✓] Found 20 books
+  -> Syncing 20 items for kyobo...
+    [i] Found existing "완벽한 원시인" by title+author (different ISBN)
+    [i] Found existing "괴테는 모든 것을 말했다" by title+author (different ISBN)
+    [i] Found existing "무례한 세상에서 나를 지키는 법" by title+author (different ISBN)
+    [i] Found existing "나의 완벽한 장례식" by title+author (different ISBN)
+    [i] Found existing "엄마와 딸들의 미친년의 역사" by title+author (different ISBN)
+    [i] Found existing "부처님 말씀대로 살아보니" by title+author (different ISBN)
+    [i] Found existing "인생을 위한 최소한의 생각" by title+author (different ISBN)
+    [i] Found existing "모순" by title+author (different ISBN)
+    [i] Found existing "싯다르타" by title+author (different ISBN)
+    [i] Found existing "느슨한 균형" by title+author (different ISBN)
+    [i] Found existing "박태웅의 AI 강의 2026" by title+author (different ISBN)
+  ✅ Successfully synced 20/20 books
+  ⚠️  kyobo: 재시도 후에도 누락 2위
+  -> Syncing 20 items for yes24...
+  ✅ Successfully synced 20/20 books
+  ✅ yes24: 1-20위 모두 수집 완료
+  -> Syncing 20 items for aladdin...
+    [i] Found existing "사피엔스" by title+author (different ISBN)
+    [i] Found existing "총 균 쇠" by title+author (different ISBN)
+  ✅ Successfully synced 20/20 books
+  ✅ aladdin: 1-20위 모두 수집 완료
+  -> Syncing 20 items for ridi...
+  ✅ Successfully synced 20/20 books
+  ✅ ridi: 1-20위 모두 수집 완료
+  -> Syncing 20 items for millie...
+  ✅ Successfully synced 20/20 books
+  ✅ millie: 1-20위 모두 수집 완료
+✅ Category "역사" complete
+
+
+[6/10] 📖 CATEGORY: 사회과학
+──────────────────────────────────────────────────
+[Yes24] 사회과학...
+[Aladdin] 사회과학...
+[Kyobo] 사회과학...
+[Ridi] 사회과학...
+[Millie] 사회과학...
+  [✓] Found 20 books
+  [✓] Found 20 books
+  [✓] Found 20 books
+  [✓] Found 20 books
+  [✓] Found 20 books
+  -> Syncing 20 items for kyobo...
+    [i] Found existing "완벽한 원시인" by title+author (different ISBN)
+    [i] Found existing "괴테는 모든 것을 말했다" by title+author (different ISBN)
+    [i] Found existing "무례한 세상에서 나를 지키는 법" by title+author (different ISBN)
+    [i] Found existing "나의 완벽한 장례식" by title+author (different ISBN)
+    [i] Found existing "엄마와 딸들의 미친년의 역사" by title+author (different ISBN)
+    [i] Found existing "부처님 말씀대로 살아보니" by title+author (different ISBN)
+    [i] Found existing "인생을 위한 최소한의 생각" by title+author (different ISBN)
+    [i] Found existing "모순" by title+author (different ISBN)
+    [i] Found existing "싯다르타" by title+author (different ISBN)
+    [i] Found existing "느슨한 균형" by title+author (different ISBN)
+    [i] Found existing "박태웅의 AI 강의 2026" by title+author (different ISBN)
+  ✅ Successfully synced 20/20 books
+  ⚠️  kyobo: 누락 순위 2위 - 재시도 중...
+[Kyobo] 사회과학...
+  [✓] Found 20 books
+  -> Syncing 20 items for kyobo...
+    [i] Found existing "완벽한 원시인" by title+author (different ISBN)
+    [i] Found existing "괴테는 모든 것을 말했다" by title+author (different ISBN)
+    [i] Found existing "무례한 세상에서 나를 지키는 법" by title+author (different ISBN)
+    [i] Found existing "나의 완벽한 장례식" by title+author (different ISBN)
+    [i] Found existing "엄마와 딸들의 미친년의 역사" by title+author (different ISBN)
+    [i] Found existing "부처님 말씀대로 살아보니" by title+author (different ISBN)
+    [i] Found existing "인생을 위한 최소한의 생각" by title+author (different ISBN)
+    [i] Found existing "모순" by title+author (different ISBN)
+    [i] Found existing "싯다르타" by title+author (different ISBN)
+    [i] Found existing "느슨한 균형" by title+author (different ISBN)
+    [i] Found existing "박태웅의 AI 강의 2026" by title+author (different ISBN)
+  ✅ Successfully synced 20/20 books
+[Kyobo] 사회과학...
+  [✓] Found 20 books
+  -> Syncing 20 items for kyobo...
+    [i] Found existing "완벽한 원시인" by title+author (different ISBN)
+    [i] Found existing "괴테는 모든 것을 말했다" by title+author (different ISBN)
+    [i] Found existing "무례한 세상에서 나를 지키는 법" by title+author (different ISBN)
+    [i] Found existing "나의 완벽한 장례식" by title+author (different ISBN)
+    [i] Found existing "엄마와 딸들의 미친년의 역사" by title+author (different ISBN)
+    [i] Found existing "부처님 말씀대로 살아보니" by title+author (different ISBN)
+    [i] Found existing "인생을 위한 최소한의 생각" by title+author (different ISBN)
+    [i] Found existing "모순" by title+author (different ISBN)
+    [i] Found existing "싯다르타" by title+author (different ISBN)
+    [i] Found existing "느슨한 균형" by title+author (different ISBN)
+    [i] Found existing "박태웅의 AI 강의 2026" by title+author (different ISBN)
+  ✅ Successfully synced 20/20 books
+  ⚠️  kyobo: 재시도 후에도 누락 2위
+  -> Syncing 20 items for yes24...
+  ✅ Successfully synced 20/20 books
+  ✅ yes24: 1-20위 모두 수집 완료
+  -> Syncing 20 items for aladdin...
+    [i] Found existing "부동산은 어떻게 권력이 되었나" by title+author (different ISBN)
+    [i] Found existing "사피엔스" by title+author (different ISBN)
+    [i] Found existing "총 균 쇠" by title+author (different ISBN)
+  ✅ Successfully synced 20/20 books
+  ✅ aladdin: 1-20위 모두 수집 완료
+  -> Syncing 20 items for ridi...
+  ✅ Successfully synced 20/20 books
+  ✅ ridi: 1-20위 모두 수집 완료
+  -> Syncing 20 items for millie...
+  ✅ Successfully synced 20/20 books
+  ✅ millie: 1-20위 모두 수집 완료
+✅ Category "사회과학" complete
+
+
+[7/10] 📖 CATEGORY: 경제경영
+──────────────────────────────────────────────────
+[Yes24] 경제경영...
+[Aladdin] 경제경영...
+[Kyobo] 경제경영...
+[Ridi] 경제경영...
+[Millie] 경제경영...
+  [✓] Found 20 books
+  [✓] Found 10 books
+  [✓] Found 20 books
+  [✓] Found 20 books
+  [✓] Found 20 books
+  -> Syncing 20 items for kyobo...
+    [i] Found existing "완벽한 원시인" by title+author (different ISBN)
+    [i] Found existing "괴테는 모든 것을 말했다" by title+author (different ISBN)
+    [i] Found existing "무례한 세상에서 나를 지키는 법" by title+author (different ISBN)
+    [i] Found existing "나의 완벽한 장례식" by title+author (different ISBN)
+    [i] Found existing "엄마와 딸들의 미친년의 역사" by title+author (different ISBN)
+    [i] Found existing "부처님 말씀대로 살아보니" by title+author (different ISBN)
+    [i] Found existing "인생을 위한 최소한의 생각" by title+author (different ISBN)
+    [i] Found existing "모순" by title+author (different ISBN)
+    [i] Found existing "싯다르타" by title+author (different ISBN)
+    [i] Found existing "느슨한 균형" by title+author (different ISBN)
+    [i] Found existing "박태웅의 AI 강의 2026" by title+author (different ISBN)
+  ✅ Successfully synced 20/20 books
+  ⚠️  kyobo: 누락 순위 2위 - 재시도 중...
+[Kyobo] 경제경영...
+  [✓] Found 20 books
+  -> Syncing 20 items for kyobo...
+    [i] Found existing "완벽한 원시인" by title+author (different ISBN)
+    [i] Found existing "괴테는 모든 것을 말했다" by title+author (different ISBN)
+    [i] Found existing "무례한 세상에서 나를 지키는 법" by title+author (different ISBN)
+    [i] Found existing "나의 완벽한 장례식" by title+author (different ISBN)
+    [i] Found existing "엄마와 딸들의 미친년의 역사" by title+author (different ISBN)
+    [i] Found existing "부처님 말씀대로 살아보니" by title+author (different ISBN)
+    [i] Found existing "인생을 위한 최소한의 생각" by title+author (different ISBN)
+    [i] Found existing "모순" by title+author (different ISBN)
+    [i] Found existing "싯다르타" by title+author (different ISBN)
+    [i] Found existing "느슨한 균형" by title+author (different ISBN)
+    [i] Found existing "박태웅의 AI 강의 2026" by title+author (different ISBN)
+  ✅ Successfully synced 20/20 books
+[Kyobo] 경제경영...
+  [✓] Found 20 books
+  -> Syncing 20 items for kyobo...
+    [i] Found existing "완벽한 원시인" by title+author (different ISBN)
+    [i] Found existing "괴테는 모든 것을 말했다" by title+author (different ISBN)
+    [i] Found existing "무례한 세상에서 나를 지키는 법" by title+author (different ISBN)
+    [i] Found existing "나의 완벽한 장례식" by title+author (different ISBN)
+    [i] Found existing "엄마와 딸들의 미친년의 역사" by title+author (different ISBN)
+    [i] Found existing "부처님 말씀대로 살아보니" by title+author (different ISBN)
+    [i] Found existing "인생을 위한 최소한의 생각" by title+author (different ISBN)
+    [i] Found existing "모순" by title+author (different ISBN)
+    [i] Found existing "싯다르타" by title+author (different ISBN)
+    [i] Found existing "느슨한 균형" by title+author (different ISBN)
+    [i] Found existing "박태웅의 AI 강의 2026" by title+author (different ISBN)
+  ✅ Successfully synced 20/20 books
+  ⚠️  kyobo: 재시도 후에도 누락 2위
+  -> Syncing 20 items for yes24...
+  ✅ Successfully synced 20/20 books
+  ✅ yes24: 1-20위 모두 수집 완료
+  -> Syncing 20 items for aladdin...
+    [i] Found existing "규칙파괴자" by title+author (different ISBN)
+  ✅ Successfully synced 20/20 books
+  ✅ aladdin: 1-20위 모두 수집 완료
+  -> Syncing 20 items for ridi...
+  ✅ Successfully synced 20/20 books
+  ✅ ridi: 1-20위 모두 수집 완료
+  -> Syncing 10 items for millie...
+  ✅ Successfully synced 10/10 books
+  ⚠️  millie: 누락 순위 11, 12, 13, 14, 15, 16, 17, 18, 19, 20위 - 재시도 중...
+[Millie] 경제경영...
+  [✓] Found 10 books
+  -> Syncing 10 items for millie...
+  ✅ Successfully synced 10/10 books
+[Millie] 경제경영...
+  [✓] Found 10 books
+  -> Syncing 10 items for millie...
+  ✅ Successfully synced 10/10 books
+  ⚠️  millie: 재시도 후에도 누락 11, 12, 13, 14, 15, 16, 17, 18, 19, 20위
+✅ Category "경제경영" complete
+
+
+[8/10] 📖 CATEGORY: 자기계발
+──────────────────────────────────────────────────
+[Yes24] 자기계발...
+[Aladdin] 자기계발...
+[Kyobo] 자기계발...
+[Ridi] 자기계발...
+[Millie] 자기계발...
+  [✓] Found 12 books
+  [✓] Found 20 books
+  [✓] Found 20 books
+  [✓] Found 20 books
+  [✓] Found 20 books
+  -> Syncing 20 items for kyobo...
+    [i] Found existing "완벽한 원시인" by title+author (different ISBN)
+    [i] Found existing "괴테는 모든 것을 말했다" by title+author (different ISBN)
+    [i] Found existing "무례한 세상에서 나를 지키는 법" by title+author (different ISBN)
+    [i] Found existing "나의 완벽한 장례식" by title+author (different ISBN)
+    [i] Found existing "엄마와 딸들의 미친년의 역사" by title+author (different ISBN)
+    [i] Found existing "부처님 말씀대로 살아보니" by title+author (different ISBN)
+    [i] Found existing "인생을 위한 최소한의 생각" by title+author (different ISBN)
+    [i] Found existing "모순" by title+author (different ISBN)
+    [i] Found existing "싯다르타" by title+author (different ISBN)
+    [i] Found existing "느슨한 균형" by title+author (different ISBN)
+    [i] Found existing "박태웅의 AI 강의 2026" by title+author (different ISBN)
+  ✅ Successfully synced 20/20 books
+  ⚠️  kyobo: 누락 순위 2위 - 재시도 중...
+[Kyobo] 자기계발...
+  [✓] Found 20 books
+  -> Syncing 20 items for kyobo...
+    [i] Found existing "완벽한 원시인" by title+author (different ISBN)
+    [i] Found existing "괴테는 모든 것을 말했다" by title+author (different ISBN)
+    [i] Found existing "무례한 세상에서 나를 지키는 법" by title+author (different ISBN)
+    [i] Found existing "나의 완벽한 장례식" by title+author (different ISBN)
+    [i] Found existing "엄마와 딸들의 미친년의 역사" by title+author (different ISBN)
+    [i] Found existing "부처님 말씀대로 살아보니" by title+author (different ISBN)
+    [i] Found existing "인생을 위한 최소한의 생각" by title+author (different ISBN)
+    [i] Found existing "모순" by title+author (different ISBN)
+    [i] Found existing "싯다르타" by title+author (different ISBN)
+    [i] Found existing "느슨한 균형" by title+author (different ISBN)
+    [i] Found existing "박태웅의 AI 강의 2026" by title+author (different ISBN)
+  ✅ Successfully synced 20/20 books
+[Kyobo] 자기계발...
+  [✓] Found 20 books
+  -> Syncing 20 items for kyobo...
+    [i] Found existing "완벽한 원시인" by title+author (different ISBN)
+    [i] Found existing "괴테는 모든 것을 말했다" by title+author (different ISBN)
+    [i] Found existing "무례한 세상에서 나를 지키는 법" by title+author (different ISBN)
+    [i] Found existing "나의 완벽한 장례식" by title+author (different ISBN)
+    [i] Found existing "엄마와 딸들의 미친년의 역사" by title+author (different ISBN)
+    [i] Found existing "부처님 말씀대로 살아보니" by title+author (different ISBN)
+    [i] Found existing "인생을 위한 최소한의 생각" by title+author (different ISBN)
+    [i] Found existing "모순" by title+author (different ISBN)
+    [i] Found existing "싯다르타" by title+author (different ISBN)
+    [i] Found existing "느슨한 균형" by title+author (different ISBN)
+    [i] Found existing "박태웅의 AI 강의 2026" by title+author (different ISBN)
+  ✅ Successfully synced 20/20 books
+  ⚠️  kyobo: 재시도 후에도 누락 2위
+  -> Syncing 20 items for yes24...
+  ✅ Successfully synced 20/20 books
+  ✅ yes24: 1-20위 모두 수집 완료
+  -> Syncing 20 items for aladdin...
+    [i] Found existing "폰더 씨의 위대한 하루" by title+author (different ISBN)
+    [i] Found existing "어른의 그릇" by title+author (different ISBN)
+  ✅ Successfully synced 20/20 books
+  ✅ aladdin: 1-20위 모두 수집 완료
+  -> Syncing 20 items for ridi...
+  ✅ Successfully synced 20/20 books
+  ✅ ridi: 1-20위 모두 수집 완료
+  -> Syncing 12 items for millie...
+  ✅ Successfully synced 12/12 books
+  ⚠️  millie: 누락 순위 13, 14, 15, 16, 17, 18, 19, 20위 - 재시도 중...
+[Millie] 자기계발...
+  [✓] Found 12 books
+  -> Syncing 12 items for millie...
+  ✅ Successfully synced 12/12 books
+[Millie] 자기계발...
+  [✓] Found 12 books
+  -> Syncing 12 items for millie...
+  ✅ Successfully synced 12/12 books
+  ⚠️  millie: 재시도 후에도 누락 13, 14, 15, 16, 17, 18, 19, 20위
+✅ Category "자기계발" complete
+
+
+[9/10] 📖 CATEGORY: 과학
+──────────────────────────────────────────────────
+[Yes24] 과학...
+[Aladdin] 과학...
+[Kyobo] 과학...
+[Ridi] 과학...
+[Millie] 과학...
+  [✓] Found 20 books
+  [✓] Found 20 books
+  [✓] Found 20 books
+  [✓] Found 20 books
+  [✓] Found 20 books
+  -> Syncing 20 items for kyobo...
+    [i] Found existing "완벽한 원시인" by title+author (different ISBN)
+    [i] Found existing "괴테는 모든 것을 말했다" by title+author (different ISBN)
+    [i] Found existing "무례한 세상에서 나를 지키는 법" by title+author (different ISBN)
+    [i] Found existing "나의 완벽한 장례식" by title+author (different ISBN)
+    [i] Found existing "엄마와 딸들의 미친년의 역사" by title+author (different ISBN)
+    [i] Found existing "부처님 말씀대로 살아보니" by title+author (different ISBN)
+    [i] Found existing "인생을 위한 최소한의 생각" by title+author (different ISBN)
+    [i] Found existing "모순" by title+author (different ISBN)
+    [i] Found existing "싯다르타" by title+author (different ISBN)
+    [i] Found existing "느슨한 균형" by title+author (different ISBN)
+    [i] Found existing "박태웅의 AI 강의 2026" by title+author (different ISBN)
+  ✅ Successfully synced 20/20 books
+  ⚠️  kyobo: 누락 순위 2위 - 재시도 중...
+[Kyobo] 과학...
+  [✓] Found 20 books
+  -> Syncing 20 items for kyobo...
+    [i] Found existing "완벽한 원시인" by title+author (different ISBN)
+    [i] Found existing "괴테는 모든 것을 말했다" by title+author (different ISBN)
+    [i] Found existing "무례한 세상에서 나를 지키는 법" by title+author (different ISBN)
+    [i] Found existing "나의 완벽한 장례식" by title+author (different ISBN)
+    [i] Found existing "엄마와 딸들의 미친년의 역사" by title+author (different ISBN)
+    [i] Found existing "부처님 말씀대로 살아보니" by title+author (different ISBN)
+    [i] Found existing "인생을 위한 최소한의 생각" by title+author (different ISBN)
+    [i] Found existing "모순" by title+author (different ISBN)
+    [i] Found existing "싯다르타" by title+author (different ISBN)
+    [i] Found existing "느슨한 균형" by title+author (different ISBN)
+    [i] Found existing "박태웅의 AI 강의 2026" by title+author (different ISBN)
+  ✅ Successfully synced 20/20 books
+[Kyobo] 과학...
+  [✓] Found 20 books
+  -> Syncing 20 items for kyobo...
+    [i] Found existing "완벽한 원시인" by title+author (different ISBN)
+    [i] Found existing "괴테는 모든 것을 말했다" by title+author (different ISBN)
+    [i] Found existing "무례한 세상에서 나를 지키는 법" by title+author (different ISBN)
+    [i] Found existing "나의 완벽한 장례식" by title+author (different ISBN)
+    [i] Found existing "엄마와 딸들의 미친년의 역사" by title+author (different ISBN)
+    [i] Found existing "부처님 말씀대로 살아보니" by title+author (different ISBN)
+    [i] Found existing "인생을 위한 최소한의 생각" by title+author (different ISBN)
+    [i] Found existing "모순" by title+author (different ISBN)
+    [i] Found existing "싯다르타" by title+author (different ISBN)
+    [i] Found existing "느슨한 균형" by title+author (different ISBN)
+    [i] Found existing "박태웅의 AI 강의 2026" by title+author (different ISBN)
+  ✅ Successfully synced 20/20 books
+  ⚠️  kyobo: 재시도 후에도 누락 2위
+  -> Syncing 20 items for yes24...
+  ✅ Successfully synced 20/20 books
+  ✅ yes24: 1-20위 모두 수집 완료
+  -> Syncing 20 items for aladdin...
+    [i] Found existing "이기적 유전자" by title+author (different ISBN)
+    [i] Found existing "코스모스" by title+author (different ISBN)
+  ✅ Successfully synced 20/20 books
+  ⚠️  aladdin: 누락 순위 2위 - 재시도 중...
+[Aladdin] 과학...
+  [✓] Found 20 books
+  -> Syncing 20 items for aladdin...
+    [i] Found existing "이기적 유전자" by title+author (different ISBN)
+    [i] Found existing "코스모스" by title+author (different ISBN)
+  ✅ Successfully synced 20/20 books
+[Aladdin] 과학...
+  [✓] Found 20 books
+  -> Syncing 20 items for aladdin...
+    [i] Found existing "이기적 유전자" by title+author (different ISBN)
+    [i] Found existing "코스모스" by title+author (different ISBN)
+  ✅ Successfully synced 20/20 books
+  ⚠️  aladdin: 재시도 후에도 누락 2위
+  -> Syncing 20 items for ridi...
+  ✅ Successfully synced 20/20 books
+  ✅ ridi: 1-20위 모두 수집 완료
+  -> Syncing 20 items for millie...
+  ✅ Successfully synced 20/20 books
+  ✅ millie: 1-20위 모두 수집 완료
+✅ Category "과학" complete
+
+
+[10/10] 📖 CATEGORY: 어린이/청소년
+──────────────────────────────────────────────────
+[Yes24] 어린이/청소년...
+[Aladdin] 어린이/청소년...
+[Kyobo] 어린이/청소년...
+[Ridi] 어린이/청소년...
+[Millie] 어린이/청소년...
+  [✓] Found 20 books
+  [✓] Found 2 books
+  [✓] Found 20 books
+  [✓] Found 20 books
+  [✓] Found 20 books
+  -> Syncing 20 items for kyobo...
+    [i] Found existing "완벽한 원시인" by title+author (different ISBN)
+    [i] Found existing "괴테는 모든 것을 말했다" by title+author (different ISBN)
+    [i] Found existing "무례한 세상에서 나를 지키는 법" by title+author (different ISBN)
+    [i] Found existing "나의 완벽한 장례식" by title+author (different ISBN)
+    [i] Found existing "엄마와 딸들의 미친년의 역사" by title+author (different ISBN)
+    [i] Found existing "부처님 말씀대로 살아보니" by title+author (different ISBN)
+    [i] Found existing "인생을 위한 최소한의 생각" by title+author (different ISBN)
+    [i] Found existing "모순" by title+author (different ISBN)
+    [i] Found existing "싯다르타" by title+author (different ISBN)
+    [i] Found existing "느슨한 균형" by title+author (different ISBN)
+    [i] Found existing "박태웅의 AI 강의 2026" by title+author (different ISBN)
+  ✅ Successfully synced 20/20 books
+  ⚠️  kyobo: 누락 순위 2위 - 재시도 중...
+[Kyobo] 어린이/청소년...
+  [✓] Found 20 books
+  -> Syncing 20 items for kyobo...
+    [i] Found existing "완벽한 원시인" by title+author (different ISBN)
+    [i] Found existing "괴테는 모든 것을 말했다" by title+author (different ISBN)
+    [i] Found existing "무례한 세상에서 나를 지키는 법" by title+author (different ISBN)
+    [i] Found existing "나의 완벽한 장례식" by title+author (different ISBN)
+    [i] Found existing "엄마와 딸들의 미친년의 역사" by title+author (different ISBN)
+    [i] Found existing "부처님 말씀대로 살아보니" by title+author (different ISBN)
+    [i] Found existing "인생을 위한 최소한의 생각" by title+author (different ISBN)
+    [i] Found existing "모순" by title+author (different ISBN)
+    [i] Found existing "싯다르타" by title+author (different ISBN)
+    [i] Found existing "느슨한 균형" by title+author (different ISBN)
+    [i] Found existing "박태웅의 AI 강의 2026" by title+author (different ISBN)
+  ✅ Successfully synced 20/20 books
+[Kyobo] 어린이/청소년...
+  [✓] Found 20 books
+  -> Syncing 20 items for kyobo...
+    [i] Found existing "완벽한 원시인" by title+author (different ISBN)
+    [i] Found existing "괴테는 모든 것을 말했다" by title+author (different ISBN)
+    [i] Found existing "무례한 세상에서 나를 지키는 법" by title+author (different ISBN)
+    [i] Found existing "나의 완벽한 장례식" by title+author (different ISBN)
+    [i] Found existing "엄마와 딸들의 미친년의 역사" by title+author (different ISBN)
+    [i] Found existing "부처님 말씀대로 살아보니" by title+author (different ISBN)
+    [i] Found existing "인생을 위한 최소한의 생각" by title+author (different ISBN)
+    [i] Found existing "모순" by title+author (different ISBN)
+    [i] Found existing "싯다르타" by title+author (different ISBN)
+    [i] Found existing "느슨한 균형" by title+author (different ISBN)
+    [i] Found existing "박태웅의 AI 강의 2026" by title+author (different ISBN)
+  ✅ Successfully synced 20/20 books
+  ⚠️  kyobo: 재시도 후에도 누락 2위
+  -> Syncing 20 items for yes24...
+  ✅ Successfully synced 20/20 books
+  ✅ yes24: 1-20위 모두 수집 완료
+  -> Syncing 20 items for aladdin...
+    [i] Found existing "어린 임금의 눈물" by title+author (different ISBN)
+  ✅ Successfully synced 20/20 books
+  ✅ aladdin: 1-20위 모두 수집 완료
+  -> Syncing 20 items for ridi...
+  ✅ Successfully synced 20/20 books
+  ✅ ridi: 1-20위 모두 수집 완료
+  -> Syncing 2 items for millie...
+  ✅ Successfully synced 2/2 books
+  ⚠️  millie: 누락 순위 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20위 - 재시도 중...
+[Millie] 어린이/청소년...
+  [✓] Found 2 books
+  -> Syncing 2 items for millie...
+  ✅ Successfully synced 2/2 books
+[Millie] 어린이/청소년...
+  [✓] Found 2 books
+  -> Syncing 2 items for millie...
+  ✅ Successfully synced 2/2 books
+  ⚠️  millie: 재시도 후에도 누락 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20위
+✅ Category "어린이/청소년" complete
+
+
+╔═══════════════════════════════════════════════╗
+║           🎉 All Done! 🎉                    ║
+╚═══════════════════════════════════════════════╝
+
+
+⚠️  최종 누락 순위 리포트:
+──────────────────────────────────────────────────
+  소설-kyobo: 2위
+  에세이/시-kyobo: 2위
+  에세이/시-millie: 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20위
+  인문-kyobo: 2위
+  인문-millie: 19, 20위
+  역사-kyobo: 2위
+  사회과학-kyobo: 2위
+  경제경영-kyobo: 2위
+  경제경영-millie: 11, 12, 13, 14, 15, 16, 17, 18, 19, 20위
+  자기계발-kyobo: 2위
+  자기계발-millie: 13, 14, 15, 16, 17, 18, 19, 20위
+  과학-kyobo: 2위
+  과학-aladdin: 2위
+  어린이/청소년-kyobo: 2위
+  어린이/청소년-millie: 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20위
+

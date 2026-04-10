@@ -204,10 +204,7 @@ export default function AdminMembersPage() {
 
     return (
         <div className="max-w-7xl mx-auto">
-            <header className="mb-8">
-                <h2 className="text-2xl font-bold text-gray-800">회원 관리</h2>
-                <p className="text-sm text-gray-500 mt-1">회원 목록 및 활동 현황을 관리합니다.</p>
-            </header>
+            
 
             {/* Filters */}
             <div className="flex flex-col md:flex-row gap-4 mb-6">

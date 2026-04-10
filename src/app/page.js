@@ -363,103 +363,7 @@ function PostList() {
   };
 
   return (
-    <>
-      {/* Header */}
-      <header className="bg-[#355E3B] text-white">
-        <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center space-x-2 md:space-x-6">
-            {/* 햄버거 버튼 (모바일 전용) */}
-            <button
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="md:hidden p-1 hover:bg-white/10 rounded transition"
-              aria-label="메뉴 열기"
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                {mobileMenuOpen ? (
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                ) : (
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                )}
-              </svg>
-            </button>
-            <Link 
-              href="/?board=all" 
-              className="text-2xl font-bold tracking-tighter"
-              onClick={() => setMobileMenuOpen(false)}
-            >
-              북위키
-            </Link>
-            <nav className="hidden md:flex space-x-4 text-sm font-medium">
-              {boardCategories.map((cat) => (
-                <button
-                  key={cat.id}
-                  onClick={() => handleBoardClick(cat)}
-                  className={`hover:underline ${currentBoard === cat.id ? "font-bold underline" : ""}`}
-                >
-                  {cat.name}
-                </button>
-              ))}
-            </nav>
-          </div>
-          <div className="flex items-center space-x-2 md:space-x-4">
-            {isAdmin && (
-              <Link href="/admin" className="hidden md:block text-xs font-bold bg-red-500 px-3 py-1.5 rounded hover:bg-red-600 transition">
-                관리자
-              </Link>
-            )}
-            {user ? (
-              <div className="hidden md:flex items-center space-x-3">
-                <span className="text-xs text-white/60">{user.user_metadata?.nickname || user.email.split('@')[0]}</span>
-                <Link href="/mypage" className="text-xs text-white/80 hover:text-white">내 활동</Link>
-                <button onClick={handleLogout} className="text-xs text-white/70 hover:text-white">로그아웃</button>
-              </div>
-            ) : (
-              <Link href="/login" className="hidden md:block text-sm border border-white/30 px-3 py-1 rounded hover:bg-white/10">로그인</Link>
-            )}
-            {/* 모바일 로그인/로그아웃 버튼 */}
-            {user ? (
-              <button
-                onClick={handleLogout}
-                className="md:hidden text-xs border border-white/30 px-2 py-1 rounded hover:bg-white/10"
-              >
-                로그아웃
-              </button>
-            ) : (
-              <Link href="/login" className="md:hidden text-xs border border-white/30 px-2 py-1 rounded hover:bg-white/10">
-                로그인
-              </Link>
-            )}
-          </div>
-        </div>
-        {/* 모바일 메뉴 드롭다운 */}
-        {mobileMenuOpen && (
-          <div className="md:hidden bg-[#2A4A2E] border-t border-[#355E3B]">
-            <nav className="max-w-6xl mx-auto px-4 py-2 space-y-1">
-              {boardCategories.map((cat) => (
-                <button
-                  key={cat.id}
-                  onClick={() => { handleBoardClick(cat); setMobileMenuOpen(false); }}
-                  className={`block w-full text-left px-3 py-2 text-sm rounded ${currentBoard === cat.id ? "bg-[#355E3B] font-bold" : "hover:bg-[#355E3B]/50"}`}
-                >
-                  {cat.name}
-                </button>
-              ))}
-              <div className="border-t border-[#355E3B] pt-2 mt-2">
-                {user ? (
-                  <>
-                    <Link href="/mypage" className="block px-3 py-2 text-sm hover:bg-[#355E3B]/50 rounded">내 활동</Link>
-                    <button onClick={handleLogout} className="block w-full text-left px-3 py-2 text-sm hover:bg-[#355E3B]/50 rounded">로그아웃</button>
-                  </>
-                ) : (
-                  <Link href="/login" className="block px-3 py-2 text-sm hover:bg-[#355E3B]/50 rounded">로그인/회원가입</Link>
-                )}
-                {isAdmin && <Link href="/admin" className="block px-3 py-2 text-sm text-red-300 hover:bg-[#355E3B]/50 rounded">관리자</Link>}
-              </div>
-            </nav>
-          </div>
-        )}
-      </header>
-
+    <div className="flex flex-col min-h-screen pt-4">
       {/* Banner */}
       <div className="max-w-6xl mx-auto px-4 mt-4">
         <div className="bg-black h-20 md:h-24 rounded flex items-center justify-center text-white text-sm">
@@ -1021,7 +925,7 @@ function PostList() {
           </p>
         </div>
       </footer>
-    </>
+    </div>
   );
 }
 
