@@ -69,25 +69,27 @@ export default function PollWidget({ postId, pollOptions, user }) {
     setSubmitting(true);
     const sessionId = getSessionId();
 
-    const { error } = await supabase.from("bw_votes").insert([
-      {
-        post_id: postId,
-        option_id: selectedOption,
-        session_id: sessionId,
-      },
-    ]);
+    try {
+      const { error } = await supabase.from("bw_votes").insert([
+        {
+          post_id: postId,
+          option_id: selectedOption,
+          session_id: sessionId,
+        },
+      ]);
 
-    if (error) {
-      // 혹시 중복 투표 체크 등에 걸린 경우
-      alert("투표 실패: " + error.message);
-      setSubmitting(false);
-    } else {
+      if (error) throw error;
+
       setHasVoted(true);
       setTotalVotes((prev) => prev + 1);
       setVotesData((prev) => ({
         ...prev,
         [selectedOption]: (prev[selectedOption] || 0) + 1,
       }));
+    } catch (error) {
+      console.error("투표 오류:", error);
+      alert("투표 실패: " + (error.message || "알 수 없는 오류가 발생했습니다."));
+    } finally {
       setSubmitting(false);
     }
   };
