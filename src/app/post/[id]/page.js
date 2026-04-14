@@ -255,6 +255,7 @@ export default function PostDetailPage() {
             .from("bw_comments")
             .select("*")
             .eq("post_id", id)
+            .eq("is_deleted", false)
             .order("created_at", { ascending: true });
         setComments(data || []);
     };

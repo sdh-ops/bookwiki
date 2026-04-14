@@ -8,6 +8,7 @@ const boardTypeNames = {
     support: "지원사업",
     free: "톡톡(자유)",
     ai: "AI허브",
+    bestseller: "베스트셀러",
 };
 
 function downloadCSV(rows, filename) {
@@ -159,7 +160,7 @@ export default function AdminDashboard() {
                      const groups = {};
                      posts?.forEach(p => {
                          const key = getGroupKey(p.created_at, period);
-                         if (!groups[key]) groups[key] = { date: key, job: 0, support: 0, free: 0, ai: 0, total: 0 };
+                         if (!groups[key]) groups[key] = { date: key, job: 0, support: 0, free: 0, ai: 0, bestseller: 0, total: 0 };
                          
                          const vCount = p.view_count || 0;
                          groups[key].total += vCount;
@@ -216,8 +217,8 @@ export default function AdminDashboard() {
             headers = ["날짜(기간)", "게시글(전체)", "게시글(회원)", "게시글(비회원)", "댓글(전체)", "댓글(회원)", "댓글(비회원)"];
             rows = tableData.map(d => [d.date, d.postTotal, d.postMember, d.postNon, d.cmtTotal, d.cmtMember, d.cmtNon]);
         } else if (activeTab === "boardViews") {
-            headers = ["날짜(기간)", "총 조회수", "구인구직", "지원사업", "톡톡(자유)", "AI허브"];
-            rows = tableData.map(d => [d.date, d.total, d.job, d.support, d.free, d.ai]);
+            headers = ["날짜(기간)", "총 조회수", "구인구직", "지원사업", "톡톡(자유)", "AI허브", "베스트셀러"];
+            rows = tableData.map(d => [d.date, d.total, d.job, d.support, d.free, d.ai, d.bestseller]);
         } else if (activeTab === "postViews") {
             headers = ["작성일", "게시판", "게시글 제목", "작성자", "누적 조회수"];
             rows = tableData.map(d => [d.date, d.board, d.title.replace(/,/g, " "), d.author, d.views]);
@@ -338,6 +339,7 @@ export default function AdminDashboard() {
                                         <th className="px-6 py-4">지원사업</th>
                                         <th className="px-6 py-4">톡톡(자유)</th>
                                         <th className="px-6 py-4">AI허브</th>
+                                        <th className="px-6 py-4">베스트셀러</th>
                                     </tr>
                                 )}
                                 {activeTab === "postViews" && (
@@ -385,6 +387,7 @@ export default function AdminDashboard() {
                                                 <td className="px-6 py-4">{(row.support || 0).toLocaleString()}</td>
                                                 <td className="px-6 py-4 bg-gray-50/50">{(row.free || 0).toLocaleString()}</td>
                                                 <td className="px-6 py-4">{(row.ai || 0).toLocaleString()}</td>
+                                                <td className="px-6 py-4 bg-gray-50/50">{(row.bestseller || 0).toLocaleString()}</td>
                                             </tr>
                                         ))
                                     ) : activeTab === "postViews" ? (

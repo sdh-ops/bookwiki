@@ -619,8 +619,8 @@ function PostList() {
                         <td className="px-2 py-2 text-xs text-gray-400 text-center">{post.view_count}</td>
                       </tr>
                     ))}
-                    {/* 구인구직 게시판: 직접 작성글 먼저 표시 */}
-                    {currentBoard === "job" && filteredPosts.filter(p => !p.is_notice && !p.is_auto).map((post) => (
+                    {/* 구인구직 게시판: 직접 작성글 먼저 표시 (다산북스 게시글 포함) */}
+                    {currentBoard === "job" && filteredPosts.filter(p => !p.is_notice && (!p.is_auto || p.author?.includes("다산북스") || p.title?.includes("다산북스"))).map((post) => (
                       <tr key={post.id} className="bg-green-50 hover:bg-green-100 cursor-pointer" onClick={() => router.push(`/post/${post.id}`)}>
                         <td className="px-2 py-2 text-xs text-green-600 font-bold">직접</td>
                         <td className="px-2 py-2 font-medium text-gray-800">
@@ -652,10 +652,10 @@ function PostList() {
                         <td className="px-2 py-2 text-xs text-gray-400 text-center">{post.view_count}</td>
                       </tr>
                     ))}
-                    {/* 일반 게시글 (구인구직은 자동 스크래핑 글만, 다른 게시판은 전부) */}
-                    {filteredPosts.filter(p => !p.is_notice && (currentBoard !== "job" || p.is_auto)).map((post, idx) => (
+                    {/* 일반 게시글 (구인구직은 자동 스크래핑 글만, 다만 다산북스 글은 제외하고 표시) */}
+                    {filteredPosts.filter(p => !p.is_notice && (currentBoard !== "job" || (p.is_auto && !p.author?.includes("다산북스") && !p.title?.includes("다산북스")))).map((post, idx) => (
                       <tr key={post.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => router.push(`/post/${post.id}`)}>
-                        <td className="px-2 py-2 text-xs text-gray-400">{totalCount - filteredPosts.filter(p => p.is_notice).length - (currentBoard === "job" ? filteredPosts.filter(p => !p.is_notice && !p.is_auto).length : 0) - ((currentPage - 1) * POSTS_PER_PAGE) - idx}</td>
+                        <td className="px-2 py-2 text-xs text-gray-400">{totalCount - filteredPosts.filter(p => p.is_notice).length - (currentBoard === "job" ? filteredPosts.filter(p => !p.is_notice && (!p.is_auto || p.author?.includes("다산북스") || p.title?.includes("다산북스"))).length : 0) - ((currentPage - 1) * POSTS_PER_PAGE) - idx}</td>
                         <td className="px-2 py-2 font-medium text-gray-800">
                           {post.is_hot && (
                             <span className="text-[10px] bg-red-500 text-white px-1.5 py-0.5 mr-1.5 rounded-sm font-bold">HOT</span>
