@@ -401,11 +401,22 @@ export default function PostDetailPage() {
         if (error) {
             alert("삭제 실패: " + error.message);
         } else {
+            // 낙관적 UI 업데이트: 서버 응답을 기다리지 않고 즉시 상태에서 제거
+            setComments(prev => prev.filter(c => c.id !== commentId));
+            
+            // 서버와 상태 동기화
             await refreshComments();
-            // Update comment count
+            
+            // 댓글 개수 업데이트 (최신 상태 기반)
+            const { data: latestComments } = await supabase
+                .from("bw_comments")
+                .select("id", { count: 'exact' })
+                .eq("post_id", id)
+                .eq("is_deleted", false);
+            
             await supabase
                 .from("bw_posts")
-                .update({ comment_count: Math.max(0, comments.length - 1) })
+                .update({ comment_count: latestComments?.length || 0 })
                 .eq("id", id);
         }
     };
