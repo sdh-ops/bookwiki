@@ -27,6 +27,7 @@ function PostList() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [user, setUser] = useState(null);
   const [posts, setPosts] = useState([]);
+  const [pinnedPosts, setPinnedPosts] = useState([]);
   const [bestPosts, setBestPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [totalCount, setTotalCount] = useState(0);
@@ -146,6 +147,7 @@ function PostList() {
       let countQuery;
 
       if (currentBoard === "hot") {
+        setPinnedPosts([]);
         query = supabase
           .from("bw_posts")
           .select("*")
@@ -159,6 +161,7 @@ function PostList() {
           .eq("is_deleted", false)
           .eq("is_hot", true);
       } else if (currentBoard === "all") {
+        setPinnedPosts([]);
         query = supabase
           .from("bw_posts")
           .select("*")
@@ -169,7 +172,39 @@ function PostList() {
           .from("bw_posts")
           .select("*", { count: "exact", head: true })
           .eq("is_deleted", false);
+      } else if (currentBoard === "job") {
+        // 1. 직접 작성글(다산북스 포함) 고정용 조회 - 페이징 없이 전체 (단, 개수가 적으므로 문제 없음)
+        const { data: direct } = await supabase
+          .from("bw_posts")
+          .select("*")
+          .eq("board_type", "job")
+          .eq("is_deleted", false)
+          .or("is_auto.eq.false,author.ilike.%다산북스%,title.ilike.%다산북스%")
+          .order("created_at", { ascending: false });
+        setPinnedPosts(direct || []);
+
+        // 2. 일반 글(스크래핑) 페이징 조회 - 직접 작성글 및 다산북스 글 제외
+        query = supabase
+          .from("bw_posts")
+          .select("*")
+          .eq("board_type", "job")
+          .eq("is_deleted", false)
+          .eq("is_auto", true)
+          .not("author", "ilike", "%다산북스%")
+          .not("title", "ilike", "%다산북스%")
+          .order("created_at", { ascending: false })
+          .range(offset, offset + POSTS_PER_PAGE - 1);
+        
+        countQuery = supabase
+          .from("bw_posts")
+          .select("*", { count: "exact", head: true })
+          .eq("board_type", "job")
+          .eq("is_deleted", false)
+          .eq("is_auto", true)
+          .not("author", "ilike", "%다산북스%")
+          .not("title", "ilike", "%다산북스%");
       } else {
+        setPinnedPosts([]);
         query = supabase
           .from("bw_posts")
           .select("*")
@@ -361,6 +396,21 @@ function PostList() {
   };
 
   const filteredPosts = getFilteredPosts();
+
+  // 필터링된 고정 게시글
+  const getFilteredPinnedPosts = () => {
+    let filtered = pinnedPosts;
+    if (currentBoard === "job" && jobFilter !== "all") {
+      filtered = filtered.filter(post => {
+        if (post.job_type) return post.job_type === jobFilter;
+        const isHiring = isHiringPost(post.title);
+        return jobFilter === "hiring" ? isHiring : !isHiring;
+      });
+    }
+    return filtered;
+  };
+
+  const filteredPinnedPosts = getFilteredPinnedPosts();
 
   // 게시물 검색 (현재 게시판 내에서만)
   const handleSearch = () => {
@@ -619,8 +669,8 @@ function PostList() {
                         <td className="px-2 py-2 text-xs text-gray-400 text-center">{post.view_count}</td>
                       </tr>
                     ))}
-                    {/* 구인구직 게시판: 직접 작성글 먼저 표시 (다산북스 게시글 포함) */}
-                    {currentBoard === "job" && filteredPosts.filter(p => !p.is_notice && (!p.is_auto || p.author?.includes("다산북스") || p.title?.includes("다산북스"))).map((post) => (
+                    {/* 구인구직 게시판: 직접 작성글 1페이지 상단 고정 (다산북스 게시글 포함) */}
+                    {currentBoard === "job" && currentPage === 1 && filteredPinnedPosts.map((post) => (
                       <tr key={post.id} className="bg-green-50 hover:bg-green-100 cursor-pointer" onClick={() => router.push(`/post/${post.id}`)}>
                         <td className="px-2 py-2 text-xs text-green-600 font-bold">직접</td>
                         <td className="px-2 py-2 font-medium text-gray-800">
@@ -652,10 +702,10 @@ function PostList() {
                         <td className="px-2 py-2 text-xs text-gray-400 text-center">{post.view_count}</td>
                       </tr>
                     ))}
-                    {/* 일반 게시글 (구인구직은 자동 스크래핑 글만, 다만 다산북스 글은 제외하고 표시) */}
-                    {filteredPosts.filter(p => !p.is_notice && (currentBoard !== "job" || (p.is_auto && !p.author?.includes("다산북스") && !p.title?.includes("다산북스")))).map((post, idx) => (
+                    {/* 일반 게시글 */}
+                    {filteredPosts.filter(p => !p.is_notice).map((post, idx) => (
                       <tr key={post.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => router.push(`/post/${post.id}`)}>
-                        <td className="px-2 py-2 text-xs text-gray-400">{totalCount - filteredPosts.filter(p => p.is_notice).length - (currentBoard === "job" ? filteredPosts.filter(p => !p.is_notice && (!p.is_auto || p.author?.includes("다산북스") || p.title?.includes("다산북스"))).length : 0) - ((currentPage - 1) * POSTS_PER_PAGE) - idx}</td>
+                        <td className="px-2 py-2 text-xs text-gray-400">{totalCount - ((currentPage - 1) * POSTS_PER_PAGE) - idx}</td>
                         <td className="px-2 py-2 font-medium text-gray-800">
                           {post.is_hot && (
                             <span className="text-[10px] bg-red-500 text-white px-1.5 py-0.5 mr-1.5 rounded-sm font-bold">HOT</span>
