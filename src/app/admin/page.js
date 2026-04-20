@@ -154,10 +154,19 @@ export default function AdminDashboard() {
                     setTableData(table);
                 } 
                 else if (activeTab === "boardViews") {
-                     // 게시판당 조회수 현황 (이 부분은 주기별 구분이 어려우므로, 통째로 집계된 것을 주기에 맞게 나누거나 전체를 보여줌)
-                     // 게시글 생성일을 기준으로 그룹핑
+                     // 게시판당 조회수 현황
+                     // 1. 일반 게시글 조회수 가져오기
                      const { data: posts } = await supabase.from("bw_posts").select("created_at, board_type, view_count").gte("created_at", limitDate.toISOString());
+                     
+                     // 2. 베스트셀러 페이지 조회수 가져오기 (게시글 형태가 아니므로 page_views에서 집계)
+                     const { data: bestViews } = await supabase.from("bw_page_views")
+                        .select("visited_at, path")
+                        .gte("visited_at", limitDate.toISOString())
+                        .or("path.ilike./bestseller%,path.ilike./api/bestseller%");
+
                      const groups = {};
+                     
+                     // 게시글 기반 조회수 집계
                      posts?.forEach(p => {
                          const key = getGroupKey(p.created_at, period);
                          if (!groups[key]) groups[key] = { date: key, job: 0, support: 0, free: 0, ai: 0, bestseller: 0, total: 0 };
@@ -167,6 +176,15 @@ export default function AdminDashboard() {
                          if (groups[key][p.board_type] !== undefined) {
                              groups[key][p.board_type] += vCount;
                          }
+                     });
+
+                     // 베스트셀러 페이지뷰 추가 집계
+                     bestViews?.forEach(bv => {
+                        const key = getGroupKey(bv.visited_at, period);
+                        if (!groups[key]) groups[key] = { date: key, job: 0, support: 0, free: 0, ai: 0, bestseller: 0, total: 0 };
+                        
+                        groups[key].total += 1;
+                        groups[key].bestseller += 1;
                      });
 
                      const table = Object.values(groups).sort((a,b) => b.date.localeCompare(a.date));

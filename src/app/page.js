@@ -775,7 +775,7 @@ function PostList() {
                     </div>
                   ))}
                   {/* 구인구직 직접작성글 */}
-                  {currentBoard === "job" && filteredPosts.filter(p => !p.is_notice && !p.is_auto).map((post) => (
+                  {currentBoard === "job" && filteredPinnedPosts.filter(p => !p.is_notice).map((post) => (
                     <div
                       key={post.id}
                       className="bg-green-50 border border-green-100 rounded p-3 cursor-pointer"
