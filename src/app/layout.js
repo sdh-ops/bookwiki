@@ -51,7 +51,7 @@ export const metadata = {
     follow: true,
   },
   alternates: {
-    canonical: "https://bookwiki.co.kr",
+    canonical: "https://www.bookwiki.co.kr",
   },
   verification: {
     other: {

@@ -16,4 +16,4 @@ Disallow: /write/
 Disallow: /reset-password/
 Disallow: /login/
 
-Sitemap: https://bookwiki.co.kr/sitemap.xml
+Sitemap: https://www.bookwiki.co.kr/sitemap.xml
