@@ -46,11 +46,23 @@ export const metadata = {
     title: "북위키 (BookWiki) | 출판업계 정보 공유 플랫폼",
     description: "출판업계 종사자들의 필수 커뮤니티! 구인구직부터 지원사업까지 한눈에 확인하세요.",
   },
+  robots: {
+    index: true,
+    follow: true,
+  },
+  alternates: {
+    canonical: "https://bookwiki.co.kr",
+  },
   verification: {
     other: {
       "naver-site-verification": "d732a678af8e96ae72a25d6c34b3b9a4f0f1ba229",
     },
   },
+};
+
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
 };
 
 const jsonLd = {
@@ -67,7 +79,7 @@ const jsonLd = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en">
+    <html lang="ko">
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
