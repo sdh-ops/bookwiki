@@ -33,7 +33,7 @@ function PostList() {
   const [totalCount, setTotalCount] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
   const [supportView, setSupportView] = useState("list"); // list or calendar
-  const [jobFilter, setJobFilter] = useState("hiring"); // all, hiring, seeking
+  const [jobFilter, setJobFilter] = useState("all"); // all, hiring, seeking
   const [freeFilter, setFreeFilter] = useState("all"); // 톡톡 카테고리 필터
   const [calendarEvents, setCalendarEvents] = useState([]);
   const [calendarDate, setCalendarDate] = useState(new Date());
@@ -54,7 +54,7 @@ function PostList() {
     if (viewParam === "calendar") setSupportView("calendar");
     else setSupportView("list");
     if (filterParam) setJobFilter(filterParam);
-    else setJobFilter("hiring"); // 디폴트를 구인으로 설정
+    else setJobFilter("all"); // 디폴트를 전체로 설정
     if (categoryParam) setFreeFilter(categoryParam);
     else setFreeFilter("all");
     if (searchQueryParam) setSearchQuery(searchQueryParam);
@@ -115,7 +115,7 @@ function PostList() {
         const scored = hotPosts.map(p => {
           const createdAt = new Date(p.created_at);
           const daysOld = Math.floor((now - createdAt) / (1000 * 60 * 60 * 24));
-          const baseScore = (p.view_count || 0) + ((p.comment_count || 0) * 10);
+          const baseScore = (p.view_count || 0) + ((p.comment_count || 0) * 5);
           const hotScore = baseScore / (daysOld + 1);
           return { ...p, baseScore, hotScore };
         }).filter(p => p.baseScore >= 20);
@@ -125,13 +125,13 @@ function PostList() {
       }
 
       // 자동 HOT 승격: 임계점 도달 시 is_hot=true로 영구 설정 (한 번 HOT 되면 유지)
-      // 점수 = 조회수 + 댓글수 × 10
-      // 구인구직: 점수 200 이상 / 나머지 게시판: 점수 100 이상
+      // 점수 = 조회수 + 댓글수 × 5
+      // 구인구직, 톡톡: 점수 200 이상 / 나머지 게시판: 점수 100 이상
       if (candidates?.length) {
         const toPromote = candidates.filter(p => {
           if (p.admin_hot_override === true) return false; // 관리자가 수동 취소한 게시글 제외
-          const score = (p.view_count || 0) + (p.comment_count || 0) * 10;
-          const threshold = p.board_type === "job" ? 200 : 100;
+          const score = (p.view_count || 0) + (p.comment_count || 0) * 5;
+          const threshold = (p.board_type === "job" || p.board_type === "free") ? 200 : 100;
           return score >= threshold;
         });
 
