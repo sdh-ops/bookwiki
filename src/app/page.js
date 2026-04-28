@@ -179,7 +179,7 @@ function PostList() {
           .select("*")
           .eq("board_type", "job")
           .eq("is_deleted", false)
-          .or("is_auto.eq.false,author.ilike.%다산북스%,title.ilike.%다산북스%")
+          .or("is_auto.eq.false,is_auto.is.null,author.ilike.%다산북스%,title.ilike.%다산북스%")
           .order("created_at", { ascending: false });
         setPinnedPosts(direct || []);
 
