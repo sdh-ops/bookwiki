@@ -621,21 +621,26 @@ function PostList() {
           ) : (
           <>
           <div className="overflow-x-auto">
-            {/* 데스크톱 테이블 */}
-            <table className="w-full text-sm text-left hidden md:table">
-              <thead className="text-xs text-gray-500 border-b border-gray-200">
-                <tr>
-                  <th className="px-2 py-2 font-medium w-16">번호</th>
-                  <th className="px-2 py-2 font-medium">제목</th>
-                  <th className="px-2 py-2 font-medium w-24">글쓴이</th>
-                  <th className="px-2 py-2 font-medium w-20 text-center">날짜</th>
-                  <th className="px-2 py-2 font-medium w-16 text-center">조회</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {loading ? (
-                  <tr><td colSpan="5" className="py-10 text-center text-gray-400">불러오는 중...</td></tr>
-                ) : filteredPosts.length === 0 ? (
+            {loading ? (
+              <div className="py-32 flex flex-col items-center justify-center bg-gray-50 rounded-lg border border-gray-100">
+                <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-[#355E3B] mb-4"></div>
+                <div className="text-sm font-bold text-gray-500">데이터를 불러오는 중입니다...</div>
+              </div>
+            ) : (
+              <>
+                {/* 데스크톱 테이블 */}
+                <table className="w-full text-sm text-left hidden md:table">
+                  <thead className="text-xs text-gray-500 border-b border-gray-200">
+                    <tr>
+                      <th className="px-2 py-2 font-medium w-16">번호</th>
+                      <th className="px-2 py-2 font-medium">제목</th>
+                      <th className="px-2 py-2 font-medium w-24">글쓴이</th>
+                      <th className="px-2 py-2 font-medium w-20 text-center">날짜</th>
+                      <th className="px-2 py-2 font-medium w-16 text-center">조회</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {filteredPosts.length === 0 ? (
                   <tr><td colSpan="5" className="py-10 text-center text-gray-400 text-xs">작성된 게시물이 없습니다.</td></tr>
                 ) : (
                   <>
@@ -742,9 +747,7 @@ function PostList() {
 
             {/* 모바일 카드 뷰 */}
             <div className="md:hidden space-y-2">
-              {loading ? (
-                <div className="py-10 text-center text-gray-400">불러오는 중...</div>
-              ) : filteredPosts.length === 0 ? (
+              {filteredPosts.length === 0 ? (
                 <div className="py-10 text-center text-gray-400 text-xs">작성된 게시물이 없습니다.</div>
               ) : (
                 <>
@@ -834,6 +837,8 @@ function PostList() {
                 </>
               )}
             </div>
+              </>
+            )}
           </div>
 
           {/* 페이지별 검색 */}
@@ -998,7 +1003,16 @@ function PostList() {
 
 export default function Home() {
   return (
-    <Suspense fallback={<div className="p-10 text-center">로딩 중...</div>}>
+    <Suspense fallback={
+      <div className="flex flex-col min-h-screen pt-4">
+        <main className="flex-grow max-w-6xl mx-auto px-4 w-full">
+          <div className="py-32 flex flex-col items-center justify-center bg-gray-50 rounded-lg border border-gray-100 mt-10">
+            <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-[#355E3B] mb-4"></div>
+            <div className="text-sm font-bold text-gray-500">페이지를 준비 중입니다...</div>
+          </div>
+        </main>
+      </div>
+    }>
       <PostList />
     </Suspense>
   );
