@@ -439,7 +439,7 @@ function PostList() {
       </div>
 
       {/* Main Content */}
-      <section className="max-w-6xl mx-auto px-4 py-6 grid grid-cols-1 lg:grid-cols-4 gap-6">
+      <section className="w-full max-w-6xl mx-auto px-4 py-6 grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Left - Post List (3 columns) */}
         <div className="lg:col-span-3 order-2 lg:order-1">
           <div className="flex justify-between items-center mb-4 pb-2 border-b-2 border-[#355E3B]">
@@ -620,9 +620,9 @@ function PostList() {
             </div>
           ) : (
           <>
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto w-full">
             {loading ? (
-              <div className="py-32 flex flex-col items-center justify-center bg-gray-50 rounded-lg border border-gray-100">
+              <div className="w-full py-32 flex flex-col items-center justify-center bg-gray-50 rounded-lg border border-gray-100">
                 <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-[#355E3B] mb-4"></div>
                 <div className="text-sm font-bold text-gray-500">데이터를 불러오는 중입니다...</div>
               </div>
