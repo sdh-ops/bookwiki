@@ -182,16 +182,13 @@ function PostList() {
           .select("*", { count: "exact", head: true })
           .eq("is_deleted", false);
       } else if (currentBoard === "job") {
-        // 1. 직접 작성글(다산북스 포함) 고정용 조회 - 페이징 없이 전체 (단, 개수가 적으므로 문제 없음)
-        const { data: direct } = await supabase
+        // 1. 직접 작성글(다산북스 포함) 고정용 조회 - 필터 적용
+        let directQuery = supabase
           .from("bw_posts")
           .select("*")
           .eq("board_type", "job")
           .eq("is_deleted", false)
-          .or("is_auto.eq.false,is_auto.is.null,author.ilike.%다산북스%,title.ilike.%다산북스%")
-          .order("is_notice", { ascending: false })
-          .order("created_at", { ascending: false });
-        setPinnedPosts(direct || []);
+          .or("is_auto.eq.false,is_auto.is.null,author.ilike.%다산북스%,title.ilike.%다산북스%");
 
         // 2. 일반 글(스크래핑) 페이징 조회 - 직접 작성글 및 다산북스 글 제외
         query = supabase
@@ -201,10 +198,7 @@ function PostList() {
           .eq("is_deleted", false)
           .eq("is_auto", true)
           .not("author", "ilike", "%다산북스%")
-          .not("title", "ilike", "%다산북스%")
-          .order("is_notice", { ascending: false })
-          .order("created_at", { ascending: false })
-          .range(offset, offset + POSTS_PER_PAGE - 1);
+          .not("title", "ilike", "%다산북스%");
         
         countQuery = supabase
           .from("bw_posts")
@@ -214,6 +208,24 @@ function PostList() {
           .eq("is_auto", true)
           .not("author", "ilike", "%다산북스%")
           .not("title", "ilike", "%다산북스%");
+
+        // 서버 사이드 구인/구직 필터 적용 (명시적 타입 기반)
+        if (jobFilter === "hiring") {
+          query = query.eq("job_type", "hiring");
+          countQuery = countQuery.eq("job_type", "hiring");
+          directQuery = directQuery.eq("job_type", "hiring");
+        } else if (jobFilter === "seeking") {
+          query = query.eq("job_type", "seeking");
+          countQuery = countQuery.eq("job_type", "seeking");
+          directQuery = directQuery.eq("job_type", "seeking");
+        }
+
+        const { data: direct } = await directQuery
+          .order("is_notice", { ascending: false })
+          .order("created_at", { ascending: false });
+        setPinnedPosts(direct || []);
+
+        query = query.order("is_notice", { ascending: false }).order("created_at", { ascending: false }).range(offset, offset + POSTS_PER_PAGE - 1);
       } else {
         setPinnedPosts([]);
         query = supabase
