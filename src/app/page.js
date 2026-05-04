@@ -105,7 +105,7 @@ function PostList() {
         // 자동 HOT 승격 후보: 아직 HOT이 아닌 게시글 전체
         supabase
           .from("bw_posts")
-          .select("id, board_type, view_count, comment_count, admin_hot_override")
+          .select("id, title, board_type, view_count, comment_count, admin_hot_override")
           .eq("is_deleted", false)
           .eq("is_hot", false),
       ]);
@@ -132,7 +132,13 @@ function PostList() {
         const toPromote = candidates.filter(p => {
           if (p.admin_hot_override === true) return false; // 관리자가 수동 취소한 게시글 제외
           const score = (p.view_count || 0) + (p.comment_count || 0) * 5;
-          const threshold = (p.board_type === "job" || p.board_type === "free") ? 200 : 100;
+          let threshold = (p.board_type === "job" || p.board_type === "free") ? 200 : 100;
+          
+          // 톡톡 게시판의 '잡담' 카테고리는 300점으로 상향
+          if (p.board_type === "free" && p.title?.includes("[잡담]")) {
+            threshold = 300;
+          }
+          
           return score >= threshold;
         });
 
