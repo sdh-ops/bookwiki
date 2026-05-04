@@ -80,6 +80,7 @@ function PostList() {
         }
 
         const { data: searchData, count: searchCount } = await searchQuery
+          .order("is_notice", { ascending: false })
           .order("created_at", { ascending: false })
           .range(offset, offset + POSTS_PER_PAGE - 1);
 
@@ -153,6 +154,7 @@ function PostList() {
           .select("*")
           .eq("is_deleted", false)
           .eq("is_hot", true)
+          .order("is_notice", { ascending: false })
           .order("created_at", { ascending: false })
           .range(offset, offset + POSTS_PER_PAGE - 1);
         countQuery = supabase
@@ -166,6 +168,7 @@ function PostList() {
           .from("bw_posts")
           .select("*")
           .eq("is_deleted", false)
+          .order("is_notice", { ascending: false })
           .order("created_at", { ascending: false })
           .range(offset, offset + POSTS_PER_PAGE - 1);
         countQuery = supabase
@@ -180,6 +183,7 @@ function PostList() {
           .eq("board_type", "job")
           .eq("is_deleted", false)
           .or("is_auto.eq.false,is_auto.is.null,author.ilike.%다산북스%,title.ilike.%다산북스%")
+          .order("is_notice", { ascending: false })
           .order("created_at", { ascending: false });
         setPinnedPosts(direct || []);
 
@@ -192,6 +196,7 @@ function PostList() {
           .eq("is_auto", true)
           .not("author", "ilike", "%다산북스%")
           .not("title", "ilike", "%다산북스%")
+          .order("is_notice", { ascending: false })
           .order("created_at", { ascending: false })
           .range(offset, offset + POSTS_PER_PAGE - 1);
         
@@ -210,6 +215,7 @@ function PostList() {
           .select("*")
           .eq("is_deleted", false)
           .eq("board_type", currentBoard)
+          .order("is_notice", { ascending: false })
           .order("created_at", { ascending: false })
           .range(offset, offset + POSTS_PER_PAGE - 1);
         countQuery = supabase
