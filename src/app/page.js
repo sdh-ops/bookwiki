@@ -33,7 +33,8 @@ function PostList() {
   const [totalCount, setTotalCount] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
   const [supportView, setSupportView] = useState("list"); // list or calendar
-  const [jobFilter, setJobFilter] = useState("all"); // all, hiring, seeking
+  const [jobView, setJobView] = useState("list"); // list or calendar
+  const [jobFilter, setJobFilter] = useState("all"); // legacy: all, hiring, seeking
   const [freeFilter, setFreeFilter] = useState("all"); // 톡톡 카테고리 필터
   const [calendarEvents, setCalendarEvents] = useState([]);
   const [calendarDate, setCalendarDate] = useState(new Date());
@@ -51,8 +52,13 @@ function PostList() {
   useEffect(() => {
     const page = parseInt(pageParam) || 1;
     setCurrentPage(page);
-    if (viewParam === "calendar") setSupportView("calendar");
-    else setSupportView("list");
+    if (viewParam === "calendar") {
+      setSupportView("calendar");
+      setJobView("calendar");
+    } else {
+      setSupportView("list");
+      setJobView("list");
+    }
     if (filterParam) setJobFilter(filterParam);
     else setJobFilter("all"); // 디폴트를 전체로 설정
     if (categoryParam) setFreeFilter(categoryParam);
@@ -209,15 +215,17 @@ function PostList() {
           .not("author", "ilike", "%다산북스%")
           .not("title", "ilike", "%다산북스%");
 
-        // 서버 사이드 구인/구직 필터 적용 (명시적 타입 기반)
-        if (jobFilter === "hiring") {
-          query = query.eq("job_type", "hiring");
-          countQuery = countQuery.eq("job_type", "hiring");
-          directQuery = directQuery.eq("job_type", "hiring");
-        } else if (jobFilter === "seeking") {
-          query = query.eq("job_type", "seeking");
-          countQuery = countQuery.eq("job_type", "seeking");
-          directQuery = directQuery.eq("job_type", "seeking");
+        // 서버 사이드 구인/구직 필터 적용 (명시적 타입 기반) - legacy support
+        if (jobFilter !== "all") {
+          if (jobFilter === "hiring") {
+            query = query.eq("job_type", "hiring");
+            countQuery = countQuery.eq("job_type", "hiring");
+            directQuery = directQuery.eq("job_type", "hiring");
+          } else if (jobFilter === "seeking") {
+            query = query.eq("job_type", "seeking");
+            countQuery = countQuery.eq("job_type", "seeking");
+            directQuery = directQuery.eq("job_type", "seeking");
+          }
         }
 
         const { data: direct } = await directQuery
@@ -270,19 +278,25 @@ function PostList() {
   // Load calendar events for support board
   useEffect(() => {
     async function fetchCalendarEvents() {
-      if (currentBoard !== "support") return;
+      if (currentBoard !== "support" && currentBoard !== "job") return;
       const { data: posts } = await supabase
         .from("bw_posts")
-        .select("id, title, content, created_at")
-        .eq("board_type", "support")
+        .select("id, title, content, created_at, deadline")
+        .eq("board_type", currentBoard)
         .order("created_at", { ascending: false });
 
       if (posts) {
         const eventsWithDeadlines = posts
           .map(post => {
-            const deadlineMatch = post.content?.match(/마감일:<\/strong>\s*(\d{4}-\d{2}-\d{2})/);
-            if (deadlineMatch) {
-              return { ...post, deadline: deadlineMatch[1] };
+            // 명시적 deadline 필드가 있으면 사용, 없으면 content에서 파싱 (legacy)
+            let date = post.deadline;
+            if (!date && post.content) {
+              const deadlineMatch = post.content?.match(/마감일:<\/strong>\s*(\d{4}-\d{2}-\d{2})/);
+              if (deadlineMatch) date = deadlineMatch[1];
+            }
+            
+            if (date) {
+              return { ...post, deadline: date };
             }
             return null;
           })
@@ -374,6 +388,14 @@ function PostList() {
       router.push("/?board=support&view=calendar");
     } else {
       router.push("/?board=support");
+    }
+  };
+
+  const handleJobViewChange = (view) => {
+    if (view === "calendar") {
+      router.push("/?board=job&view=calendar");
+    } else {
+      router.push("/?board=job");
     }
   };
 
@@ -490,22 +512,16 @@ function PostList() {
               {currentBoard === "job" && (
                 <div className="flex border border-gray-300 rounded overflow-hidden text-xs">
                   <button
-                    onClick={() => router.push("/?board=job&filter=hiring")}
-                    className={`px-3 py-1 ${jobFilter === "hiring" ? "bg-[#355E3B] text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
+                    onClick={() => handleJobViewChange("list")}
+                    className={`px-3 py-1 ${jobView === "list" ? "bg-[#355E3B] text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
                   >
-                    구인
+                    목록
                   </button>
                   <button
-                    onClick={() => router.push("/?board=job&filter=seeking")}
-                    className={`px-3 py-1 ${jobFilter === "seeking" ? "bg-[#355E3B] text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
+                    onClick={() => handleJobViewChange("calendar")}
+                    className={`px-3 py-1 ${jobView === "calendar" ? "bg-[#355E3B] text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
                   >
-                    구직
-                  </button>
-                  <button
-                    onClick={() => router.push("/?board=job&filter=all")}
-                    className={`px-3 py-1 ${jobFilter === "all" ? "bg-[#355E3B] text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
-                  >
-                    전체
+                    📅 캘린더
                   </button>
                 </div>
               )}
@@ -550,7 +566,7 @@ function PostList() {
                 </div>
               </div>
             </div>
-          ) : currentBoard === "support" && supportView === "calendar" ? (
+          ) : (currentBoard === "support" || currentBoard === "job") && (supportView === "calendar" || jobView === "calendar") ? (
             <div className="bg-white">
               {/* Calendar Header */}
               <div className="flex items-center justify-between mb-4 p-3 bg-gray-50 rounded-lg">
@@ -623,7 +639,7 @@ function PostList() {
               <div className="mt-6 bg-gray-50 rounded-lg p-4">
                 <h4 className="font-bold text-sm mb-3">다가오는 마감</h4>
                 {calendarEvents.filter(e => new Date(e.deadline) >= new Date(new Date().setHours(0,0,0,0))).length === 0 ? (
-                  <p className="text-xs text-gray-500">마감 예정인 지원사업이 없습니다.</p>
+                  <p className="text-xs text-gray-500">마감 예정인 {currentBoard === 'job' ? '구인공고가' : '지원사업이'} 없습니다.</p>
                 ) : (
                   <ul className="space-y-2">
                     {calendarEvents

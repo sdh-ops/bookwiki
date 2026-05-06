@@ -379,6 +379,11 @@ export default function PostDetailPage() {
             if (type === 'delete') {
                 if (confirm("댓글을 삭제하시겠습니까? (복원 가능)")) executeCommentDelete(comment.id);
             }
+        } else if (user && comment.user_id === user.id) {
+            // Owner can delete without password
+            if (type === 'delete') {
+                if (confirm("댓글을 삭제하시겠습니까? (복원 가능)")) executeCommentDelete(comment.id);
+            }
         } else {
             // Need password verification
             setCommentModal({ show: true, type, commentId: comment.id, comment });
