@@ -42,7 +42,7 @@ const fetchBestsellerData = unstable_cache(
     return data || [];
   },
   ["bestseller-snapshots"],
-  { revalidate: 3600 } // 1시간 캐시
+  { revalidate: 0 } // 캐시 비활성화 (개발/수정 중)
 );
 
 export async function GET(request) {
