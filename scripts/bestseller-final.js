@@ -558,130 +558,51 @@ async function scrapeRidi(category, retries = 3) {
   return [];
 }
 
-// 밀리 - Puppeteer + DOM (v3 전용)
+// 밀리 - API 방식 (전환됨)
 async function scrapeMillie(category, retries = 3) {
   console.log(`[Millie] ${category.name}...`);
 
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, '0');
+
   for (let attempt = 1; attempt <= retries; attempt++) {
-    const page = await browser.newPage();
-
     try {
-      await page.setUserAgent(HEADERS['User-Agent']);
-      // 밀리 v3 베스트셀러 주소 (밀리 랭킹 기준)
-      const url = `https://www.millie.co.kr/v3/today/more/best/ranking/${category.millie}`;
-      await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
-      await new Promise(r => setTimeout(r, 4000));
+      const url = `https://apis.millie.co.kr/public/rank/bookstore/?size=50&category=${category.millie}&year=${year}&month=${month}`;
 
-      // [핵심] "서점 베스트만" 필터 해제 (밀리 자체 랭킹으로 빈 곳 채우기)
-      try {
-        await page.evaluate(() => {
-          // '서점 베스트만' 텍스트를 포함하는 label 찾기
-          const labels = Array.from(document.querySelectorAll('label.mds-check-box'));
-          const filterLabel = labels.find(l => l.innerText.includes('서점 베스트만'));
-          
-          if (filterLabel) {
-            // mds-check-box--checked 클래스가 있으면 체크된 상태임
-            const isChecked = filterLabel.classList.contains('mds-check-box--checked');
-            if (isChecked) {
-              filterLabel.click();
-              console.log('  -> Unchecked "Only Bookstore Bestsellers"');
-            }
-          }
-        });
-        await new Promise(r => setTimeout(r, 2000));
-      } catch (e) {
-        console.log('  [!] Failed to uncheck Millie filter, proceeding...');
-      }
-
-      // 50개를 채우기 위해 스크롤 (밀리는 지연 로딩 발생 가능)
-      await page.evaluate(async () => {
-        for (let i = 0; i < 20; i++) {
-          window.scrollTo(0, document.body.scrollHeight);
-          await new Promise(r => setTimeout(r, 1200));
-          if (i % 4 === 0) {
-            window.scrollBy(0, -600);
-            await new Promise(r => setTimeout(r, 600));
-          }
-          const count = document.querySelectorAll('a.book-data, li.item').length;
-          if (count >= 60) break;
-        }
+      const response = await axios.get(url, {
+        headers: HEADERS,
+        timeout: 20000
       });
 
-      const books = await page.evaluate(() => {
-        const list = [];
-        const items = document.querySelectorAll('a.book-data, li.item');
-        
-        items.forEach((el, idx) => {
-          if (list.length >= 50) return;
-          
-          const titleEl = el.querySelector('p.title, .title');
-          const authorEl = el.querySelector('p.author, .author');
-          // 상세 페이지 링크 추출
-          let link = '';
-          if (el.tagName === 'A') {
-            link = el.href;
-          } else {
-            const a = el.querySelector('a');
-            if (a) link = a.href;
-          }
-          
-          if (titleEl) {
-            const title = titleEl.innerText.trim();
-            const author = authorEl ? authorEl.innerText.trim() : '알수없음';
-            
-            if (title && !list.some(b => b.title === title)) {
-              list.push({
-                rank: list.length + 1,
-                title,
-                author,
-                link,
-                publisher: null // 상세 페이지에서 가져올 예정
-              });
-            }
-          }
-        });
-        return list;
-      });
+      const data = response.data?.data || [];
 
-      console.log(`    [*] Found ${books.length} books in Millie list. Fetching detail info...`);
-
-      // 상세 페이지 순회 (출판사 정보 수집)
-      for (const book of books) {
-        if (!book.link) continue;
-        try {
-          const detailPage = await browser.newPage();
-          await detailPage.goto(book.link, { waitUntil: 'domcontentloaded', timeout: 15000 });
-          
-          const publisher = await detailPage.evaluate(() => {
-            const pubLink = document.querySelector('a[data-content-type="publisher_detail_link"]');
-            return pubLink ? pubLink.innerText.trim() : null;
-          });
-          
-          book.publisher = publisher || '밀리의서재'; // 최후의 수단으로만 사용
-          await detailPage.close();
-          // 매너 로드 (짧은 대기)
-          await new Promise(r => setTimeout(r, 200));
-        } catch (err) {
-          console.error(`      [!] Error fetching detail for ${book.title}:`, err.message);
-          book.publisher = '밀리의서재';
+      if (data.length === 0) {
+        if (attempt < retries) {
+          console.log(`  [!] Millie Retry ${attempt}/${retries}...`);
+          await new Promise(r => setTimeout(r, 2000));
+          continue;
         }
+        return [];
       }
 
-      await page.close();
+      const books = data.map((item, idx) => ({
+        rank: idx + 1,
+        title: item.book_name || '',
+        author: cleanAuthor(item.author || ''),
+        publisher: item.publisher_name || '밀리의서재',
+        cover_url: item.cover_image_url || null,
+        pub_date: item.publish_date || null
+      })).filter(b => isValidBook(b.title, b.author));
 
-      const cleanedBooks = books
-        .map(book => ({
-          ...book,
-          author: cleanAuthor(book.author)
-        }))
-        .filter(book => isValidBook(book.title, book.author));
+      console.log(`  [Millie] Found ${books.length} items via API.`);
+      return books;
 
-      if (cleanedBooks.length > 0) return cleanedBooks;
     } catch (e) {
       console.error(`  [!] Millie Attempt ${attempt} failed: ${e.message}`);
-      await page.close();
+      if (attempt === retries) return [];
+      await new Promise(r => setTimeout(r, 2000));
     }
-    await new Promise(r => setTimeout(r, 3000));
   }
 
   return [];

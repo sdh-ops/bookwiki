@@ -332,12 +332,6 @@ export default function PostDetailPage() {
         setReplyToAuthor('');
         await refreshComments();
 
-        // Update comment count on post
-        await supabase
-            .from("bw_posts")
-            .update({ comment_count: comments.length + 1 })
-            .eq("id", id);
-
         setSubmitting(false);
     };
 
@@ -379,7 +373,7 @@ export default function PostDetailPage() {
             if (type === 'delete') {
                 if (confirm("댓글을 삭제하시겠습니까? (복원 가능)")) executeCommentDelete(comment.id);
             }
-        } else if (user && comment.user_id === user.id) {
+        } else if (user && comment.user_id && String(comment.user_id) === String(user.id)) {
             // Owner can delete without password
             if (type === 'delete') {
                 if (confirm("댓글을 삭제하시겠습니까? (복원 가능)")) executeCommentDelete(comment.id);
@@ -411,18 +405,6 @@ export default function PostDetailPage() {
             
             // 서버와 상태 동기화
             await refreshComments();
-            
-            // 댓글 개수 업데이트 (최신 상태 기반)
-            const { data: latestComments } = await supabase
-                .from("bw_comments")
-                .select("id", { count: 'exact' })
-                .eq("post_id", id)
-                .eq("is_deleted", false);
-            
-            await supabase
-                .from("bw_posts")
-                .update({ comment_count: latestComments?.length || 0 })
-                .eq("id", id);
         }
     };
 
@@ -815,8 +797,8 @@ export default function PostDetailPage() {
                                 placeholder="닉네임"
                                 value={commentAuthor}
                                 onChange={(e) => !user && setCommentAuthor(e.target.value)}
-                                className={`w-full md:w-auto md:flex-1 max-w-xs px-2 py-1.5 border border-gray-200 rounded text-xs focus:outline-none focus:border-[#355E3B] ${user || !user ? 'bg-gray-100 cursor-not-allowed' : ''}`}
-                                readOnly={true}
+                                className={`w-full md:w-auto md:flex-1 max-w-xs px-2 py-1.5 border border-gray-200 rounded text-xs focus:outline-none focus:border-[#355E3B] ${user ? 'bg-gray-100 cursor-not-allowed' : 'bg-white'}`}
+                                readOnly={!!user}
                                 required
                             />
                             {!user && (
