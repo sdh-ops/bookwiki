@@ -335,26 +335,12 @@ export default function PostDetailPage() {
         setSubmitting(false);
     };
 
-    // 파일 다운로드 핸들러 (Cross-origin 파일 다운로드 강제)
-    const handleDownload = async (e, url, filename) => {
+    // 파일 다운로드 핸들러 (Proxy 서버를 통해 Cross-origin 다운로드 강제)
+    const handleDownload = (e, url, filename) => {
         e.preventDefault();
-        try {
-            const response = await fetch(url);
-            if (!response.ok) throw new Error('Network response was not ok');
-            const blob = await response.blob();
-            const blobUrl = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = blobUrl;
-            a.download = filename;
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
-            window.URL.revokeObjectURL(blobUrl);
-        } catch (error) {
-            console.error('Download error:', error);
-            // Fallback: fetch 실패 시 (CORS 등) 기존처럼 새 탭에서 열기
-            window.open(url, '_blank');
-        }
+        // API 프록시를 통해 다운로드 유도 (CORS 및 attachment 헤더 처리)
+        const downloadUrl = `/api/download?url=${encodeURIComponent(url)}&name=${encodeURIComponent(filename)}`;
+        window.location.href = downloadUrl;
     };
 
     // Reply to comment
