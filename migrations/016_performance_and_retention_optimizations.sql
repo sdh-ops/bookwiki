@@ -59,6 +59,7 @@ CREATE POLICY "bw_posts_standard_access" ON public.bw_posts
 DELETE FROM public.bw_page_views WHERE visited_at < NOW() - INTERVAL '3 months';
 SELECT cron.schedule('bw-page-views-retention', '0 0 * * *', $$DELETE FROM public.bw_page_views WHERE visited_at < NOW() - INTERVAL '3 months'$$);
 
--- bw_bestseller_snapshots (6 months)
-DELETE FROM public.bw_bestseller_snapshots WHERE snapshot_date < CURRENT_DATE - INTERVAL '6 months';
-SELECT cron.schedule('bw-bestseller-retention', '0 0 * * *', $$DELETE FROM public.bw_bestseller_snapshots WHERE snapshot_date < CURRENT_DATE - INTERVAL '6 months'$$);
+-- bw_bestseller_snapshots (Removed automatic deletion as per request)
+-- DELETE FROM public.bw_bestseller_snapshots WHERE snapshot_date < CURRENT_DATE - INTERVAL '6 months';
+-- SELECT cron.schedule('bw-bestseller-retention', '0 0 * * *', $$DELETE FROM public.bw_bestseller_snapshots WHERE snapshot_date < CURRENT_DATE - INTERVAL '6 months'$$);
+
