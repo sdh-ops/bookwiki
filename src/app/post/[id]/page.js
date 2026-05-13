@@ -335,6 +335,28 @@ export default function PostDetailPage() {
         setSubmitting(false);
     };
 
+    // 파일 다운로드 핸들러 (Cross-origin 파일 다운로드 강제)
+    const handleDownload = async (e, url, filename) => {
+        e.preventDefault();
+        try {
+            const response = await fetch(url);
+            if (!response.ok) throw new Error('Network response was not ok');
+            const blob = await response.blob();
+            const blobUrl = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = blobUrl;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            window.URL.revokeObjectURL(blobUrl);
+        } catch (error) {
+            console.error('Download error:', error);
+            // Fallback: fetch 실패 시 (CORS 등) 기존처럼 새 탭에서 열기
+            window.open(url, '_blank');
+        }
+    };
+
     // Reply to comment
     const handleReply = (commentId, authorName) => {
         setReplyToId(commentId);
@@ -714,9 +736,7 @@ export default function PostDetailPage() {
                                     <a
                                         key={i}
                                         href={att.url}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        download={att.name}
+                                        onClick={(e) => handleDownload(e, att.url, att.name)}
                                         className="flex items-center gap-3 p-3 bg-white rounded-lg border border-gray-100 hover:border-[#355E3B] hover:shadow-sm transition-all group"
                                     >
                                         <span className="text-xl flex-shrink-0">{att.type?.startsWith("image/") ? "🖼️" : "📄"}</span>
