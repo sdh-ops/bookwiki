@@ -275,27 +275,34 @@ function MyPageContent() {
         try {
             const username = user.user_metadata?.username;
 
-            // 1. bw_usernames에서 삭제
-            if (username) {
-                await supabase
-                    .from("bw_usernames")
-                    .delete()
-                    .eq("username", username);
-            }
-
-            // 2. 사용자의 게시글에서 user_id 제거 (게시글은 유지, 작성자 표시는 유지)
+            // 1. 사용자의 게시글에서 user_id 제거 (게시글은 유지, 작성자 표시는 유지)
             await supabase
                 .from("bw_posts")
                 .update({ user_id: null })
                 .eq("user_id", user.id);
 
-            // 3. 사용자의 댓글에서 user_id 제거
+            // 2. 사용자의 댓글에서 user_id 제거
             await supabase
                 .from("bw_comments")
                 .update({ user_id: null })
                 .eq("user_id", user.id);
 
-            // 4. Supabase Auth에서 로그아웃
+            // 3. Supabase Auth 계정 완전 삭제 (RPC 호출)
+            // 트리거(on_auth_user_deleted)가 bw_usernames 데이터 삭제를 자동으로 처리함
+            const { error: rpcError } = await supabase.rpc('delete_account');
+            
+            if (rpcError) {
+                console.error("RPC delete_account error:", rpcError);
+                // Fallback for when RPC is not available or fails
+                if (username) {
+                    await supabase
+                        .from("bw_usernames")
+                        .delete()
+                        .eq("username", username);
+                }
+            }
+
+            // 4. Supabase Auth에서 로그아웃 (클라이언트 세션 정리)
             await supabase.auth.signOut();
 
             alert("회원 탈퇴가 완료되었습니다. 이용해주셔서 감사합니다.");
