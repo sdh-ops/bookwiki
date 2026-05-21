@@ -189,12 +189,13 @@ function PostList() {
           .eq("is_deleted", false);
       } else if (currentBoard === "job") {
         // 1. 직접 작성글(다산북스 포함) 고정용 조회 - 필터 적용
+        // is_auto가 명시적으로 true인 경우 관리자가 자동 전환한 것이므로 다산북스라도 직접에서 제외
         let directQuery = supabase
           .from("bw_posts")
           .select("*")
           .eq("board_type", "job")
           .eq("is_deleted", false)
-          .or("is_auto.eq.false,is_auto.is.null,author.ilike.%다산북스%,title.ilike.%다산북스%");
+          .or("is_auto.eq.false,is_auto.is.null");
 
         // 2. 일반 글(스크래핑) 페이징 조회 - 직접 작성글 및 다산북스 글 제외
         query = supabase
