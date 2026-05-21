@@ -150,20 +150,41 @@ export default function PostDetailPage() {
         if (!isAdmin) return;
         const newHotStatus = !post.is_hot;
         if (!confirm(`게시글을 HOT게시판으로 ${newHotStatus ? '지정' : '해제'}하시겠습니까?`)) return;
-        
+
         try {
             const { error } = await supabase
                 .from('bw_posts')
-                .update({ 
+                .update({
                     is_hot: newHotStatus,
                     admin_hot_override: !newHotStatus // 해제할 때 오버라이드를 활성화하여 트리거 방지
                 })
                 .eq('id', id);
-            
+
             if (error) throw error;
-            
+
             setPost(prev => ({ ...prev, is_hot: newHotStatus }));
             alert(`HOT게시판에서 ${newHotStatus ? '지정' : '해제'} 처리되었습니다.`);
+        } catch (e) {
+            alert('상태 변경 중 오류가 발생했습니다: ' + e.message);
+        }
+    };
+
+    const handleToggleDirect = async () => {
+        if (!isAdmin) return;
+        const newIsAuto = !post.is_auto;
+        const label = newIsAuto ? '자동' : '직접';
+        if (!confirm(`게시글을 '${label}'으로 변경하시겠습니까?`)) return;
+
+        try {
+            const { error } = await supabase
+                .from('bw_posts')
+                .update({ is_auto: newIsAuto })
+                .eq('id', id);
+
+            if (error) throw error;
+
+            setPost(prev => ({ ...prev, is_auto: newIsAuto }));
+            alert(`'${label}'으로 변경되었습니다.`);
         } catch (e) {
             alert('상태 변경 중 오류가 발생했습니다: ' + e.message);
         }
@@ -558,6 +579,9 @@ export default function PostDetailPage() {
                                     <>
                                         <button onClick={handleToggleHot} className="text-red-500 hover:underline">
                                             {post.is_hot ? '🔥HOT해제' : '♨️HOT지정'}
+                                        </button>
+                                        <button onClick={handleToggleDirect} className="text-green-600 hover:underline">
+                                            {post.is_auto ? '✏️직접지정' : '🔄자동전환'}
                                         </button>
                                         <button onClick={() => handleManagement('move')} className="text-blue-500 hover:underline">이동</button>
                                     </>
