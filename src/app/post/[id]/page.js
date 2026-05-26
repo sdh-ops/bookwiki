@@ -413,26 +413,16 @@ export default function PostDetailPage() {
         }
     };
 
-    const executeCommentDelete = async (commentId) => {
-        const { data: { user: currentUser } } = await supabase.auth.getUser();
-
-        // 소프트 삭제: is_deleted = true로 설정
-        const { error } = await supabase
-            .from("bw_comments")
-            .update({
-                is_deleted: true,
-                deleted_at: new Date().toISOString(),
-                deleted_by: currentUser?.email || (isAdmin ? "admin" : "user")
-            })
-            .eq("id", commentId);
+    const executeCommentDelete = async (commentId, password = null) => {
+        const { error } = await supabase.rpc('soft_delete_comment', {
+            p_comment_id: commentId,
+            p_password: password
+        });
 
         if (error) {
             alert("삭제 실패: " + error.message);
         } else {
-            // 낙관적 UI 업데이트: 서버 응답을 기다리지 않고 즉시 상태에서 제거
             setComments(prev => prev.filter(c => c.id !== commentId));
-            
-            // 서버와 상태 동기화
             await refreshComments();
         }
     };
@@ -440,12 +430,9 @@ export default function PostDetailPage() {
     const handleCommentPasswordConfirm = async () => {
         const { type, comment } = commentModal;
 
-        if (commentTempPassword === comment.password) {
-            if (type === 'delete') {
-                await executeCommentDelete(comment.id);
-            }
-        } else {
-            alert("비밀번호가 틀렸습니다.");
+        if (type === 'delete') {
+            // 서버에서 비밀번호 검증 + 삭제를 한 번에 처리
+            await executeCommentDelete(comment.id, commentTempPassword);
         }
         setCommentModal({ show: false, type: '', commentId: null });
         setCommentTempPassword("");
@@ -498,18 +485,11 @@ export default function PostDetailPage() {
         }
     };
 
-    const executeDelete = async () => {
-        const { data: { user: currentUser } } = await supabase.auth.getUser();
-
-        // 소프트 삭제: is_deleted = true로 설정
-        const { error } = await supabase
-            .from("bw_posts")
-            .update({
-                is_deleted: true,
-                deleted_at: new Date().toISOString(),
-                deleted_by: currentUser?.email || (isAdmin ? "admin" : "user")
-            })
-            .eq("id", id);
+    const executeDelete = async (password = null) => {
+        const { error } = await supabase.rpc('soft_delete_post', {
+            p_post_id: id,
+            p_password: password
+        });
 
         if (error) {
             alert("삭제 실패: " + error.message);
@@ -520,9 +500,11 @@ export default function PostDetailPage() {
     };
 
     const handlePasswordConfirm = async () => {
-        if (post && tempPassword === post.password) {
-            if (managementType === 'delete') executeDelete();
-            else router.push(`/post/${id}/edit`);
+        if (managementType === 'delete') {
+            // 서버에서 비밀번호 검증 + 삭제를 한 번에 처리
+            await executeDelete(tempPassword);
+        } else if (post && tempPassword === post.password) {
+            router.push(`/post/${id}/edit`);
         } else {
             alert("비밀번호가 틀렸습니다.");
         }
