@@ -562,13 +562,9 @@ async function scrapeRidi(category, retries = 3) {
 async function scrapeMillie(category, retries = 3) {
   console.log(`[Millie] ${category.name}...`);
 
-  const today = new Date();
-  const year = today.getFullYear();
-  const month = String(today.getMonth() + 1).padStart(2, '0');
-
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
-      const url = `https://apis.millie.co.kr/public/rank/bookstore/?size=50&category=${category.millie}&year=${year}&month=${month}`;
+      const url = `https://apis.millie.co.kr/public/rank/millie/?adult=0&size=100&category=${category.millie}&range=day&book_type_code=01`;
 
       const response = await axios.get(url, {
         headers: HEADERS,

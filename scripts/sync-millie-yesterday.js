@@ -34,27 +34,19 @@ const COMMON_CATEGORIES = [
   { name: '종합', millie: 'total' },
   { name: '소설', millie: 'story' },
   { name: '에세이/시', millie: 'poem' },
-  { name: '인문', millie: 'humanities' },
-  { name: '경제경영', millie: 'economy' },
+  { name: '인문/교양', millie: 'humanities' },
+  { name: '경제/경영', millie: 'economy' },
   { name: '자기계발', millie: 'self-development' },
-  { name: '사회과학', millie: 'humanities' },
-  { name: '역사', millie: 'humanities' },
-  { name: '예술', millie: 'hobby' },
-  { name: '종교', millie: 'humanities' },
-  { name: '과학', millie: 'hobby' },
-  { name: '기술/IT', millie: 'hobby' },
-  { name: '만화', millie: 'story' },
-  { name: '여행', millie: 'hobby' },
-  { name: '건강', millie: 'hobby' }
+  { name: '취미/실용', millie: 'hobby' },
+  { name: '어린이/청소년', millie: 'child' },
+  { name: '매거진', millie: 'magazine' }
 ];
 
-async function scrapeMillie(category, dateObj) {
+async function scrapeMillie(category) {
   console.log(`[Millie] ${category.name}...`);
-  const year = dateObj.getFullYear();
-  const month = String(dateObj.getMonth() + 1).padStart(2, '0');
 
   try {
-    const url = `https://apis.millie.co.kr/public/rank/bookstore/?size=50&category=${category.millie}&year=${year}&month=${month}`;
+    const url = `https://apis.millie.co.kr/public/rank/millie/?adult=0&size=100&category=${category.millie}&range=day&book_type_code=01`;
     const response = await axios.get(url, { headers: HEADERS, timeout: 20000 });
     const data = response.data?.data || [];
     return data.map((item, idx) => ({
@@ -77,7 +69,7 @@ async function runSyncForDate(targetDate) {
   console.log(`Starting Millie sync for ${snapshotDate}`);
 
   for (const cat of COMMON_CATEGORIES) {
-    const books = await scrapeMillie(cat, dateObj);
+    const books = await scrapeMillie(cat);
     console.log(`  Found ${books.length} books.`);
     
     let successCount = 0;
