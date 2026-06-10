@@ -741,13 +741,21 @@ async function sync(platform, books, categoryName, targetDate = null) {
       })
       .filter(Boolean);
 
-    if (snapshots.length > 0) {
+    // book_id 중복 제거 (ISBN 충돌로 여러 책이 같은 book_id로 매핑될 수 있음)
+    const seenBookIds = new Set();
+    const dedupedSnapshots = snapshots.filter(s => {
+      if (seenBookIds.has(s.book_id)) return false;
+      seenBookIds.add(s.book_id);
+      return true;
+    });
+
+    if (dedupedSnapshots.length > 0) {
       const { error: snapError } = await supabase.from('bw_bestseller_snapshots')
-        .upsert(snapshots, { onConflict: 'book_id,platform,period_type,snapshot_date,common_category', ignoreDuplicates: false });
+        .upsert(dedupedSnapshots, { onConflict: 'book_id,platform,period_type,snapshot_date,common_category', ignoreDuplicates: false });
       if (snapError) {
         console.error(`  [!] Snapshot upsert error for ${platform}/${categoryName}:`, snapError.message);
       } else {
-        console.log(`  [✓] ${platform}/${categoryName}: ${snapshots.length} snapshots saved.`);
+        console.log(`  [✓] ${platform}/${categoryName}: ${dedupedSnapshots.length} snapshots saved.`);
       }
     } else {
       console.warn(`  [!] ${platform}/${categoryName}: 0 snapshots built (upsertedBooks=${upsertedBooks.length}, enrichedBooks=${enrichedBooks.length})`);
