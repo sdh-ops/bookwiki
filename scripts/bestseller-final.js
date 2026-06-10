@@ -742,8 +742,15 @@ async function sync(platform, books, categoryName, targetDate = null) {
       .filter(Boolean);
 
     if (snapshots.length > 0) {
-      await supabase.from('bw_bestseller_snapshots')
+      const { error: snapError } = await supabase.from('bw_bestseller_snapshots')
         .upsert(snapshots, { onConflict: 'book_id,platform,period_type,snapshot_date,common_category', ignoreDuplicates: false });
+      if (snapError) {
+        console.error(`  [!] Snapshot upsert error for ${platform}/${categoryName}:`, snapError.message);
+      } else {
+        console.log(`  [✓] ${platform}/${categoryName}: ${snapshots.length} snapshots saved.`);
+      }
+    } else {
+      console.warn(`  [!] ${platform}/${categoryName}: 0 snapshots built (upsertedBooks=${upsertedBooks.length}, enrichedBooks=${enrichedBooks.length})`);
     }
   } catch (err) {
     console.error(`  [!] Sync error for ${platform}/${categoryName}:`, err.message);
