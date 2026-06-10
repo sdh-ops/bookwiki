@@ -558,50 +558,72 @@ async function scrapeRidi(category, retries = 3) {
   return [];
 }
 
-// 밀리 - API 방식 (전환됨)
-async function scrapeMillie(category, retries = 3) {
-  console.log(`[Millie] ${category.name}...`);
+// 밀리 - 브라우저에서 auth 헤더 1회 캡처 후 재사용 (402 우회)
+let millieAuthHeaders = null;
 
-  for (let attempt = 1; attempt <= retries; attempt++) {
-    try {
-      const url = `https://apis.millie.co.kr/public/rank/millie/?adult=0&size=100&category=${category.millie}&range=day&book_type_code=01`;
+async function initMillieHeaders() {
+  if (millieAuthHeaders) return millieAuthHeaders;
 
-      const response = await axios.get(url, {
-        headers: HEADERS,
-        timeout: 20000
+  const page = await browser.newPage();
+  try {
+    await new Promise((resolve, reject) => {
+      const timer = setTimeout(() => resolve(null), 30000);
+
+      page.on('request', (req) => {
+        const url = req.url();
+        if (url.includes('apis.millie.co.kr') && url.includes('/rank/millie/')) {
+          millieAuthHeaders = { ...req.headers() };
+          clearTimeout(timer);
+          resolve(millieAuthHeaders);
+        }
       });
 
-      const data = response.data?.data || [];
-
-      if (data.length === 0) {
-        if (attempt < retries) {
-          console.log(`  [!] Millie Retry ${attempt}/${retries}...`);
-          await new Promise(r => setTimeout(r, 2000));
-          continue;
-        }
-        return [];
-      }
-
-      const books = data.map((item, idx) => ({
-        rank: idx + 1,
-        title: item.book_name || '',
-        author: cleanAuthor(item.author || ''),
-        publisher: item.publisher_name || '밀리의서재',
-        cover_url: item.cover_image_url || null,
-        pub_date: item.publish_date || null
-      })).filter(b => isValidBook(b.title, b.author));
-
-      console.log(`  [Millie] Found ${books.length} items via API.`);
-      return books;
-
-    } catch (e) {
-      console.error(`  [!] Millie Attempt ${attempt} failed: ${e.message}`);
-      if (attempt === retries) return [];
-      await new Promise(r => setTimeout(r, 2000));
-    }
+      page.goto('https://www.millie.co.kr/v4/now/millie-ranking?nav_hidden=y', {
+        waitUntil: 'networkidle2',
+        timeout: 30000
+      }).catch((e) => { clearTimeout(timer); reject(e); });
+    });
+  } catch (e) {
+    console.error('  [!] Millie header init failed:', e.message);
+  } finally {
+    await page.close();
   }
 
-  return [];
+  if (millieAuthHeaders) {
+    console.log('  [Millie] Auth headers captured from browser.');
+  } else {
+    console.warn('  [!] Millie: could not capture auth headers.');
+  }
+  return millieAuthHeaders;
+}
+
+async function scrapeMillie(category) {
+  console.log(`[Millie] ${category.name}...`);
+
+  const headers = await initMillieHeaders();
+  if (!headers) return [];
+
+  try {
+    const url = `https://apis.millie.co.kr/public/rank/millie/?adult=0&size=100&category=${category.millie}&range=day&book_type_code=01`;
+    const response = await axios.get(url, { headers, timeout: 20000 });
+    const data = response.data?.data || [];
+
+    const books = data.map((item, idx) => ({
+      rank: idx + 1,
+      title: item.book_name || '',
+      author: cleanAuthor(item.author || ''),
+      publisher: item.publisher_name || '밀리의서재',
+      cover_url: item.cover_image_url || null,
+      pub_date: item.publish_date || null
+    })).filter(b => isValidBook(b.title, b.author));
+
+    console.log(`  [Millie] Found ${books.length} items.`);
+    return books;
+
+  } catch (e) {
+    console.error(`  [!] Millie ${category.name} failed: ${e.message}`);
+    return [];
+  }
 }
 
 async function sync(platform, books, categoryName, targetDate = null) {
