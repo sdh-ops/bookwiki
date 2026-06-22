@@ -386,64 +386,78 @@ async function scrapeKyobo(category, retries = 3) {
         'Referer': 'https://www.google.com/'
       });
 
-      console.log(`  -> Navigating to: ${url}`);
-      await page.goto(url, { 
-        waitUntil: 'networkidle2', 
-        timeout: 60000 
-      });
-      
-      // 50개를 채우기 위한 스크롤링 (스크롤 횟수 증가)
-      await page.evaluate(async () => {
-        for (let i = 0; i < 5; i++) {
-          window.scrollBy(0, 1200);
-          await new Promise(r => setTimeout(r, 1500));
+      // 50위까지 채우기 위해 페이지네이션(?page=N)으로 누적 수집.
+      // ?page 미지원이면 2페이지부터 새 항목 0 → 자동 중단(기존 동작과 동일, 무회귀).
+      const baseUrl = url;
+      const TARGET = 50;
+      const MAX_PAGES = 4;
+      const byKey = new Map(); // '제목|저자' → 책 (페이지 넘기며 중복 제거)
+
+      for (let p = 1; p <= MAX_PAGES; p++) {
+        const pageUrl = p === 1 ? baseUrl : `${baseUrl}?page=${p}`;
+        console.log(`  -> Navigating to: ${pageUrl}`);
+        try {
+          await page.goto(pageUrl, { waitUntil: 'networkidle2', timeout: 60000 });
+        } catch (navErr) {
+          console.log(`  [!] Kyobo page ${p} 이동 실패: ${navErr.message}`);
+          break;
         }
-      });
 
-      // 도서 리스트 로딩 대기
-      await page.waitForSelector('li.mt-9', { timeout: 15000 }).catch(() => null);
+        await page.waitForSelector('li.mt-9', { timeout: 15000 }).catch(() => null);
 
-      const scrapedBooks = await page.evaluate(() => {
-        const list = [];
-        const items = document.querySelectorAll('li.mt-9');
-        
-        items.forEach((el, idx) => {
-          // 타이틀 찾기: a.prod_link 중 line-clamp-2 클래스가 있거나 텍스트가 "새창보기"가 아닌 요소
-          const links = Array.from(el.querySelectorAll('a.prod_link'));
-          const titleEl = links.find(a => {
-            const text = a.innerText.trim();
-            return text.length > 0 && !text.includes('새창보기') && !text.includes('미리보기');
-          });
-          
-          // 정보(저자/출판사/날짜) 찾기: 내부 div 중 '·' 가 2개 이상 포함된 것 찾기
-          const divs = Array.from(el.querySelectorAll('div'));
-          const infoEl = divs.find(d => d.innerText.includes('·') && d.innerText.length < 200 && d.innerText.split('·').length >= 2);
-          const infoText = infoEl ? infoEl.innerText.trim() : '';
-          
-          if (titleEl && infoText) {
-            const parts = infoText.split('·').map(p => p.trim());
-            const author = parts[0] || '알수없음';
-            const pub = parts[1] || '알수없음';
-            const dateStr = parts[2] || '';
-            
-            const rankEl = el.querySelector('.rank');
-            const rank = rankEl ? parseInt(rankEl.innerText, 10) : (idx + 1);
-
-            list.push({
-              rank: rank,
-              title: titleEl.innerText.trim(),
-              author: author,
-              publisher: pub,
-              pub_date: dateStr
-            });
+        // 지연 로딩 대비: li.mt-9 개수가 안정될 때까지 스크롤
+        await page.evaluate(async () => {
+          let prev = 0, stable = 0;
+          for (let i = 0; i < 10; i++) {
+            window.scrollTo(0, document.body.scrollHeight);
+            await new Promise(r => setTimeout(r, 1000));
+            const n = document.querySelectorAll('li.mt-9').length;
+            if (n === prev) { if (++stable >= 2) break; } else { stable = 0; prev = n; }
           }
         });
-        return list;
-      });
+
+        const pageBooks = await page.evaluate(() => {
+          const list = [];
+          document.querySelectorAll('li.mt-9').forEach((el) => {
+            const links = Array.from(el.querySelectorAll('a.prod_link'));
+            const titleEl = links.find(a => {
+              const text = a.innerText.trim();
+              return text.length > 0 && !text.includes('새창보기') && !text.includes('미리보기');
+            });
+            const divs = Array.from(el.querySelectorAll('div'));
+            const infoEl = divs.find(d => d.innerText.includes('·') && d.innerText.length < 200 && d.innerText.split('·').length >= 2);
+            const infoText = infoEl ? infoEl.innerText.trim() : '';
+            if (titleEl && infoText) {
+              const parts = infoText.split('·').map(p => p.trim());
+              list.push({
+                title: titleEl.innerText.trim(),
+                author: parts[0] || '알수없음',
+                publisher: parts[1] || '알수없음',
+                pub_date: parts[2] || ''
+              });
+            }
+          });
+          return list;
+        });
+
+        let added = 0;
+        for (const b of pageBooks) {
+          const key = `${b.title}|${b.author}`;
+          if (!byKey.has(key)) {
+            byKey.set(key, { ...b, rank: byKey.size + 1 }); // 누적 순서 = 전역 순위
+            added++;
+          }
+        }
+        console.log(`  [Kyobo] page ${p}: +${added} (누적 ${byKey.size})`);
+
+        if (added === 0) break;          // 새 항목 없음 → 페이지네이션 끝/미지원
+        if (byKey.size >= TARGET) break; // 목표 도달
+      }
 
       await page.close();
 
-      if (scrapedBooks.length > 0) {
+      if (byKey.size > 0) {
+        const scrapedBooks = [...byKey.values()].slice(0, TARGET);
         console.log(`  [Kyobo] Found ${scrapedBooks.length} items.`);
         return scrapedBooks.map(b => ({
           ...b,
