@@ -42,7 +42,10 @@ const fetchBestsellerData = unstable_cache(
     return data || [];
   },
   ["bestseller-snapshots"],
-  { revalidate: false } // 캐시 일시 비활성화 (서버 복구 후 최신 데이터 반영을 위해)
+  // 베스트셀러는 하루 1회(+수동 재실행) 갱신되므로 30분마다 캐시 만료.
+  // 주의: revalidate:false 는 "비활성화"가 아니라 "영구 캐시"라 DB가 갱신돼도
+  // 옛 응답을 계속 반환하므로 사용 금지.
+  { revalidate: 1800 }
 );
 
 export async function GET(request) {
