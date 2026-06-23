@@ -442,6 +442,10 @@ async function scrapeKyobo(category, retries = 3) {
 
         let added = 0;
         for (const b of pageBooks) {
+          // 교보 배지 접두어 제거(예약판매/NEW/새창보기/미리보기/신간) — 정상 도서가
+          // 굿즈 블랙리스트('예약판매' 등)에 걸려 삭제되던 문제 해결. 배지는 중첩될 수 있어 반복 제거.
+          let prev;
+          do { prev = b.title; b.title = b.title.replace(/^\s*(예약판매|새창보기|미리보기|NEW|신간)\s*/i, '').trim(); } while (b.title !== prev);
           const key = `${b.title}|${b.author}`;
           if (!byKey.has(key)) {
             byKey.set(key, { ...b, rank: byKey.size + 1 }); // 누적 순서 = 전역 순위
