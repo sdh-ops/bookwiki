@@ -41,7 +41,9 @@ const fetchBestsellerData = unstable_cache(
     if (error) throw new Error(error.message);
     return data || [];
   },
-  ["bestseller-snapshots"],
+  // keyParts 버전: revalidate:false 로 영구 캐시된 옛 엔트리는 배포해도
+  // 자동으로 안 지워지므로(키 동일 시 잔존), 버전 접미사를 올려 강제 무효화한다.
+  ["bestseller-snapshots", "v2"],
   // 베스트셀러는 하루 1회(+수동 재실행) 갱신되므로 30분마다 캐시 만료.
   // 주의: revalidate:false 는 "비활성화"가 아니라 "영구 캐시"라 DB가 갱신돼도
   // 옛 응답을 계속 반환하므로 사용 금지.
@@ -61,7 +63,7 @@ export async function GET(request) {
     const data = await fetchBestsellerData(category, date);
     return NextResponse.json(data, {
       headers: {
-        "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=86400",
+        "Cache-Control": "public, s-maxage=1800, stale-while-revalidate=86400",
       },
     });
   } catch (error) {
