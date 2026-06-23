@@ -283,6 +283,11 @@ export default function PostDetailPage() {
 
     const handleCommentSubmit = async (e) => {
         e.preventDefault();
+        // 구인구직 게시판은 댓글 비허용
+        if (post?.board_type === "job") {
+            alert("구인구직 게시판은 댓글을 받지 않습니다.");
+            return;
+        }
         if (!newComment || !commentAuthor) {
             alert("이름과 내용을 입력해주세요.");
             return;
@@ -723,25 +728,46 @@ export default function PostDetailPage() {
                     {post.attachments?.length > 0 && (
                         <div className="mb-8 p-4 bg-gray-50 rounded-xl border border-gray-100">
                             <h4 className="text-xs font-bold text-gray-500 mb-3 uppercase tracking-wide">첨부파일 ({post.attachments.length})</h4>
-                            <div className="space-y-2">
+                            <div className="space-y-3">
                                 {post.attachments.map((att, i) => (
-                                    <a
-                                        key={i}
-                                        href={att.url}
-                                        onClick={(e) => handleDownload(e, att.url, att.name)}
-                                        className="flex items-center gap-3 p-3 bg-white rounded-lg border border-gray-100 hover:border-[#355E3B] hover:shadow-sm transition-all group"
-                                    >
-                                        <span className="text-xl flex-shrink-0">{att.type?.startsWith("image/") ? "🖼️" : "📄"}</span>
-                                        <div className="flex-1 min-w-0">
-                                            <p className="text-sm font-medium text-gray-700 truncate group-hover:text-[#355E3B]">{att.name}</p>
-                                            <p className="text-xs text-gray-400">
-                                                {att.size < 1024 ? att.size + " B"
-                                                    : att.size < 1024 * 1024 ? (att.size / 1024).toFixed(1) + " KB"
-                                                    : (att.size / (1024 * 1024)).toFixed(1) + " MB"}
-                                            </p>
-                                        </div>
-                                        <span className="text-xs text-gray-400 group-hover:text-[#355E3B] flex-shrink-0">↓ 다운로드</span>
-                                    </a>
+                                    att.type?.startsWith("image/") ? (
+                                        <figure key={i} className="bg-white rounded-lg border border-gray-100 overflow-hidden">
+                                            <a href={att.url} target="_blank" rel="noopener noreferrer" title="원본 크기로 보기">
+                                                <img
+                                                    src={att.url}
+                                                    alt={att.name}
+                                                    loading="lazy"
+                                                    className="w-full h-auto max-h-[600px] object-contain bg-gray-50"
+                                                />
+                                            </a>
+                                            <figcaption className="flex items-center justify-between px-3 py-2 text-xs text-gray-400 border-t border-gray-100">
+                                                <span className="truncate">{att.name}</span>
+                                                <a
+                                                    href={att.url}
+                                                    onClick={(e) => handleDownload(e, att.url, att.name)}
+                                                    className="flex-shrink-0 ml-2 hover:text-[#355E3B]"
+                                                >↓ 다운로드</a>
+                                            </figcaption>
+                                        </figure>
+                                    ) : (
+                                        <a
+                                            key={i}
+                                            href={att.url}
+                                            onClick={(e) => handleDownload(e, att.url, att.name)}
+                                            className="flex items-center gap-3 p-3 bg-white rounded-lg border border-gray-100 hover:border-[#355E3B] hover:shadow-sm transition-all group"
+                                        >
+                                            <span className="text-xl flex-shrink-0">📄</span>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-sm font-medium text-gray-700 truncate group-hover:text-[#355E3B]">{att.name}</p>
+                                                <p className="text-xs text-gray-400">
+                                                    {att.size < 1024 ? att.size + " B"
+                                                        : att.size < 1024 * 1024 ? (att.size / 1024).toFixed(1) + " KB"
+                                                        : (att.size / (1024 * 1024)).toFixed(1) + " MB"}
+                                                </p>
+                                            </div>
+                                            <span className="text-xs text-gray-400 group-hover:text-[#355E3B] flex-shrink-0">↓ 다운로드</span>
+                                        </a>
+                                    )
                                 ))}
                             </div>
                         </div>
@@ -785,6 +811,12 @@ export default function PostDetailPage() {
                         ))}
                     </div>
 
+                    {post.board_type === "job" ? (
+                    <div className="bg-gray-50 border border-gray-200 rounded p-6 text-center">
+                        <p className="text-sm text-gray-500">구인구직 게시판은 댓글을 받지 않습니다.</p>
+                        <p className="text-xs text-gray-400 mt-1">문의는 본문의 연락처를 이용해 주세요.</p>
+                    </div>
+                    ) : (
                     <form onSubmit={handleCommentSubmit} className="bg-white border border-gray-200 rounded p-4">
                         {replyToId && (
                             <div className="mb-3 p-2 bg-blue-50 border border-blue-200 rounded flex items-center justify-between">
@@ -844,6 +876,7 @@ export default function PostDetailPage() {
                             </button>
                         </div>
                     </form>
+                    )}
                 </div>
             </article>
 
