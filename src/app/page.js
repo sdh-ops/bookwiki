@@ -4,6 +4,7 @@ import { useEffect, useState, Suspense } from "react";
 import { supabase } from "@/lib/supabase";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import Banner from "@/components/Banner";
 
 // Board type to Korean name mapping
 const boardTypeNames = {
@@ -479,11 +480,7 @@ function PostList() {
   return (
     <div className="flex flex-col min-h-screen pt-4">
       {/* Banner */}
-      <div className="w-full max-w-6xl mx-auto px-4 mt-4">
-        <div className="w-full bg-black h-20 md:h-24 rounded flex items-center justify-center text-white text-sm">
-          광고 배너 영역
-        </div>
-      </div>
+      <Banner placement="home_top" />
 
       {/* Main Content */}
       <section className="w-full max-w-6xl mx-auto px-4 py-6 grid grid-cols-1 lg:grid-cols-4 gap-6">
