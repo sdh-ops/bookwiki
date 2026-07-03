@@ -311,14 +311,27 @@ export default function ManageTab() {
         {/* 이미지 */}
         <div>
           <span className="text-sm font-bold text-gray-600">배너 이미지 *</span>
-          <div className="mt-1 flex flex-wrap items-center gap-3">
+          <div className="mt-1 flex flex-wrap items-center gap-3 border border-dashed border-gray-300 rounded-lg p-4 bg-gray-50">
+            <label
+              htmlFor="banner-image-upload"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-[#2c3e50] text-white rounded font-bold text-sm cursor-pointer hover:bg-[#34495e] transition"
+            >
+              🖼️ 이미지 파일 선택
+            </label>
             <input
+              id="banner-image-upload"
               type="file"
               accept="image/*"
               onChange={handleImageUpload}
-              className="text-sm"
+              className="hidden"
             />
-            {uploading && <span className="text-xs text-gray-400">업로드 중...</span>}
+            <span className="text-xs text-gray-500">
+              {uploading
+                ? "업로드 중..."
+                : form.image_url
+                ? "이미지가 등록되었습니다"
+                : "JPG, PNG, GIF, WEBP · 5MB 이하"}
+            </span>
           </div>
           <input
             type="text"
@@ -328,7 +341,7 @@ export default function ManageTab() {
             className="mt-2 w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:border-[#2c3e50]"
           />
           {form.image_url && (
-            <div className="mt-3 w-full max-w-2xl bg-gray-100 rounded overflow-hidden">
+            <div className="mt-3 w-full max-w-2xl bg-gray-100 rounded overflow-hidden border border-gray-200">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={form.image_url}
