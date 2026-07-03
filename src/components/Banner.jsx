@@ -20,7 +20,7 @@ function getSessionId() {
  * - 노출 시 impression, 클릭 시 click 이벤트를 bw_banner_events 에 기록
  * - 게재중 배너가 없으면 아무것도 렌더링하지 않음
  */
-export default function Banner({ placement = "home_top", className = "" }) {
+export default function Banner({ placement = "home_top", className }) {
   const [banner, setBanner] = useState(null);
   const pathname = usePathname();
   const impressionTracked = useRef(false);
@@ -36,6 +36,7 @@ export default function Banner({ placement = "home_top", className = "" }) {
         .select("id, name, image_url, link_url")
         .eq("placement", placement)
         .eq("is_active", true)
+        .eq("is_deleted", false)
         .or(`start_date.is.null,start_date.lte.${today}`)
         .or(`end_date.is.null,end_date.gte.${today}`)
         .order("sort_order", { ascending: true });
@@ -99,7 +100,7 @@ export default function Banner({ placement = "home_top", className = "" }) {
   if (!banner) return null;
 
   return (
-    <div className={`w-full max-w-6xl mx-auto px-4 mt-4 ${className}`}>
+    <div className={className ?? "w-full max-w-6xl mx-auto px-4 mt-4"}>
       <a
         href={banner.link_url}
         onClick={handleClick}

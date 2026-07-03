@@ -7,6 +7,7 @@ import Link from "next/link";
 import DOMPurify from "isomorphic-dompurify";
 import PollWidget from "@/components/PollWidget";
 import MentionInput from "@/components/MentionInput";
+import Banner from "@/components/Banner";
 
 // Board type to Korean name mapping
 const boardTypeNames = {
@@ -599,6 +600,8 @@ export default function PostDetailPage() {
                         </div>
                     </div>
                 </div>
+
+                <Banner placement="post_detail" className="w-full mb-6" />
 
                 <div className="min-h-[300px] text-gray-800 leading-relaxed text-sm">
                     <style jsx global>{`
