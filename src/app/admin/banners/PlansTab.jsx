@@ -9,10 +9,30 @@ const EMPTY_PLAN = {
   name: "",
   placements: [],
   duration_days: 30,
-  price_krw: "",
+  prices: {}, // { placementId: 금액 } — 총액은 이 값들의 합
   is_active: true,
   sort_order: 0,
 };
+
+/**
+ * 저장된 요금제를 폼의 위치별 단가 형태로 되돌린다.
+ * placement_prices 가 없는 구 데이터는 총액을 위치 수로 균등 분배해서 채운다
+ * (나머지는 첫 위치에 몰아 합계가 총액과 정확히 맞게).
+ */
+function toPriceMap(plan) {
+  const places = plan.placements || [];
+  if (plan.placement_prices) {
+    return Object.fromEntries(places.map((p) => [p, plan.placement_prices[p] ?? 0]));
+  }
+  const n = places.length || 1;
+  const base = Math.floor((plan.price_krw || 0) / n);
+  const remainder = (plan.price_krw || 0) - base * n;
+  return Object.fromEntries(places.map((p, i) => [p, base + (i === 0 ? remainder : 0)]));
+}
+
+function sumPrices(prices, placements) {
+  return placements.reduce((s, p) => s + (parseInt(prices[p]) || 0), 0);
+}
 
 export default function PlansTab() {
   const [plans, setPlans] = useState([]);
@@ -47,7 +67,7 @@ export default function PlansTab() {
       name: p.name,
       placements: p.placements || [],
       duration_days: p.duration_days,
-      price_krw: p.price_krw,
+      prices: toPriceMap(p),
       is_active: p.is_active,
       sort_order: p.sort_order || 0,
     });
@@ -55,26 +75,43 @@ export default function PlansTab() {
   }
 
   function togglePlacement(id) {
-    setForm((f) => ({
-      ...f,
-      placements: f.placements.includes(id)
-        ? f.placements.filter((x) => x !== id)
-        : [...f.placements, id],
-    }));
+    setForm((f) => {
+      const on = f.placements.includes(id);
+      const placements = on ? f.placements.filter((x) => x !== id) : [...f.placements, id];
+      const prices = { ...f.prices };
+      if (on) delete prices[id];
+      else if (prices[id] === undefined) prices[id] = "";
+      return { ...f, placements, prices };
+    });
+  }
+
+  function setPrice(id, value) {
+    setForm((f) => ({ ...f, prices: { ...f.prices, [id]: value } }));
   }
 
   async function handleSave(e) {
     e.preventDefault();
-    if (!form.name.trim() || form.placements.length === 0 || !form.price_krw) {
-      alert("요금제 이름, 노출 위치, 계약 금액은 필수입니다.");
+    if (!form.name.trim() || form.placements.length === 0) {
+      alert("요금제 이름과 노출 위치는 필수입니다.");
       return;
     }
+    const missing = form.placements.filter((p) => !(parseInt(form.prices[p]) > 0));
+    if (missing.length) {
+      alert(`${missing.map(placementLabel).join(", ")} 의 금액을 입력해주세요.`);
+      return;
+    }
+
     setSaving(true);
+    const placementPrices = Object.fromEntries(
+      form.placements.map((p) => [p, parseInt(form.prices[p]) || 0])
+    );
     const payload = {
       name: form.name.trim(),
       placements: form.placements,
       duration_days: parseInt(form.duration_days) || 30,
-      price_krw: parseInt(form.price_krw) || 0,
+      // price_krw 는 계속 "총액". 목록·가이드·매출 집계가 이 값을 본다.
+      price_krw: sumPrices(form.prices, form.placements),
+      placement_prices: placementPrices,
       is_active: form.is_active,
       sort_order: parseInt(form.sort_order) || 0,
       updated_at: new Date().toISOString(),
@@ -139,38 +176,65 @@ export default function PlansTab() {
         </label>
 
         <div>
-          <span className="text-sm font-bold text-gray-600">노출 위치 * (복수 선택 시 패키지 요금제)</span>
-          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-2">
-            {PLACEMENTS.map((p) => (
-              <label key={p.id} className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={form.placements.includes(p.id)}
-                  onChange={() => togglePlacement(p.id)}
-                />
-                {p.name}
-              </label>
-            ))}
+          <span className="text-sm font-bold text-gray-600">
+            노출 위치 · 위치별 단가 * <span className="font-normal text-gray-400">(복수 선택 시 패키지 요금제)</span>
+          </span>
+          <div className="mt-2 space-y-2">
+            {PLACEMENTS.map((p) => {
+              const on = form.placements.includes(p.id);
+              return (
+                <div
+                  key={p.id}
+                  className={`flex flex-wrap items-center gap-3 rounded border px-3 py-2 transition ${
+                    on ? "border-[#2c3e50] bg-gray-50" : "border-gray-200"
+                  }`}
+                >
+                  <label className="flex items-center gap-2 text-sm min-w-[180px] cursor-pointer">
+                    <input type="checkbox" checked={on} onChange={() => togglePlacement(p.id)} />
+                    <span className={on ? "font-bold text-gray-800" : "text-gray-500"}>{p.name}</span>
+                  </label>
+                  {on && (
+                    <label className="flex items-center gap-2 text-xs text-gray-500">
+                      단가
+                      <input
+                        type="number"
+                        min="0"
+                        value={form.prices[p.id] ?? ""}
+                        onChange={(e) => setPrice(p.id, e.target.value)}
+                        placeholder="예: 400000"
+                        className="w-36 px-3 py-1.5 border border-gray-300 rounded text-sm text-right focus:outline-none focus:border-[#2c3e50]"
+                      />
+                      원
+                    </label>
+                  )}
+                </div>
+              );
+            })}
           </div>
+          {form.placements.length > 0 && (
+            <p className="mt-2 text-xs text-gray-600">
+              총 계약 금액{" "}
+              <strong className="text-gray-900">
+                {sumPrices(form.prices, form.placements).toLocaleString()}원
+              </strong>{" "}
+              (VAT 별도)
+              {form.placements.length > 1 && (
+                <span className="text-gray-400">
+                  {" "}
+                  — 저장 시 배너가 위치별로 나뉘어 등록되고, 각 위치에 위 단가가 그대로 기록됩니다
+                </span>
+              )}
+            </p>
+          )}
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <label className="block">
             <span className="text-sm font-bold text-gray-600">게재 기간 (일)</span>
             <input
               type="number"
               value={form.duration_days}
               onChange={(e) => setForm({ ...form, duration_days: e.target.value })}
-              className="mt-1 w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-[#2c3e50]"
-            />
-          </label>
-          <label className="block">
-            <span className="text-sm font-bold text-gray-600">계약 금액 (원, VAT 별도) *</span>
-            <input
-              type="number"
-              value={form.price_krw}
-              onChange={(e) => setForm({ ...form, price_krw: e.target.value })}
-              placeholder="예: 400000"
               className="mt-1 w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-[#2c3e50]"
             />
           </label>
@@ -240,8 +304,15 @@ export default function PlansTab() {
                     </span>
                   </div>
                   <p className="text-xs text-gray-500 mt-0.5">
-                    {p.placements.map(placementLabel).join(" + ")} · {p.duration_days}일 ·{" "}
-                    {Number(p.price_krw).toLocaleString()}원 (VAT 별도)
+                    {p.duration_days}일 · 총 {Number(p.price_krw).toLocaleString()}원 (VAT 별도)
+                  </p>
+                  <p className="text-[11px] text-gray-400 mt-0.5">
+                    {p.placements
+                      .map((id) => `${placementLabel(id)} ${Number(toPriceMap(p)[id] || 0).toLocaleString()}원`)
+                      .join(" + ")}
+                    {!p.placement_prices && p.placements.length > 1 && (
+                      <span className="text-amber-600"> · 균등 분배(위치별 단가 미설정)</span>
+                    )}
                   </p>
                 </div>
                 <div className="flex gap-2">

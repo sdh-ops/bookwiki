@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import { uploadImage } from "@/lib/upload";
-import { PLACEMENTS, placementLabel, getPlacement, addDays, todayKST } from "./shared";
+import { PLACEMENTS, placementLabel, getPlacement, addDays, todayKST, splitPlanPrice } from "./shared";
 import SpecModal from "./SpecModal";
 import CreativePreview from "./CreativePreview";
 import RotationSettings from "./RotationSettings";
@@ -179,18 +179,13 @@ export default function ManageTab() {
       ({ error } = await supabase.from("bw_banners").update(payload).eq("id", form.id));
     } else if (isNewBundle) {
       // 신규 + 패키지 요금제: 위치별로 row 를 나눠 생성.
-      // 관리자가 요금제 선택 후 계약 금액을 수동으로 조정(할인 협의 등)했을 수 있으므로
-      // 항상 form.price_krw(현재 입력값)를 분배 기준으로 쓴다 (plan.price_krw 는 미조정 시 폴백).
-      // 금액은 내림으로 균등 분배하고 나머지(원 단위 반올림 오차)는 첫 위치에 몰아,
-      // row 들의 합계가 실제 계약 금액과 정확히 일치하도록 한다 (매출 합계 오차 방지).
-      const totalPrice = form.price_krw === "" ? plan.price_krw : parseInt(form.price_krw);
-      const n = plan.placements.length;
-      const basePrice = Math.floor(totalPrice / n);
-      const remainder = totalPrice - basePrice * n;
-      const rows = plan.placements.map((placement, idx) => ({
+      // 요금제에 위치별 단가가 있으면 그 값을 그대로, 총액을 조정했으면 균등 분배.
+      // 어느 쪽이든 row 합계는 실제 계약 금액과 정확히 일치한다(매출 합계 오차 방지).
+      const priceMap = splitPlanPrice(plan, form.price_krw);
+      const rows = plan.placements.map((placement) => ({
         ...basePayload,
         placement,
-        price_krw: basePrice + (idx === 0 ? remainder : 0),
+        price_krw: priceMap[placement],
         plan_id: plan.id,
       }));
       ({ error } = await supabase.from("bw_banners").insert(rows));
@@ -287,24 +282,24 @@ export default function ManageTab() {
         )}
 
         {isBundleSelected && (() => {
-          // 계약 금액 입력값을 관리자가 수동으로 조정했을 수 있으므로 미리보기도 form.price_krw 기준으로 계산
-          const previewTotal =
-            form.price_krw === "" ? selectedPlan.price_krw : parseInt(form.price_krw) || 0;
-          const n = selectedPlan.placements.length;
-          const base = Math.floor(previewTotal / n);
+          const priceMap = splitPlanPrice(selectedPlan, form.price_krw);
+          const previewTotal = Object.values(priceMap).reduce((s, v) => s + v, 0);
+          const usesPlanPrices =
+            !!selectedPlan.placement_prices &&
+            (form.price_krw === "" || parseInt(form.price_krw) === selectedPlan.price_krw);
           return (
             <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-3 py-2">
               패키지 요금제입니다. 저장하면{" "}
               <strong>{selectedPlan.placements.map(placementLabel).join(" · ")}</strong> 위치에
-              동일한 소재로 배너 {n}건이 함께 등록되고, 계약 금액{" "}
+              동일한 소재로 배너 {selectedPlan.placements.length}건이 함께 등록되고, 계약 금액{" "}
               {previewTotal.toLocaleString()}원은{" "}
               {selectedPlan.placements
-                .map((placementId, idx) => {
-                  const amount = base + (idx === 0 ? previewTotal - base * n : 0);
-                  return `${placementLabel(placementId)} ${amount.toLocaleString()}원`;
-                })
+                .map((id) => `${placementLabel(id)} ${priceMap[id].toLocaleString()}원`)
                 .join(" · ")}
               으로 나눠 기록됩니다 (합계는 계약 금액과 정확히 일치).
+              {usesPlanPrices
+                ? " 요금제에 설정된 위치별 단가를 그대로 씁니다."
+                : " 계약 금액을 조정하셨으므로 균등 분배됩니다."}
             </p>
           );
         })()}

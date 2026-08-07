@@ -16,6 +16,7 @@ const EMPTY = {
   label: "",
   sort_order: 0,
   sponsor_advertiser: "",
+  memo: "",
   is_active: true,
 };
 
@@ -71,6 +72,7 @@ export default function CategoriesTab() {
       label: r.label,
       sort_order: r.sort_order || 0,
       sponsor_advertiser: r.sponsor_advertiser || "",
+      memo: r.memo || "",
       is_active: r.is_active,
     });
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -94,6 +96,7 @@ export default function CategoriesTab() {
       label,
       sort_order: parseInt(form.sort_order) || 0,
       sponsor_advertiser: form.sponsor_advertiser.trim() || null,
+      memo: form.memo.trim() || null,
       is_active: form.is_active,
       updated_at: new Date().toISOString(),
     };
@@ -210,6 +213,20 @@ export default function CategoriesTab() {
           </label>
         </div>
 
+        <label className="block">
+          <span className="text-sm font-bold text-gray-600">운영 메모 (선택)</span>
+          <textarea
+            value={form.memo}
+            onChange={(e) => setForm({ ...form, memo: e.target.value })}
+            rows={2}
+            placeholder="예: 한겨레교육 제휴 — 담당 김OO 과장, 매월 강좌 모집글 2~3건 게재, 광고 계약 종료 시 말머리 자동 숨김"
+            className="mt-1 w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:border-[#2c3e50]"
+          />
+          <span className="block mt-1 text-[11px] text-gray-400">
+            운영자만 보입니다. 공개 사이트에는 나가지 않습니다.
+          </span>
+        </label>
+
         <label className="flex items-center gap-2">
           <input
             type="checkbox"
@@ -266,6 +283,11 @@ export default function CategoriesTab() {
                     {r.sponsor_advertiser && (
                       <p className="text-xs text-gray-500 mt-0.5">
                         스폰서: {r.sponsor_advertiser}
+                      </p>
+                    )}
+                    {r.memo && (
+                      <p className="text-[11px] text-gray-500 mt-1 whitespace-pre-wrap bg-gray-50 border border-gray-100 rounded px-2 py-1">
+                        📝 {r.memo}
                       </p>
                     )}
                   </div>

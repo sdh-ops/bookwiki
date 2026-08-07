@@ -19,6 +19,30 @@ export function addDays(dateStr, days) {
   return d.toISOString().split("T")[0];
 }
 
+/**
+ * 패키지 요금제를 위치별 금액으로 쪼갠다.
+ *
+ * 요금제에 위치별 단가(placement_prices)가 정해져 있고 관리자가 총액을 손대지 않았다면
+ * 그 값을 그대로 쓴다. 총액을 조정했다면(할인 협의 등) 균등 분배로 떨어뜨리되,
+ * 나머지를 첫 위치에 몰아 합계가 입력한 총액과 정확히 일치하게 한다.
+ */
+export function splitPlanPrice(plan, enteredTotal) {
+  const places = plan.placements || [];
+  const total =
+    enteredTotal === "" || enteredTotal === null || enteredTotal === undefined
+      ? plan.price_krw
+      : parseInt(enteredTotal) || 0;
+
+  if (plan.placement_prices && total === plan.price_krw) {
+    return Object.fromEntries(places.map((p) => [p, plan.placement_prices[p] ?? 0]));
+  }
+
+  const n = places.length || 1;
+  const base = Math.floor(total / n);
+  const remainder = total - base * n;
+  return Object.fromEntries(places.map((p, i) => [p, base + (i === 0 ? remainder : 0)]));
+}
+
 export function downloadCSV(rows, filename) {
   const csvContent =
     "data:text/csv;charset=utf-8,﻿" + rows.map((e) => e.join(",")).join("\n");
