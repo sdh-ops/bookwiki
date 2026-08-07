@@ -115,14 +115,33 @@ export default function Banner({ placement = "home_top", className }) {
   const [banner, setBanner] = useState(null);
   const [showPlaceholder, setShowPlaceholder] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  // PC 전용 슬롯 판정. null = 아직 측정 전(서버 렌더 시점)
+  const [isWideScreen, setIsWideScreen] = useState(null);
   const pathname = usePathname();
   const impressionKey = useRef(null);
 
   const meta = getPlacement(placement);
   const wrapClass = className ?? meta.wrapClass;
+  // PC 전용 슬롯은 모바일에서 CSS 로만 숨겨도 컴포넌트는 그대로 마운트된다.
+  // 그대로 두면 화면에 뜨지도 않은 노출이 집계돼 광고주에게 허위 노출을 보고하게 된다.
+  const hiddenHere = meta.pcOnly && isWideScreen === false;
+
+  // Tailwind lg 브레이크포인트(1024px)와 같은 기준을 쓴다
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 1024px)");
+    const update = () => setIsWideScreen(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
+
+    // PC 전용 슬롯은 화면 폭 판정이 끝나기 전까지 아무것도 부르지 않는다.
+    // 모바일로 확정되면 렌더 단계에서 hiddenHere 로 아예 null 을 반환하므로
+    // 여기서 별도 상태를 만질 필요가 없다.
+    if (meta.pcOnly && isWideScreen !== true) return;
 
     async function load() {
       const today = todayKST();
@@ -159,11 +178,11 @@ export default function Banner({ placement = "home_top", className }) {
     return () => {
       cancelled = true;
     };
-  }, [placement]);
+  }, [placement, meta.pcOnly, isWideScreen]);
 
   // 노출 기록 — 같은 배너를 같은 경로에서 중복 기록하지 않는다
   useEffect(() => {
-    if (!banner) return;
+    if (!banner || hiddenHere) return;
     const key = `${banner.id}|${pathname}`;
     if (impressionKey.current === key) return;
     impressionKey.current = key;
@@ -180,7 +199,7 @@ export default function Banner({ placement = "home_top", className }) {
       .then(({ error }) => {
         if (error) console.error("[Banner] impression error:", error.message);
       });
-  }, [banner, pathname]);
+  }, [banner, pathname, hiddenHere]);
 
   // 클릭 기록. preventDefault 를 하지 않으므로 Ctrl+클릭·휠클릭 같은
   // 브라우저 기본 동작이 그대로 살아있고 팝업 차단에도 걸리지 않는다.
@@ -200,6 +219,9 @@ export default function Banner({ placement = "home_top", className }) {
         if (error) console.error("[Banner] click error:", error.message);
       });
   }
+
+  // PC 전용 슬롯인데 모바일이면 DOM 자체를 내보내지 않는다(노출 집계도 함께 차단)
+  if (hiddenHere) return null;
 
   // 불러오는 중: 슬롯 높이를 미리 잡아 레이아웃이 튀지 않게 한다
   if (!loaded) {
