@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { getDeviceType } from "@/lib/device";
 
 export default function PageTracker() {
   const pathname = usePathname();
@@ -27,6 +28,7 @@ export default function PageTracker() {
         path: pathname,
         session_id: sessionId,
         user_id: user?.id ?? null,
+        device_type: getDeviceType(),
       });
       if (error) console.error("[PageTracker] insert error:", error.message);
     }

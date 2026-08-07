@@ -140,7 +140,7 @@ export default function PlansTab() {
 
         <div>
           <span className="text-sm font-bold text-gray-600">노출 위치 * (복수 선택 시 패키지 요금제)</span>
-          <div className="mt-2 flex gap-4">
+          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-2">
             {PLACEMENTS.map((p) => (
               <label key={p.id} className="flex items-center gap-2 text-sm">
                 <input

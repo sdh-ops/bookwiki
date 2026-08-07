@@ -91,38 +91,58 @@ export default function AdminDashboard() {
 
             try {
                 if (activeTab === "visitors") {
-                    const { data: rpcData, error } = await supabase
-                        .rpc('get_page_view_stats', { days_back: 180 });
+                    // 기기별 집계는 별도 RPC. 두 결과를 KST 날짜로 맞물려 붙인다.
+                    const [{ data: rpcData, error }, { data: deviceData, error: deviceError }] = await Promise.all([
+                        supabase.rpc('get_page_view_stats', { days_back: 180 }),
+                        supabase.rpc('get_page_view_device_stats', { days_back: 180 }),
+                    ]);
 
                     if (error) {
                         console.error("[Dashboard] get_page_view_stats 오류:", error.message, error.code);
                     }
+                    if (deviceError) {
+                        console.error("[Dashboard] get_page_view_device_stats 오류:", deviceError.message, deviceError.code);
+                    }
+
+                    const deviceByDate = Object.fromEntries(
+                        (deviceData || []).map(d => [d.kst_date, d])
+                    );
+
                     if (!error && rpcData) {
-                        if (period === "daily") {
-                            const table = rpcData.map(row => ({
+                        const rowOf = (row) => {
+                            const d = deviceByDate[row.kst_date];
+                            return {
                                 date: row.kst_date,
                                 pageviews: Number(row.total_pageviews),
                                 visitors: Number(row.unique_sessions),
                                 members: Number(row.member_pageviews),
                                 nonMembers: Number(row.non_member_pageviews),
-                            }));
-                            setTableData(table);
+                                pc: Number(d?.pc_pageviews || 0),
+                                mobile: Number(d?.mobile_pageviews || 0),
+                            };
+                        };
+
+                        if (period === "daily") {
+                            setTableData(rpcData.map(rowOf));
                         } else {
                             // 주간/월간: 일별 집계 결과를 재그룹핑
                             const groups = {};
                             rpcData.forEach(row => {
+                                const r = rowOf(row);
                                 const key = getGroupKey(row.kst_date + 'T12:00:00+09:00', period);
-                                if (!groups[key]) groups[key] = { date: key, pageviews: 0, visitors: 0, members: 0, nonMembers: 0 };
-                                groups[key].pageviews += Number(row.total_pageviews);
-                                groups[key].visitors += Number(row.unique_sessions);
-                                groups[key].members += Number(row.member_pageviews);
-                                groups[key].nonMembers += Number(row.non_member_pageviews);
+                                if (!groups[key]) groups[key] = { date: key, pageviews: 0, visitors: 0, members: 0, nonMembers: 0, pc: 0, mobile: 0 };
+                                groups[key].pageviews += r.pageviews;
+                                groups[key].visitors += r.visitors;
+                                groups[key].members += r.members;
+                                groups[key].nonMembers += r.nonMembers;
+                                groups[key].pc += r.pc;
+                                groups[key].mobile += r.mobile;
                             });
                             const table = Object.values(groups).sort((a, b) => b.date.localeCompare(a.date));
                             setTableData(table);
                         }
                     }
-                } 
+                }
                 else if (activeTab === "posts") {
                     // Posts
                     const { data: posts } = await supabase.from("bw_posts").select("created_at, user_id").gte("created_at", limitDate.toISOString());
@@ -229,8 +249,8 @@ export default function AdminDashboard() {
         let rows = [];
 
         if (activeTab === "visitors") {
-            headers = ["날짜(기간)", "순방문자수(세션)", "페이지뷰(전체)", "페이지뷰(회원)", "페이지뷰(비회원)"];
-            rows = tableData.map(d => [d.date, d.visitors, d.pageviews, d.members, d.nonMembers]);
+            headers = ["날짜(기간)", "순방문자수(세션)", "페이지뷰(전체)", "페이지뷰(회원)", "페이지뷰(비회원)", "페이지뷰(PC)", "페이지뷰(모바일)"];
+            rows = tableData.map(d => [d.date, d.visitors, d.pageviews, d.members, d.nonMembers, d.pc || 0, d.mobile || 0]);
         } else if (activeTab === "posts") {
             headers = ["날짜(기간)", "게시글(전체)", "게시글(회원)", "게시글(비회원)", "댓글(전체)", "댓글(회원)", "댓글(비회원)"];
             rows = tableData.map(d => [d.date, d.postTotal, d.postMember, d.postNon, d.cmtTotal, d.cmtMember, d.cmtNon]);
@@ -336,6 +356,8 @@ export default function AdminDashboard() {
                                         <th className="px-6 py-4 text-emerald-700">총 조회/방문 (PV)</th>
                                         <th className="px-6 py-4">회원 PV</th>
                                         <th className="px-6 py-4">비회원 PV</th>
+                                        <th className="px-6 py-4 text-blue-700">PC PV</th>
+                                        <th className="px-6 py-4 text-blue-700">모바일 PV</th>
                                     </tr>
                                 )}
                                 {activeTab === "posts" && (
@@ -382,6 +404,16 @@ export default function AdminDashboard() {
                                                 <td className="px-6 py-4 font-bold text-emerald-700">{(row.pageviews || 0).toLocaleString()}</td>
                                                 <td className="px-6 py-4 bg-gray-50/50">{(row.members || 0).toLocaleString()}</td>
                                                 <td className="px-6 py-4 text-gray-500">{(row.nonMembers || 0).toLocaleString()}</td>
+                                                <td className="px-6 py-4 text-blue-700">
+                                                    {row.pc || row.mobile
+                                                        ? `${(row.pc || 0).toLocaleString()} (${Math.round((row.pc / (row.pc + row.mobile)) * 100)}%)`
+                                                        : <span className="text-gray-300">-</span>}
+                                                </td>
+                                                <td className="px-6 py-4 text-blue-700">
+                                                    {row.pc || row.mobile
+                                                        ? `${(row.mobile || 0).toLocaleString()} (${Math.round((row.mobile / (row.pc + row.mobile)) * 100)}%)`
+                                                        : <span className="text-gray-300">-</span>}
+                                                </td>
                                             </tr>
                                         ))
                                     ) : activeTab === "posts" ? (

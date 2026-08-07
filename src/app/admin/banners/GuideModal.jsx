@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import { placementLabel } from "./shared";
+import { PLACEMENTS, placementLabel } from "./shared";
 
 export default function GuideModal({ onClose }) {
   const [plans, setPlans] = useState([]);
@@ -42,13 +42,11 @@ export default function GuideModal({ onClose }) {
           <section>
             <h4 className="font-bold text-gray-900 mb-2">1. 게재 위치</h4>
             <ul className="space-y-1 list-disc list-inside">
-              <li>
-                <strong>홈 상단</strong> — 메인 홈페이지 최상단에 노출, 가장 눈에 잘 띄는 자리
-              </li>
-              <li>
-                <strong>게시글 배너</strong> — 게시글 상세 페이지 제목 바로 아래 노출, 실제 글을
-                읽는 이용자에게 자연스럽게 노출
-              </li>
+              {PLACEMENTS.map((p) => (
+                <li key={p.id}>
+                  <strong>{p.name}</strong> — {p.desc}
+                </li>
+              ))}
             </ul>
           </section>
 
@@ -56,13 +54,20 @@ export default function GuideModal({ onClose }) {
             <h4 className="font-bold text-gray-900 mb-2">2. 배너 이미지 규격</h4>
             <ul className="space-y-1 list-disc list-inside">
               <li>
-                권장 크기: <strong>1200 × 120px</strong> (가로:세로 10:1 비율)
+                가로형(홈 상단 · 게시글 상단 · 게시글 하단): <strong>1600 × 200px</strong>
               </li>
-              <li>파일 형식: JPG, PNG, WEBP (5MB 이하)</li>
               <li>
-                실제 화면에서는 폭이 기기에 맞춰 자동으로 늘어나고, 높이는 PC 96px · 모바일 80px로
-                고정되어 위아래가 살짝 잘려 보일 수 있습니다. 로고나 문구는 이미지{" "}
-                <strong>중앙 60%</strong> 안쪽에 배치하는 것을 권장합니다.
+                사이드(PC 전용): <strong>300 × 250px</strong>
+              </li>
+              <li>파일 형식: JPG, PNG, GIF, WEBP (5MB 이하 · 300KB 이하 권장)</li>
+              <li>
+                가로형은 <strong>모바일에서 가운데 절반만</strong> 보입니다. 로고·문구·CTA는 반드시
+                가운데 <strong>800 × 200px</strong> 안에 넣도록 광고주에게 안내하세요.
+              </li>
+              <li>
+                「소재 관리」 탭의 <strong>📐 소재 규격 보기 · 복사</strong> 버튼을 누르면 광고주에게
+                그대로 보낼 안내문을 복사할 수 있고, 이미지를 넣으면 PC·모바일 미리보기로 잘리는
+                모습을 바로 확인할 수 있습니다.
               </li>
             </ul>
           </section>
@@ -86,7 +91,12 @@ export default function GuideModal({ onClose }) {
             <h4 className="font-bold text-gray-900 mb-2">4. 성과 확인 &amp; 매출 관리</h4>
             <ul className="space-y-1 list-disc list-inside">
               <li>
-                「광고 성과」 탭 — 캠페인별 노출수·클릭수·CTR을 기간별로 확인, CSV 다운로드 가능
+                「광고 성과」 탭 — 캠페인별 노출수·클릭수·CTR·PC/모바일 비중과 일별 추이를 확인,
+                CSV 다운로드 가능
+              </li>
+              <li>
+                같은 위치에 배너가 2개 이상이면 「소재 관리」 탭 맨 아래 <strong>위치별 노출 설정</strong>
+                에서 랜덤·가중치·1순위 고정 중 선택할 수 있습니다
               </li>
               <li>
                 「매출 관리」 탭 — 계약 금액과 입금 상태(미입금/입금완료/취소)를 관리하고 월별

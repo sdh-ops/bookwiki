@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Editor from "@/components/Editor";
 import { uploadImage, uploadAttachment, formatFileSize } from "@/lib/upload";
+import { fetchVisibleCategories } from "@/lib/postCategories";
 
 // 비회원 익명 닉네임 생성용 단어 목록
 const ADJECTIVES = [
@@ -22,18 +23,13 @@ const NOUNS = [
     "신입사원", "독서가"
 ];
 
-// 톡톡 게시판 카테고리
-const freeBoardCategories = [
-    { id: "잡담", name: "[잡담]" },
-    { id: "후기", name: "[후기]" },
-    { id: "모집", name: "[모집]" },
-];
-
 function WritePageContent() {
     const [title, setTitle] = useState("");
     const [content, setContent] = useState("");
     const [boardType, setBoardType] = useState("free");
-    const [freeCategory, setFreeCategory] = useState("잡담"); // 톡톡 카테고리 (기본값: 잡담)
+    const [freeCategory, setFreeCategory] = useState("잡담"); // 톡톡 말머리 (기본값: 잡담)
+    // 말머리는 DB 관리. 스폰서 말머리(예: 한겨레교육)는 해당 광고 게재중일 때만 내려온다.
+    const [freeCategories, setFreeCategories] = useState([]);
     const [author, setAuthor] = useState("");
     const [password, setPassword] = useState("");
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -64,6 +60,22 @@ function WritePageContent() {
             setBoardType(boardParam);
         }
     }, [searchParams]);
+
+    // 톡톡 말머리 로드
+    useEffect(() => {
+        let cancelled = false;
+        fetchVisibleCategories("free").then((rows) => {
+            if (cancelled) return;
+            setFreeCategories(rows);
+            // 기본 선택값이 목록에 없으면(예: 말머리 개편) 첫 항목으로 맞춘다
+            setFreeCategory((cur) =>
+                rows.some((r) => r.label === cur) ? cur : rows[0]?.label || ""
+            );
+        });
+        return () => {
+            cancelled = true;
+        };
+    }, []);
 
     // 랜덤 익명 닉네임 생성 (형용사 + 명사 + 번호)
     const generateAnonNickname = () => {
@@ -108,9 +120,9 @@ function WritePageContent() {
             return;
         }
 
-        // 톡톡 게시판에서 카테고리 확인
+        // 톡톡 게시판에서 말머리 확인
         if (boardType === "free" && !freeCategory) {
-            alert("톡톡 게시판에서는 카테고리를 선택해주세요.");
+            alert("톡톡 게시판에서는 말머리를 선택해주세요.");
             return;
         }
 
@@ -231,24 +243,30 @@ function WritePageContent() {
                         </div>
                     </div>
 
-                    {/* 톡톡 게시판 카테고리 선택 */}
+                    {/* 톡톡 게시판 말머리 선택 */}
                     {boardType === "free" && (
                         <div>
                             <label className="block text-sm font-bold text-gray-700 mb-2">
-                                카테고리 선택 <span className="text-red-500">*</span>
+                                말머리 선택 <span className="text-red-500">*</span>
                             </label>
                             <div className="flex flex-wrap gap-2">
-                                {freeBoardCategories.map((cat) => (
+                                {freeCategories.map((cat) => (
                                     <button
-                                        key={cat.id}
+                                        key={cat.label}
                                         type="button"
-                                        onClick={() => setFreeCategory(cat.id)}
-                                        className={`px-4 py-1.5 text-xs rounded border ${freeCategory === cat.id
+                                        onClick={() => setFreeCategory(cat.label)}
+                                        title={cat.is_sponsored ? `${cat.sponsor_advertiser} 제휴 말머리` : undefined}
+                                        className={`px-4 py-1.5 text-xs rounded border ${freeCategory === cat.label
                                                 ? "bg-blue-500 text-white border-blue-500"
-                                                : "bg-white text-gray-600 border-gray-200 hover:border-blue-500"
+                                                : cat.is_sponsored
+                                                    ? "bg-amber-50 text-amber-700 border-amber-200 hover:border-amber-400"
+                                                    : "bg-white text-gray-600 border-gray-200 hover:border-blue-500"
                                             }`}
                                     >
-                                        {cat.name}
+                                        [{cat.label}]
+                                        {cat.is_sponsored && (
+                                            <span className={`ml-1 text-[9px] align-top ${freeCategory === cat.label ? "text-white/70" : "text-amber-500"}`}>AD</span>
+                                        )}
                                     </button>
                                 ))}
                             </div>

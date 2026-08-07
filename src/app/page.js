@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabase";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import Banner from "@/components/Banner";
+import { fetchVisibleCategories, extractCategory } from "@/lib/postCategories";
 
 // Board type to Korean name mapping
 const boardTypeNames = {
@@ -15,14 +16,6 @@ const boardTypeNames = {
 };
 
 const POSTS_PER_PAGE = 20;
-
-// 톡톡 게시판 카테고리
-const freeBoardCategories = [
-  { id: "all", name: "전체" },
-  { id: "잡담", name: "잡담" },
-  { id: "후기", name: "후기" },
-  { id: "모집", name: "모집" },
-];
 
 function PostList() {
   const [isAdmin, setIsAdmin] = useState(false);
@@ -37,6 +30,8 @@ function PostList() {
   const [jobView, setJobView] = useState("list"); // list or calendar
   const [jobFilter, setJobFilter] = useState("all"); // legacy: all, hiring, seeking
   const [freeFilter, setFreeFilter] = useState("all"); // 톡톡 카테고리 필터
+  // 톡톡 말머리 — DB 관리. 스폰서 말머리는 광고 게재중일 때만 내려온다.
+  const [freeCategories, setFreeCategories] = useState([]);
   const [calendarEvents, setCalendarEvents] = useState([]);
   const [calendarDate, setCalendarDate] = useState(new Date());
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -67,6 +62,17 @@ function PostList() {
     if (searchQueryParam) setSearchQuery(searchQueryParam);
     else setSearchQuery("");
   }, [pageParam, viewParam, filterParam, categoryParam, searchQueryParam]);
+
+  // 톡톡 말머리 로드 (스폰서 말머리는 광고 게재중일 때만 포함됨)
+  useEffect(() => {
+    let cancelled = false;
+    fetchVisibleCategories("free").then((rows) => {
+      if (!cancelled) setFreeCategories(rows);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     async function fetchData() {
@@ -407,13 +413,17 @@ function PostList() {
     return hiringKeywords.some(keyword => title.includes(keyword));
   };
 
-  // 톡톡 카테고리 추출 함수
-  const extractFreeCategory = (title) => {
-    if (title.includes("[모집]")) return "모집";
-    if (title.includes("[후기]")) return "후기";
-    if (title.includes("[잡담]")) return "잡담";
-    return null;
-  };
+  // 톡톡 말머리 목록 (필터 칩 + 제목 파싱에 함께 쓰는 정본)
+  const freeCategoryLabels = freeCategories.map((c) => c.label);
+
+  // 현재 URL 이 가리키는 말머리가 광고 종료로 목록에서 빠졌더라도
+  // 필터 자체는 동작해야 하므로 파싱 후보에는 포함시킨다.
+  const parsableLabels =
+    freeFilter !== "all" && !freeCategoryLabels.includes(freeFilter)
+      ? [...freeCategoryLabels, freeFilter]
+      : freeCategoryLabels;
+
+  const extractFreeCategory = (title) => extractCategory(title, parsableLabels);
 
   // 필터링된 게시글
   const getFilteredPosts = () => {
@@ -523,18 +533,37 @@ function PostList() {
                   </button>
                 </div>
               )}
-              {/* 톡톡 게시판 카테고리 필터 */}
-              {currentBoard === "free" && (
+              {/* 톡톡 게시판 말머리 필터 (DB 관리 · 스폰서 말머리는 광고 게재중에만 노출) */}
+              {currentBoard === "free" && freeCategories.length > 0 && (
                 <div className="flex border border-gray-300 rounded overflow-hidden text-xs">
-                  {freeBoardCategories.map((cat) => (
-                    <button
-                      key={cat.id}
-                      onClick={() => router.push(cat.id === "all" ? "/?board=free" : `/?board=free&category=${cat.id}`)}
-                      className={`px-3 py-1 ${freeFilter === cat.id ? "bg-[#355E3B] text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
-                    >
-                      {cat.name}
-                    </button>
-                  ))}
+                  <button
+                    onClick={() => router.push("/?board=free")}
+                    className={`px-3 py-1 ${freeFilter === "all" ? "bg-[#355E3B] text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
+                  >
+                    전체
+                  </button>
+                  {freeCategories.map((cat) => {
+                    const selected = freeFilter === cat.label;
+                    return (
+                      <button
+                        key={cat.label}
+                        onClick={() => router.push(`/?board=free&category=${encodeURIComponent(cat.label)}`)}
+                        className={`px-3 py-1 border-l border-gray-200 ${
+                          selected
+                            ? "bg-[#355E3B] text-white"
+                            : cat.is_sponsored
+                            ? "bg-amber-50 text-amber-700 hover:bg-amber-100"
+                            : "bg-white text-gray-600 hover:bg-gray-50"
+                        }`}
+                        title={cat.is_sponsored ? `${cat.sponsor_advertiser} 제휴 말머리` : undefined}
+                      >
+                        {cat.label}
+                        {cat.is_sponsored && (
+                          <span className={`ml-1 text-[9px] align-top ${selected ? "text-white/70" : "text-amber-500"}`}>AD</span>
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -1021,6 +1050,10 @@ function PostList() {
               </ul>
             </div>
           )}
+
+          {/* 사이드 배너 — PC 전용(내부 wrapClass 가 hidden lg:block).
+              로그인 여부와 무관하게 항상 노출한다. */}
+          <Banner placement="sidebar" />
         </aside>
       </section>
 

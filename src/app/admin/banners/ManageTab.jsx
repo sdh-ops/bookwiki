@@ -3,7 +3,10 @@
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import { uploadImage } from "@/lib/upload";
-import { PLACEMENTS, placementLabel, addDays } from "./shared";
+import { PLACEMENTS, placementLabel, getPlacement, addDays, todayKST } from "./shared";
+import SpecModal from "./SpecModal";
+import CreativePreview from "./CreativePreview";
+import RotationSettings from "./RotationSettings";
 
 const EMPTY_FORM = {
   id: null,
@@ -16,11 +19,23 @@ const EMPTY_FORM = {
   start_date: "",
   end_date: "",
   sort_order: 0,
+  weight: 1,
   price_krw: "",
   plan_id: "",
   payment_status: "미입금",
   memo: "",
 };
+
+/** 오늘(KST) 기준으로 게재 기간 안에 들어와 있고 활성인 배너인지 */
+function isLive(b) {
+  const today = todayKST();
+  return (
+    b.is_active &&
+    !b.is_deleted &&
+    (!b.start_date || b.start_date <= today) &&
+    (!b.end_date || b.end_date >= today)
+  );
+}
 
 export default function ManageTab() {
   const [banners, setBanners] = useState([]);
@@ -30,6 +45,7 @@ export default function ManageTab() {
   const [selectedPlanId, setSelectedPlanId] = useState("custom");
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [showSpec, setShowSpec] = useState(false);
 
   const loadBanners = useCallback(async () => {
     setLoading(true);
@@ -77,6 +93,7 @@ export default function ManageTab() {
       start_date: b.start_date || "",
       end_date: b.end_date || "",
       sort_order: b.sort_order || 0,
+      weight: b.weight ?? 1,
       price_krw: b.price_krw ?? "",
       plan_id: b.plan_id || "",
       payment_status: b.payment_status || "미입금",
@@ -98,7 +115,7 @@ export default function ManageTab() {
       return;
     }
 
-    const start = form.start_date || new Date().toISOString().split("T")[0];
+    const start = form.start_date || todayKST();
     const end = addDays(start, plan.duration_days);
     setForm((f) => ({
       ...f,
@@ -141,6 +158,7 @@ export default function ManageTab() {
       start_date: form.start_date || null,
       end_date: form.end_date || null,
       sort_order: parseInt(form.sort_order) || 0,
+      weight: Math.max(1, parseInt(form.weight) || 1),
       payment_status: form.payment_status,
       memo: form.memo.trim() || null,
       updated_at: new Date().toISOString(),
@@ -228,6 +246,12 @@ export default function ManageTab() {
   const selectedPlan = plans.find((p) => p.id === selectedPlanId);
   const isBundleSelected = !form.id && selectedPlan && selectedPlan.placements.length > 1;
 
+  // 위치별 "지금 실제로 게재중인" 배너 수 — 로테이션 설정이 의미 있는지 판단용
+  const liveCounts = banners.reduce((acc, b) => {
+    if (isLive(b)) acc[b.placement] = (acc[b.placement] || 0) + 1;
+    return acc;
+  }, {});
+
   return (
     <div className="space-y-8">
       {/* 소재 등록/수정 폼 */}
@@ -310,7 +334,19 @@ export default function ManageTab() {
 
         {/* 이미지 */}
         <div>
-          <span className="text-sm font-bold text-gray-600">배너 이미지 *</span>
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-sm font-bold text-gray-600">배너 이미지 *</span>
+            <button
+              type="button"
+              onClick={() => setShowSpec(true)}
+              className="px-2.5 py-1 rounded border border-[#2c3e50] text-[11px] font-bold text-[#2c3e50] hover:bg-[#2c3e50] hover:text-white transition"
+            >
+              📐 소재 규격 보기 · 복사
+            </button>
+            <span className="text-[11px] text-gray-400">
+              {getPlacement(form.placement).imageSize} · 안전영역 {getPlacement(form.placement).safeArea}
+            </span>
+          </div>
           <div className="mt-1 flex flex-wrap items-center gap-3 border border-dashed border-gray-300 rounded-lg p-4 bg-gray-50">
             <label
               htmlFor="banner-image-upload"
@@ -340,16 +376,7 @@ export default function ManageTab() {
             placeholder="또는 이미지 URL 직접 입력"
             className="mt-2 w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:border-[#2c3e50]"
           />
-          {form.image_url && (
-            <div className="mt-3 w-full max-w-2xl bg-gray-100 rounded overflow-hidden border border-gray-200">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={form.image_url}
-                alt="미리보기"
-                className="w-full h-20 md:h-24 object-cover"
-              />
-            </div>
-          )}
+          <CreativePreview imageUrl={form.image_url} placement={form.placement} />
         </div>
 
         <label className="block">
@@ -363,7 +390,7 @@ export default function ManageTab() {
           />
         </label>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
           <label className="block">
             <span className="text-sm font-bold text-gray-600">노출 위치</span>
             <select
@@ -402,6 +429,18 @@ export default function ManageTab() {
               type="number"
               value={form.sort_order}
               onChange={(e) => setForm({ ...form, sort_order: e.target.value })}
+              className="mt-1 w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-[#2c3e50]"
+            />
+          </label>
+          <label className="block">
+            <span className="text-sm font-bold text-gray-600" title="노출 방식이 '가중치'일 때만 사용됩니다">
+              노출 비중
+            </span>
+            <input
+              type="number"
+              min="1"
+              value={form.weight}
+              onChange={(e) => setForm({ ...form, weight: e.target.value })}
               className="mt-1 w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-[#2c3e50]"
             />
           </label>
@@ -486,9 +525,14 @@ export default function ManageTab() {
           <div className="divide-y divide-gray-100">
             {banners.map((b) => (
               <div key={b.id} className="flex flex-wrap items-center gap-4 p-4">
-                <div className="w-40 h-14 bg-gray-100 rounded overflow-hidden shrink-0">
+                {/* 소재 전체가 보이도록 contain — 잘린 썸네일로는 어떤 소재인지 알 수 없다 */}
+                <div className="w-48 h-16 bg-gray-100 rounded overflow-hidden shrink-0 border border-gray-200 flex items-center justify-center p-1">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={b.image_url} alt={b.name} className="w-full h-full object-cover" />
+                  <img
+                    src={b.image_url}
+                    alt={b.name}
+                    className="max-w-full max-h-full object-contain"
+                  />
                 </div>
                 <div className="flex-1 min-w-[180px]">
                   <div className="flex items-center gap-2 flex-wrap">
@@ -555,6 +599,11 @@ export default function ManageTab() {
           </div>
         )}
       </div>
+
+      {/* 위치별 노출 설정 (로테이션 · 빈 슬롯 표시) */}
+      <RotationSettings counts={liveCounts} />
+
+      {showSpec && <SpecModal onClose={() => setShowSpec(false)} />}
     </div>
   );
 }

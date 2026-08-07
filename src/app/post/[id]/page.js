@@ -601,7 +601,7 @@ export default function PostDetailPage() {
                     </div>
                 </div>
 
-                <Banner placement="post_detail" className="w-full mb-6" />
+                <Banner placement="post_detail" />
 
                 <div className="min-h-[300px] text-gray-800 leading-relaxed text-sm">
                     <style jsx global>{`
@@ -797,7 +797,10 @@ export default function PostDetailPage() {
 
                 </div>
 
-                <div className="border-t border-gray-200 pt-8">
+                {/* 본문과 댓글 사이 — 체류가 가장 긴 자리 */}
+                <Banner placement="post_bottom" />
+
+                <div className="border-t border-gray-200 pt-8 mt-8">
                     <h3 className="text-sm font-bold text-gray-900 mb-6 flex items-center">
                         댓글 <span className="ml-2 bg-[#355E3B] text-white text-[10px] px-2 py-0.5 rounded-full">{comments.length}</span>
                     </h3>

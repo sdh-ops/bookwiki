@@ -5,6 +5,7 @@ import ManageTab from "./ManageTab";
 import StatsTab from "./StatsTab";
 import RevenueTab from "./RevenueTab";
 import PlansTab from "./PlansTab";
+import CategoriesTab from "./CategoriesTab";
 import GuideModal from "./GuideModal";
 
 const TABS = [
@@ -12,6 +13,7 @@ const TABS = [
   { id: "stats", label: "광고 성과" },
   { id: "revenue", label: "매출 관리" },
   { id: "plans", label: "요금제 설정" },
+  { id: "categories", label: "스폰서 말머리" },
 ];
 
 export default function AdminBannersPage() {
@@ -50,6 +52,7 @@ export default function AdminBannersPage() {
       {tab === "stats" && <StatsTab />}
       {tab === "revenue" && <RevenueTab />}
       {tab === "plans" && <PlansTab />}
+      {tab === "categories" && <CategoriesTab />}
 
       {showGuide && <GuideModal onClose={() => setShowGuide(false)} />}
     </div>
