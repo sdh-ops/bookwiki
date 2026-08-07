@@ -29,16 +29,8 @@ export const PLACEMENTS = [
     wrapClass: "w-full max-w-6xl mx-auto px-4 mt-4",
   },
   {
-    id: "post_detail",
-    name: "게시글 상단",
-    desc: "게시글 제목 바로 아래, 본문 시작 전",
-    pcOnly: false,
-    ...WIDE,
-    wrapClass: "w-full mb-6",
-  },
-  {
     id: "post_bottom",
-    name: "게시글 하단(댓글 위)",
+    name: "게시글 배너(댓글 위)",
     desc: "본문을 끝까지 읽은 뒤 댓글로 넘어가기 직전 — 체류가 가장 긴 자리",
     pcOnly: false,
     ...WIDE,
@@ -57,12 +49,22 @@ export const PLACEMENTS = [
   },
 ];
 
+/**
+ * 운영에서 내린 위치. 새 배너는 여기에 등록할 수 없지만, 과거 계약·성과 기록이
+ * 남아 있으므로 매출·리포트에서 이름이 원시 코드로 보이지 않게 라벨만 유지한다.
+ */
+const RETIRED_PLACEMENT_LABELS = {
+  post_detail: "게시글 상단(운영 종료)",
+};
+
 export function getPlacement(id) {
   return PLACEMENTS.find((p) => p.id === id) || PLACEMENTS[0];
 }
 
 export function placementLabel(id) {
-  return PLACEMENTS.find((p) => p.id === id)?.name || id;
+  return (
+    PLACEMENTS.find((p) => p.id === id)?.name || RETIRED_PLACEMENT_LABELS[id] || id
+  );
 }
 
 export const ROTATION_MODES = [
@@ -77,7 +79,7 @@ export const ROTATION_MODES = [
  */
 export const CREATIVE_SPEC_TEXT = `[북위키 배너 광고 소재 규격]
 
-■ 가로형 배너 — 홈 상단 / 게시글 상단 / 게시글 하단 (공통)
+■ 가로형 배너 — 홈 상단 / 게시글 배너 (공통)
   · 크기      : 1600 × 200 px  (고화질 원하시면 3200 × 400 px)
   · 안전영역  : 가운데 800 × 200 px  ★필수★
                 로고 · 핵심 문구 · CTA 는 전부 이 안에 넣어주세요.

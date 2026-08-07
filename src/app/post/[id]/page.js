@@ -601,8 +601,6 @@ export default function PostDetailPage() {
                     </div>
                 </div>
 
-                <Banner placement="post_detail" />
-
                 <div className="min-h-[300px] text-gray-800 leading-relaxed text-sm">
                     <style jsx global>{`
                         .post-content iframe {
