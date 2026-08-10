@@ -105,25 +105,18 @@ function PostList() {
         return;
       }
 
-      // 사이드바 주간 베스트 및 자동 HOT 승격 병렬 처리
+      // 사이드바 주간 베스트용 (최근 1주일)
+      // HOT 승격은 예전에 여기서 방문자마다 실행했다 — 홈을 열 때마다 전체 글을 훑고
+      // UPDATE 까지 돌렸다. 지금은 20분 주기 크론(bw_promote_hot_posts)이 담당한다.
       const oneWeekAgo = new Date();
       oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
 
-      const [{ data: hotPosts }, { data: candidates }] = await Promise.all([
-        // 사이드바용: 최근 1주일 게시글
-        supabase
-          .from("bw_posts")
-          .select("id, title, author, view_count, comment_count, board_type, created_at, is_notice, user_id")
-          .eq("is_deleted", false)
-          .gte("created_at", oneWeekAgo.toISOString())
-          .limit(400),
-        // 자동 HOT 승격 후보: 아직 HOT이 아닌 게시글 전체
-        supabase
-          .from("bw_posts")
-          .select("id, title, board_type, view_count, comment_count, admin_hot_override")
-          .eq("is_deleted", false)
-          .eq("is_hot", false),
-      ]);
+      const { data: hotPosts } = await supabase
+        .from("bw_posts")
+        .select("id, title, author, view_count, comment_count, board_type, created_at, is_notice, user_id")
+        .eq("is_deleted", false)
+        .gte("created_at", oneWeekAgo.toISOString())
+        .limit(400);
 
       // 사이드바 주간 베스트 계산 (점수 기반 Top 10)
       if (hotPosts) {
@@ -138,31 +131,6 @@ function PostList() {
 
         const top20 = scored.sort((a, b) => b.hotScore - a.hotScore).slice(0, 20);
         setBestPosts(top20.slice(0, 10));
-      }
-
-      // 자동 HOT 승격: 임계점 도달 시 is_hot=true로 영구 설정 (한 번 HOT 되면 유지)
-      // 점수 = 조회수 + 댓글수 × 5
-      // 구인구직, 톡톡: 점수 200 이상 / 나머지 게시판: 점수 100 이상
-      if (candidates?.length) {
-        const toPromote = candidates.filter(p => {
-          if (p.admin_hot_override === true) return false; // 관리자가 수동 취소한 게시글 제외
-          const score = (p.view_count || 0) + (p.comment_count || 0) * 5;
-          let threshold = (p.board_type === "job" || p.board_type === "free") ? 200 : 100;
-          
-          // 톡톡 게시판의 '잡담' 카테고리는 300점으로 상향
-          if (p.board_type === "free" && p.title?.includes("[잡담]")) {
-            threshold = 300;
-          }
-          
-          return score >= threshold;
-        });
-
-        if (toPromote.length > 0) {
-          await supabase
-            .from("bw_posts")
-            .update({ is_hot: true })
-            .in("id", toPromote.map(p => p.id));
-        }
       }
 
       let query;

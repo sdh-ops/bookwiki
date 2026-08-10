@@ -298,14 +298,11 @@ function MyPageContent() {
             const { error: rpcError } = await supabase.rpc('delete_account');
             
             if (rpcError) {
+                // bw_usernames 정리는 on_auth_user_deleted 트리거가 담당한다.
+                // 예전에는 여기서 직접 삭제했지만, 그 테이블은 전 회원 이메일이 있어
+                // 공개 접근을 막았으므로 클라이언트에서 손대지 않는다.
                 console.error("RPC delete_account error:", rpcError);
-                // Fallback for when RPC is not available or fails
-                if (username) {
-                    await supabase
-                        .from("bw_usernames")
-                        .delete()
-                        .eq("username", username);
-                }
+                throw new Error("탈퇴 처리에 실패했습니다. 잠시 후 다시 시도해주세요.");
             }
 
             // 4. Supabase Auth에서 로그아웃 (클라이언트 세션 정리)

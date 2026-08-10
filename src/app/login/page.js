@@ -81,13 +81,10 @@ export default function LoginPage() {
 
         setCheckingUsername(true);
 
-        const { data: existing } = await supabase
-            .from("bw_usernames")
-            .select("username")
-            .eq("username", username.toLowerCase())
-            .limit(1);
+        const { data: taken } = await supabase
+            .rpc("bw_username_taken", { p_username: username });
 
-        if (existing && existing.length > 0) {
+        if (taken) {
             setUsernameAvailable(false);
             setMessage("이미 사용 중인 아이디입니다.");
         } else {
@@ -107,13 +104,10 @@ export default function LoginPage() {
 
         setCheckingEmail(true);
 
-        const { data: existing } = await supabase
-            .from("bw_usernames")
-            .select("email")
-            .eq("email", email.toLowerCase())
-            .limit(1);
+        const { data: taken } = await supabase
+            .rpc("bw_email_taken", { p_email: email });
 
-        if (existing && existing.length > 0) {
+        if (taken) {
             setEmailAvailable(false);
             setMessage("이미 가입된 이메일입니다. 아이디 찾기를 이용해주세요.");
         } else {
@@ -135,18 +129,15 @@ export default function LoginPage() {
         let loginEmail = input;
 
         if (!input.includes("@")) {
-            const { data: userData, error: lookupError } = await supabase
-                .from("bw_usernames")
-                .select("email")
-                .eq("username", input)
-                .maybeSingle();
+            const { data: foundEmail, error: lookupError } = await supabase
+                .rpc("bw_login_email", { p_username: input });
 
-            if (lookupError || !userData) {
+            if (lookupError || !foundEmail) {
                 setMessage("존재하지 않는 아이디입니다.");
                 setLoading(false);
                 return;
             }
-            loginEmail = userData.email;
+            loginEmail = foundEmail;
         }
 
         const { error } = await supabase.auth.signInWithPassword({
@@ -217,13 +208,12 @@ export default function LoginPage() {
         }
 
         // 최종 중복 검증 (Race Condition 방지)
-        const { data: finalCheck } = await supabase
-            .from("bw_usernames")
-            .select("username, email")
-            .or(`username.eq.${username.toLowerCase()},email.eq.${email.toLowerCase()}`)
-            .limit(1);
+        const [{ data: dupUsername }, { data: dupEmail }] = await Promise.all([
+            supabase.rpc("bw_username_taken", { p_username: username }),
+            supabase.rpc("bw_email_taken", { p_email: email }),
+        ]);
 
-        if (finalCheck && finalCheck.length > 0) {
+        if (dupUsername || dupEmail) {
             setMessage("중복된 아이디 또는 이메일이 이미 존재합니다.");
             setLoading(false);
             return;
@@ -301,29 +291,17 @@ export default function LoginPage() {
         setFoundUsername("");
 
         // 1. 해당 이메일로 가입된 계정이 있는지 확인
-        const { data: userData, error: lookupError } = await supabase
-            .from("bw_usernames")
-            .select("username")
-            .eq("email", email.toLowerCase())
-            .single();
+        // 마스킹은 서버에서 한다. 예전에는 전체 아이디를 받아 화면에서 가렸기 때문에
+        // 응답 본문에는 원본이 그대로 들어 있었다.
+        const { data: masked, error: lookupError } = await supabase
+            .rpc("bw_find_username_masked", { p_email: email });
 
-        if (lookupError || !userData) {
+        if (lookupError || !masked) {
             setMessage("해당 이메일로 가입된 계정이 없습니다.");
             setLoading(false);
             return;
         }
 
-        // 아이디 마스킹 (예: abcdef -> ab****)
-        const username = userData.username;
-        let masked = "";
-        if (username.length <= 2) {
-            masked = username[0] + "*";
-        } else if (username.length <= 4) {
-            masked = username.substring(0, 2) + "*".repeat(username.length - 2);
-        } else {
-            masked = username.substring(0, 3) + "*".repeat(username.length - 3);
-        }
-        
         setFoundUsername(masked);
         setMessage(`회원님의 아이디는 [ ${masked} ] 입니다. 보안을 위해 일부가 마스킹되었습니다.`);
         setLoading(false);
@@ -342,18 +320,15 @@ export default function LoginPage() {
             targetEmail = username.toLowerCase();
         } else {
             // 2. 아이디로 이메일 조회
-            const { data: userData, error: lookupError } = await supabase
-                .from("bw_usernames")
-                .select("email")
-                .eq("username", username.toLowerCase())
-                .single();
+            const { data: foundEmail, error: lookupError } = await supabase
+                .rpc("bw_login_email", { p_username: username });
 
-            if (lookupError || !userData) {
+            if (lookupError || !foundEmail) {
                 setMessage("존재하지 않는 사용자 정보입니다. 아이디 또는 이메일을 확인해주세요.");
                 setLoading(false);
                 return;
             }
-            targetEmail = userData.email;
+            targetEmail = foundEmail;
         }
 
         // 비밀번호 재설정 이메일 발송

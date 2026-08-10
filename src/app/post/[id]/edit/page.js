@@ -15,6 +15,9 @@ export default function EditPage() {
     const [boardType, setBoardType] = useState("");
     const [loading, setLoading] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    // 비회원 글은 삭제와 동일하게 비밀번호로 본인 확인한다
+    const [isGuestPost, setIsGuestPost] = useState(false);
+    const [guestPassword, setGuestPassword] = useState("");
     const [isAdmin, setIsAdmin] = useState(false);
     const [showAdminBadge, setShowAdminBadge] = useState(false);
     const [attachments, setAttachments] = useState([]);
@@ -77,6 +80,7 @@ export default function EditPage() {
                 return;
             }
 
+            setIsGuestPost(isGuestPost);
             setTitle(data.title);
             setContent(data.content);
             setBoardType(data.board_type);
@@ -100,6 +104,11 @@ export default function EditPage() {
             return;
         }
 
+        if (isGuestPost && !guestPassword) {
+            alert("비회원 글은 작성 시 입력한 비밀번호가 필요합니다.");
+            return;
+        }
+
         setIsSubmitting(true);
 
         const updateData = { title, content, board_type: boardType, attachments };
@@ -115,10 +124,18 @@ export default function EditPage() {
             updateData.poll_options = null;
         }
 
-        const { error } = await supabase
-            .from("bw_posts")
-            .update(updateData)
-            .eq("id", id);
+        // 수정도 삭제와 같은 기준으로 서버가 검증한다.
+        // 예전에는 RLS 가 비회원 글 수정을 누구에게나 열어두고 화면에서도 비밀번호를
+        // 묻지 않아, 링크만 알면 남의 글을 고칠 수 있었다.
+        const { error } = await supabase.rpc("bw_update_post", {
+            p_post_id: id,
+            p_title: updateData.title,
+            p_content: updateData.content,
+            p_board_type: updateData.board_type,
+            p_attachments: updateData.attachments ?? null,
+            p_poll_options: updateData.poll_options ?? null,
+            p_password: isGuestPost ? guestPassword : null,
+        });
 
         if (error) {
             alert("수정에 실패했습니다: " + error.message);
@@ -312,6 +329,25 @@ export default function EditPage() {
                             </div>
                         )}
                     </div>
+
+                    {isGuestPost && (
+                        <div className="pt-4 border-t border-gray-100">
+                            <label className="block text-sm font-bold text-gray-700 mb-2">
+                                비밀번호 <span className="text-red-500">*</span>
+                            </label>
+                            <input
+                                type="password"
+                                value={guestPassword}
+                                onChange={(e) => setGuestPassword(e.target.value)}
+                                placeholder="글 작성 시 입력한 비밀번호"
+                                autoComplete="current-password"
+                                className="w-full max-w-xs px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:border-[#355E3B]"
+                            />
+                            <p className="mt-1 text-xs text-gray-500">
+                                비회원 글은 본인 확인을 위해 작성 시 입력한 비밀번호가 필요합니다.
+                            </p>
+                        </div>
+                    )}
 
                     <div className="flex justify-end space-x-3 pt-4 border-t border-gray-100">
                         <Link href={`/post/${id}`} className="px-6 py-2 text-sm text-gray-600 border border-gray-200 rounded hover:bg-gray-50">취소</Link>

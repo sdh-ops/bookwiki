@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useMemo } from "react";
 import { supabase } from "@/lib/supabase";
+import { fetchAccountDirectory } from "@/lib/account";
 import { kstDateLabel, kstDateTimeLabel } from "@/lib/date";
 
 export default function AdminMembersPage() {
@@ -38,7 +39,7 @@ export default function AdminMembersPage() {
             // 3. Fetch User Emails from auth (Note: We might not have direct access to auth.users in client, 
             // but we can assume email is in profiles or bw_usernames if they exist)
             // Let's check bw_usernames as it seems to map email to id
-            const { data: usernames } = await supabase.from("bw_usernames").select("id, email");
+            const usernames = await fetchAccountDirectory();
             const emailMap = {};
             usernames?.forEach(u => emailMap[u.id] = u.email);
 
