@@ -320,7 +320,9 @@ export default function PostDetailPage() {
         const { data: insertedComment, error } = await supabase
             .from("bw_comments")
             .insert([commentData])
-            .select()
+            // 인자 없는 select() 는 select=* 라 password 까지 요구한다.
+            // 뒤에서 쓰는 값은 id 뿐이므로 그것만 돌려받는다.
+            .select("id")
             .single();
 
         if (error) {
