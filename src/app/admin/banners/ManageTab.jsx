@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import { uploadImage } from "@/lib/upload";
 import { PLACEMENTS, placementLabel, getPlacement, addDays, todayKST, splitPlanPrice } from "./shared";
+import { withWeekday } from "@/lib/date";
 import SpecModal from "./SpecModal";
 import CreativePreview from "./CreativePreview";
 import RotationSettings from "./RotationSettings";
@@ -558,7 +559,7 @@ export default function ManageTab() {
                   <p className="text-xs text-gray-500 mt-0.5">
                     {b.advertiser || "광고주 미지정"} · {placementLabel(b.placement)}
                     {(b.start_date || b.end_date) &&
-                      ` · ${b.start_date || "~"} ~ ${b.end_date || "~"}`}
+                      ` · ${withWeekday(b.start_date) || "~"} ~ ${withWeekday(b.end_date) || "~"}`}
                   </p>
                   <a
                     href={b.link_url}

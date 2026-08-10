@@ -6,6 +6,7 @@ import {
 } from "recharts";
 import { supabase } from "@/lib/supabase";
 import { downloadCSV, placementLabel } from "./shared";
+import { shortWithWeekday } from "@/lib/date";
 
 export default function StatsTab() {
   const [stats, setStats] = useState([]);
@@ -36,7 +37,7 @@ export default function StatsTab() {
     }
     setDaily(
       (data || []).map((r) => ({
-        date: r.kst_date?.slice(5) || "",
+        date: shortWithWeekday(r.kst_date),
         노출: Number(r.impressions),
         클릭: Number(r.clicks),
       }))

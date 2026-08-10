@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useMemo } from "react";
 import { supabase } from "@/lib/supabase";
+import { kstDateLabel, kstDateTimeLabel } from "@/lib/date";
 
 export default function AdminMembersPage() {
     const [members, setMembers] = useState([]);
@@ -289,7 +290,7 @@ export default function AdminMembersPage() {
                                             </span>
                                         </td>
                                         <td className="px-6 py-4 text-gray-500 tabular-nums">
-                                            {m.joinDate ? new Date(m.joinDate).toLocaleDateString() : '-'}
+                                            {m.joinDate ? kstDateLabel(m.joinDate) : '-'}
                                         </td>
                                         <td className="px-6 py-4 text-center font-medium text-gray-700">
                                             {m.postCount.toLocaleString()}
@@ -298,7 +299,7 @@ export default function AdminMembersPage() {
                                             {m.commentCount.toLocaleString()}
                                         </td>
                                         <td className="px-6 py-4 text-gray-500 tabular-nums">
-                                            {m.lastVisit ? new Date(m.lastVisit).toLocaleString() : '-'}
+                                            {m.lastVisit ? kstDateTimeLabel(m.lastVisit) : '-'}
                                         </td>
                                         <td className="px-6 py-4 text-right">
                                             {!m.isGuest && (

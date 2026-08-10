@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { kstDateLabel } from "@/lib/date";
 import Link from "next/link";
 
 export default function AdminCommentsPage() {
@@ -128,7 +129,7 @@ export default function AdminCommentsPage() {
                                         </td>
                                         <td className="px-3 md:px-4 py-3 text-xs text-gray-600">{comment.author}</td>
                                         <td className="px-3 md:px-4 py-3 text-xs text-gray-400 text-center">
-                                            {new Date(comment.created_at).toLocaleDateString()}
+                                            {kstDateLabel(comment.created_at)}
                                         </td>
                                         <td className="px-3 md:px-4 py-3 text-center">
                                             <button

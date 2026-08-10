@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { kstDateLabel, kstDateTimeLabel } from "@/lib/date";
 
 export default function AdminUsersPage() {
     const [admins, setAdmins] = useState([]);
@@ -96,7 +97,7 @@ export default function AdminUsersPage() {
                                     <div className="flex justify-between items-start">
                                         <div>
                                             <p className="text-sm text-gray-800 font-medium break-all">{admin.email}</p>
-                                            <p className="text-[10px] text-gray-400 mt-1">{new Date(admin.created_at).toLocaleDateString()}</p>
+                                            <p className="text-[10px] text-gray-400 mt-1">{kstDateLabel(admin.created_at)}</p>
                                         </div>
                                         {admin.email !== 'sdh@thenanbiz.com' && (
                                             <button
@@ -124,7 +125,7 @@ export default function AdminUsersPage() {
                                 {admins.map((admin) => (
                                     <tr key={admin.email} className="hover:bg-gray-50">
                                         <td className="px-4 md:px-6 py-4 text-gray-800 font-medium">{admin.email}</td>
-                                        <td className="px-4 md:px-6 py-4 text-gray-400 hidden md:table-cell">{new Date(admin.created_at).toLocaleString()}</td>
+                                        <td className="px-4 md:px-6 py-4 text-gray-400 hidden md:table-cell">{kstDateTimeLabel(admin.created_at)}</td>
                                         <td className="px-4 md:px-6 py-4 text-right">
                                             {admin.email !== 'sdh@thenanbiz.com' && (
                                                 <button

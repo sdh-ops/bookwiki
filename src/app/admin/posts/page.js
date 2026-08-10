@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { kstDateLabel } from "@/lib/date";
 import Link from "next/link";
 
 const boardTypeNames = {
@@ -195,7 +196,7 @@ export default function AdminPostsPage() {
                                             )}
                                             <span className="text-[10px] text-gray-400">{boardTypeNames[post.board_type]}</span>
                                         </div>
-                                        <span className="text-[10px] text-gray-400">{new Date(post.created_at).toLocaleDateString()}</span>
+                                        <span className="text-[10px] text-gray-400">{kstDateLabel(post.created_at)}</span>
                                     </div>
                                     <Link href={`/post/${post.id}`} className="text-sm text-gray-800 hover:text-[#355E3B] font-medium block mb-2">
                                         {post.title.length > 35 ? post.title.substring(0, 35) + "..." : post.title}
@@ -285,7 +286,7 @@ export default function AdminPostsPage() {
                                         <td className="px-3 md:px-4 py-3 text-xs text-gray-600 hidden lg:table-cell">{post.author}</td>
                                         <td className="px-3 md:px-4 py-3 text-xs text-gray-400 text-center hidden lg:table-cell">{post.view_count || 0}</td>
                                         <td className="px-3 md:px-4 py-3 text-xs text-gray-400 text-center">
-                                            {new Date(post.created_at).toLocaleDateString()}
+                                            {kstDateLabel(post.created_at)}
                                         </td>
                                         <td className="px-3 md:px-4 py-3 text-center">
                                             <div className="flex gap-1 justify-center">

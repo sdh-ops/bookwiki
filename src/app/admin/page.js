@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { withWeekday, toKstDate } from "@/lib/date";
 
 const boardTypeNames = {
     job: "구인구직",
@@ -220,7 +221,8 @@ export default function AdminDashboard() {
                         .limit(200);
 
                      const table = (posts || []).map(p => ({
-                        date: new Date(p.created_at).toISOString().split('T')[0],
+                        // toISOString() 은 UTC 라 새벽 작성글이 하루 전으로 찍힌다 → KST 로 환산
+                        date: toKstDate(p.created_at),
                         board: boardTypeNames[p.board_type] || p.board_type,
                         title: p.title,
                         author: p.author,
@@ -250,16 +252,16 @@ export default function AdminDashboard() {
 
         if (activeTab === "visitors") {
             headers = ["날짜(기간)", "순방문자수(세션)", "페이지뷰(전체)", "페이지뷰(회원)", "페이지뷰(비회원)", "페이지뷰(PC)", "페이지뷰(모바일)"];
-            rows = tableData.map(d => [d.date, d.visitors, d.pageviews, d.members, d.nonMembers, d.pc || 0, d.mobile || 0]);
+            rows = tableData.map(d => [withWeekday(d.date), d.visitors, d.pageviews, d.members, d.nonMembers, d.pc || 0, d.mobile || 0]);
         } else if (activeTab === "posts") {
             headers = ["날짜(기간)", "게시글(전체)", "게시글(회원)", "게시글(비회원)", "댓글(전체)", "댓글(회원)", "댓글(비회원)"];
-            rows = tableData.map(d => [d.date, d.postTotal, d.postMember, d.postNon, d.cmtTotal, d.cmtMember, d.cmtNon]);
+            rows = tableData.map(d => [withWeekday(d.date), d.postTotal, d.postMember, d.postNon, d.cmtTotal, d.cmtMember, d.cmtNon]);
         } else if (activeTab === "boardViews") {
             headers = ["날짜(기간)", "총 조회수", "구인구직", "지원사업", "톡톡(자유)", "AI허브", "베스트셀러"];
-            rows = tableData.map(d => [d.date, d.total, d.job, d.support, d.free, d.ai, d.bestseller]);
+            rows = tableData.map(d => [withWeekday(d.date), d.total, d.job, d.support, d.free, d.ai, d.bestseller]);
         } else if (activeTab === "postViews") {
             headers = ["작성일", "게시판", "게시글 제목", "작성자", "누적 조회수"];
-            rows = tableData.map(d => [d.date, d.board, d.title.replace(/,/g, " "), d.author, d.views]);
+            rows = tableData.map(d => [withWeekday(d.date), d.board, d.title.replace(/,/g, " "), d.author, d.views]);
         }
 
         downloadCSV([headers, ...rows], `bookwiki_stats_${activeTab}_${period}.csv`);
@@ -399,7 +401,7 @@ export default function AdminDashboard() {
                                     activeTab === "visitors" ? (
                                         tableData.map((row, i) => (
                                             <tr key={i} className="hover:bg-gray-50">
-                                                <td className="px-6 py-4 font-bold text-gray-700">{row.date}</td>
+                                                <td className="px-6 py-4 font-bold text-gray-700 whitespace-nowrap">{withWeekday(row.date)}</td>
                                                 <td className="px-6 py-4">{(row.visitors || 0).toLocaleString()} <span className="text-[10px] text-gray-400">명</span></td>
                                                 <td className="px-6 py-4 font-bold text-emerald-700">{(row.pageviews || 0).toLocaleString()}</td>
                                                 <td className="px-6 py-4 bg-gray-50/50">{(row.members || 0).toLocaleString()}</td>
@@ -419,7 +421,7 @@ export default function AdminDashboard() {
                                     ) : activeTab === "posts" ? (
                                         tableData.map((row, i) => (
                                             <tr key={i} className="hover:bg-gray-50">
-                                                <td className="px-6 py-4 font-bold text-gray-700">{row.date}</td>
+                                                <td className="px-6 py-4 font-bold text-gray-700 whitespace-nowrap">{withWeekday(row.date)}</td>
                                                 <td className="px-6 py-4 font-bold text-indigo-700">{(row.postTotal || 0).toLocaleString()}</td>
                                                 <td className="px-6 py-4">{(row.postMember || 0).toLocaleString()}</td>
                                                 <td className="px-6 py-4 text-gray-500">{(row.postNon || 0).toLocaleString()}</td>
@@ -431,7 +433,7 @@ export default function AdminDashboard() {
                                     ) : activeTab === "boardViews" ? (
                                         tableData.map((row, i) => (
                                             <tr key={i} className="hover:bg-gray-50">
-                                                <td className="px-6 py-4 font-bold text-gray-700">{row.date}</td>
+                                                <td className="px-6 py-4 font-bold text-gray-700 whitespace-nowrap">{withWeekday(row.date)}</td>
                                                 <td className="px-6 py-4 font-bold text-orange-700">{(row.total || 0).toLocaleString()}</td>
                                                 <td className="px-6 py-4 bg-gray-50/50">{(row.job || 0).toLocaleString()}</td>
                                                 <td className="px-6 py-4">{(row.support || 0).toLocaleString()}</td>

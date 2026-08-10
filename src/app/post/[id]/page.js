@@ -8,6 +8,7 @@ import DOMPurify from "isomorphic-dompurify";
 import PollWidget from "@/components/PollWidget";
 import MentionInput from "@/components/MentionInput";
 import Banner from "@/components/Banner";
+import { kstDateLabel, kstDateTimeLabel } from "@/lib/date";
 
 // Board type to Korean name mapping
 const boardTypeNames = {
@@ -86,7 +87,7 @@ function CommentItem({ comment, depth, handleReply, handleCommentAction }) {
                         </span>
                     </div>
                     <div className="flex items-center gap-2">
-                        <span className="text-[10px] text-gray-400">{new Date(comment.created_at).toLocaleString()}</span>
+                        <span className="text-[10px] text-gray-400">{kstDateTimeLabel(comment.created_at)}</span>
                         <div className="flex gap-1 text-[10px]">
                             <button
                                 onClick={() => handleReply(comment.id, comment.author)}
@@ -555,7 +556,7 @@ export default function PostDetailPage() {
                         <div className="flex items-center space-x-2 text-[10px] font-bold text-[#355E3B]">
                             <span>{boardTypeNames[post.board_type] || post.board_type}</span>
                             <span className="text-gray-300">|</span>
-                            <span className="text-gray-400 font-normal">{new Date(post.created_at).toLocaleString()}</span>
+                            <span className="text-gray-400 font-normal">{kstDateTimeLabel(post.created_at)}</span>
                         </div>
                         {canManage && (
                             <div className="flex space-x-2 text-[10px] text-gray-400 font-bold">
@@ -677,7 +678,7 @@ export default function PostDetailPage() {
                                     <div>
                                         <span className="font-bold text-gray-700">마감일:</span>
                                         <span className="ml-2 text-gray-600">
-                                            {post.deadline ? new Date(post.deadline).toLocaleDateString() : "충원시"}
+                                            {post.deadline ? kstDateLabel(post.deadline) : "충원시"}
                                         </span>
                                     </div>
                                 )}

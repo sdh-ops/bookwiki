@@ -6,6 +6,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import Banner from "@/components/Banner";
 import { fetchVisibleCategories, extractCategory } from "@/lib/postCategories";
+import { kstShortDateLabel, withWeekday } from "@/lib/date";
 
 // Board type to Korean name mapping
 const boardTypeNames = {
@@ -675,7 +676,7 @@ function PostList() {
                       .slice(0, 5)
                       .map(event => (
                         <li key={event.id} className="flex items-start gap-3 text-sm">
-                          <span className="text-red-600 font-bold whitespace-nowrap text-xs">{event.deadline}</span>
+                          <span className="text-red-600 font-bold whitespace-nowrap text-xs">{withWeekday(event.deadline)}</span>
                           <Link href={`/post/${event.id}`} className="text-gray-700 hover:text-blue-600 truncate text-xs">
                             {event.title}
                           </Link>
@@ -737,7 +738,7 @@ function PostList() {
                             </span>
                           )}
                         </td>
-                        <td className="px-2 py-2 text-xs text-gray-400 text-center">{new Date(post.created_at).toLocaleDateString().slice(5)}</td>
+                        <td className="px-2 py-2 text-xs text-gray-400 text-center">{kstShortDateLabel(post.created_at)}</td>
                         <td className="px-2 py-2 text-xs text-gray-400 text-center">{post.view_count}</td>
                       </tr>
                     ))}
@@ -770,7 +771,7 @@ function PostList() {
                             </span>
                           )}
                         </td>
-                        <td className="px-2 py-2 text-xs text-gray-400 text-center">{new Date(post.created_at).toLocaleDateString().slice(5)}</td>
+                        <td className="px-2 py-2 text-xs text-gray-400 text-center">{kstShortDateLabel(post.created_at)}</td>
                         <td className="px-2 py-2 text-xs text-gray-400 text-center">{post.view_count}</td>
                       </tr>
                     ))}
@@ -803,7 +804,7 @@ function PostList() {
                             </span>
                           )}
                         </td>
-                        <td className="px-2 py-2 text-xs text-gray-400 text-center">{new Date(post.created_at).toLocaleDateString().slice(5)}</td>
+                        <td className="px-2 py-2 text-xs text-gray-400 text-center">{kstShortDateLabel(post.created_at)}</td>
                         <td className="px-2 py-2 text-xs text-gray-400 text-center">{post.view_count}</td>
                       </tr>
                     ))}
@@ -838,7 +839,7 @@ function PostList() {
                       <div className="flex items-center text-[10px] text-gray-400 gap-2">
                         <span>{post.author}{post.user_id && <span className="text-green-500 ml-0.5 font-bold" style={{textShadow: '0 1px 0 rgba(255,255,255,0.5), 0 -1px 0 rgba(0,0,0,0.3)', filter: 'drop-shadow(0 1px 1px rgba(0,0,0,0.2))'}} title="회원">✓</span>}</span>
                         <span>·</span>
-                        <span>{new Date(post.created_at).toLocaleDateString().slice(5)}</span>
+                        <span>{kstShortDateLabel(post.created_at)}</span>
                         <span>·</span>
                         <span>조회 {post.view_count}</span>
                       </div>
@@ -867,7 +868,7 @@ function PostList() {
                       <div className="flex items-center text-[10px] text-gray-400 gap-2">
                         <span>{post.author}{post.user_id && <span className="text-green-500 ml-0.5 font-bold" style={{textShadow: '0 1px 0 rgba(255,255,255,0.5), 0 -1px 0 rgba(0,0,0,0.3)', filter: 'drop-shadow(0 1px 1px rgba(0,0,0,0.2))'}} title="회원">✓</span>}</span>
                         <span>·</span>
-                        <span>{new Date(post.created_at).toLocaleDateString().slice(5)}</span>
+                        <span>{kstShortDateLabel(post.created_at)}</span>
                         <span>·</span>
                         <span>조회 {post.view_count}</span>
                       </div>
@@ -895,7 +896,7 @@ function PostList() {
                       <div className="flex items-center text-[10px] text-gray-400 gap-2">
                         <span>{post.author}{post.user_id && <span className="text-green-500 ml-0.5 font-bold" style={{textShadow: '0 1px 0 rgba(255,255,255,0.5), 0 -1px 0 rgba(0,0,0,0.3)', filter: 'drop-shadow(0 1px 1px rgba(0,0,0,0.2))'}} title="회원">✓</span>}</span>
                         <span>·</span>
-                        <span>{new Date(post.created_at).toLocaleDateString().slice(5)}</span>
+                        <span>{kstShortDateLabel(post.created_at)}</span>
                         <span>·</span>
                         <span>조회 {post.view_count}</span>
                       </div>

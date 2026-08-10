@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { supabase } from "@/lib/supabase";
 import { placementLabel, downloadCSV } from "./shared";
+import { withWeekday } from "@/lib/date";
 
 const STATUS_OPTIONS = ["미입금", "입금완료", "취소"];
 
@@ -88,8 +89,8 @@ export default function RevenueTab() {
       (b.name || "").replace(/,/g, " "),
       (b.advertiser || "-").replace(/,/g, " "),
       placementLabel(b.placement),
-      b.start_date || "-",
-      b.end_date || "-",
+      withWeekday(b.start_date) || "-",
+      withWeekday(b.end_date) || "-",
       b.price_krw || 0,
       b.payment_status,
       (b.memo || "").replace(/,/g, " "),
@@ -208,7 +209,7 @@ export default function RevenueTab() {
                       <td className="px-6 py-3 text-gray-500">{b.advertiser || "-"}</td>
                       <td className="px-6 py-3 text-gray-500">{placementLabel(b.placement)}</td>
                       <td className="px-6 py-3 text-gray-500">
-                        {b.start_date || "~"} ~ {b.end_date || "~"}
+                        {withWeekday(b.start_date) || "~"} ~ {withWeekday(b.end_date) || "~"}
                       </td>
                       <td className="px-6 py-3 text-right font-bold">
                         {(b.price_krw || 0).toLocaleString()}원
