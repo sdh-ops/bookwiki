@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/lib/supabase";
+import { POST_COLUMNS, COMMENT_COLUMNS } from "@/lib/columns";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import DOMPurify from "isomorphic-dompurify";
@@ -223,7 +224,7 @@ export default function PostDetailPage() {
             // Fetch post (include password field)
             const { data: postData, error: postError } = await supabase
                 .from("bw_posts")
-                .select("*")
+                .select(POST_COLUMNS)
                 .eq("id", id)
                 .single();
 
@@ -242,7 +243,7 @@ export default function PostDetailPage() {
             // Fetch comments (삭제되지 않은 댓글만)
             const { data: commentData } = await supabase
                 .from("bw_comments")
-                .select("*")
+                .select(COMMENT_COLUMNS)
                 .eq("post_id", id)
                 .eq("is_deleted", false)
                 .order("created_at", { ascending: true });
@@ -276,7 +277,7 @@ export default function PostDetailPage() {
     const refreshComments = async () => {
         const { data } = await supabase
             .from("bw_comments")
-            .select("*")
+            .select(COMMENT_COLUMNS)
             .eq("post_id", id)
             .eq("is_deleted", false)
             .order("created_at", { ascending: true });
@@ -483,8 +484,10 @@ export default function PostDetailPage() {
             return;
         }
 
-        // Guest post with password (check if password exists)
-        if (!post.user_id && post.password) {
+        // 비회원 글이면 비밀번호 확인 모달을 띄운다.
+        // 예전에는 post.password 존재 여부로 판단했지만, 비밀번호는 더 이상
+        // 브라우저로 내려오지 않는다(유출 차단). 실제 대조는 서버 함수가 한다.
+        if (!post.user_id) {
             setManagementType(type);
             setShowPasswordModal(true);
         } else {

@@ -128,22 +128,29 @@ export default function LoginPage() {
         setLoading(true);
         setMessage("");
 
-        // 아이디로 이메일 조회
-        const { data: userData, error: lookupError } = await supabase
-            .from("bw_usernames")
-            .select("email")
-            .eq("username", username.toLowerCase())
-            .single();
+        // 아이디로도, 이메일로도 로그인할 수 있게 한다.
+        // 예전에는 아이디만 받아서 이메일을 넣으면 "존재하지 않는 아이디"가 떴는데,
+        // 비밀번호 찾기 화면은 둘 다 받고 있어 화면마다 말이 달랐다.
+        const input = username.trim().toLowerCase();
+        let loginEmail = input;
 
-        if (lookupError || !userData) {
-            setMessage("존재하지 않는 아이디입니다.");
-            setLoading(false);
-            return;
+        if (!input.includes("@")) {
+            const { data: userData, error: lookupError } = await supabase
+                .from("bw_usernames")
+                .select("email")
+                .eq("username", input)
+                .maybeSingle();
+
+            if (lookupError || !userData) {
+                setMessage("존재하지 않는 아이디입니다.");
+                setLoading(false);
+                return;
+            }
+            loginEmail = userData.email;
         }
 
-        // 이메일로 로그인
         const { error } = await supabase.auth.signInWithPassword({
-            email: userData.email,
+            email: loginEmail,
             password,
         });
 
@@ -506,7 +513,7 @@ export default function LoginPage() {
                         {/* 아이디 */}
                         <div>
                             <label htmlFor="username" className="block text-sm font-medium text-gray-700">
-                                아이디 <span className="text-red-500">*</span>
+                                {isSignUp ? "아이디" : "아이디 또는 이메일"} <span className="text-red-500">*</span>
                             </label>
                             <div className="mt-1 flex space-x-2">
                                 <input
@@ -520,7 +527,7 @@ export default function LoginPage() {
                                         setUsernameAvailable(null);
                                     }}
                                     className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-[#355E3B] focus:border-[#355E3B] sm:text-sm"
-                                    placeholder="영문, 숫자 4자 이상"
+                                    placeholder={isSignUp ? "영문, 숫자 4자 이상" : "가입한 아이디 또는 이메일"}
                                 />
                                 {isSignUp && (
                                     <button

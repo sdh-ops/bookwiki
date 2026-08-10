@@ -65,8 +65,8 @@ export default function AdminDashboard() {
     useEffect(() => {
         async function fetchOverall() {
             const { data: totalUsers } = await supabase.rpc('get_user_count');
-            const { count: totalPosts } = await supabase.from("bw_posts").select("*", { count: 'exact', head: true });
-            const { count: totalComments } = await supabase.from("bw_comments").select("*", { count: 'exact', head: true });
+            const { count: totalPosts } = await supabase.from("bw_posts").select("id", { count: 'exact', head: true });
+            const { count: totalComments } = await supabase.from("bw_comments").select("id", { count: 'exact', head: true });
             const { data: viewData } = await supabase.from("bw_posts").select("view_count");
             const totalViews = viewData?.reduce((sum, p) => sum + (p.view_count || 0), 0) || 0;
 

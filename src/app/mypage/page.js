@@ -2,6 +2,8 @@
 
 import { useEffect, useState, Suspense } from "react";
 import { supabase } from "@/lib/supabase";
+import { POST_COLUMNS, COMMENT_COLUMNS } from "@/lib/columns";
+import { fetchMyUsername } from "@/lib/account";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 
@@ -15,6 +17,8 @@ const boardTypeNames = {
 
 function MyPageContent() {
     const [user, setUser] = useState(null);
+    // 아이디 정본(bw_usernames) 조회 결과 — user_metadata 가 빈 계정 대비
+    const [lookedUpUsername, setLookedUpUsername] = useState("");
     const [posts, setPosts] = useState([]);
     const [comments, setComments] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -57,12 +61,14 @@ function MyPageContent() {
                 return;
             }
 
+            fetchMyUsername(user).then(setLookedUpUsername);
+
             setUser(user);
 
             // Fetch user's posts
             const { data: postsData } = await supabase
                 .from("bw_posts")
-                .select("*")
+                .select(POST_COLUMNS)
                 .eq("user_id", user.id)
                 .order("created_at", { ascending: false });
 
@@ -71,7 +77,7 @@ function MyPageContent() {
             // Fetch user's comments with post info (by user_id)
             const { data: commentsData } = await supabase
                 .from("bw_comments")
-                .select("*, bw_posts(id, title)")
+                .select(`${COMMENT_COLUMNS}, bw_posts(id, title)`)
                 .eq("user_id", user.id)
                 .order("created_at", { ascending: false });
 
@@ -319,7 +325,9 @@ function MyPageContent() {
     if (!user) return null;
 
     const nickname = user.user_metadata?.nickname || "사용자";
-    const username = user.user_metadata?.username || "";
+    // user_metadata 는 가입 시점에 채워진 사본이라 초기 계정 등 비어 있는 경우가 있다.
+    // 아이디의 정본은 bw_usernames 이므로 비면 거기서 읽어온 값으로 채운다.
+    const username = user.user_metadata?.username || lookedUpUsername || "";
 
     return (
         <main className="min-h-screen bg-white">

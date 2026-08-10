@@ -2,6 +2,7 @@
 
 import { useEffect, useState, Suspense } from "react";
 import { supabase } from "@/lib/supabase";
+import { POST_COLUMNS } from "@/lib/columns";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import Banner from "@/components/Banner";
@@ -84,7 +85,7 @@ function PostList() {
       if (searchQueryParam) {
         let searchQuery = supabase
           .from("bw_posts")
-          .select("*", { count: "exact" })
+          .select(POST_COLUMNS, { count: "exact" })
           .ilike("title", `%${searchQueryParam}%`)
           .eq("is_deleted", false);
 
@@ -171,7 +172,7 @@ function PostList() {
         setPinnedPosts([]);
         query = supabase
           .from("bw_posts")
-          .select("*")
+          .select(POST_COLUMNS)
           .eq("is_deleted", false)
           .eq("is_hot", true)
           .order("is_notice", { ascending: false })
@@ -179,28 +180,28 @@ function PostList() {
           .range(offset, offset + POSTS_PER_PAGE - 1);
         countQuery = supabase
           .from("bw_posts")
-          .select("*", { count: "exact", head: true })
+          .select("id", { count: "exact", head: true })
           .eq("is_deleted", false)
           .eq("is_hot", true);
       } else if (currentBoard === "all") {
         setPinnedPosts([]);
         query = supabase
           .from("bw_posts")
-          .select("*")
+          .select(POST_COLUMNS)
           .eq("is_deleted", false)
           .order("is_notice", { ascending: false })
           .order("created_at", { ascending: false })
           .range(offset, offset + POSTS_PER_PAGE - 1);
         countQuery = supabase
           .from("bw_posts")
-          .select("*", { count: "exact", head: true })
+          .select("id", { count: "exact", head: true })
           .eq("is_deleted", false);
       } else if (currentBoard === "job") {
         // 1. 직접 작성글(다산북스 포함) 고정용 조회 - 필터 적용
         // is_auto가 명시적으로 true인 경우 관리자가 자동 전환한 것이므로 다산북스라도 직접에서 제외
         let directQuery = supabase
           .from("bw_posts")
-          .select("*")
+          .select(POST_COLUMNS)
           .eq("board_type", "job")
           .eq("is_deleted", false)
           .or("is_auto.eq.false,is_auto.is.null");
@@ -208,7 +209,7 @@ function PostList() {
         // 2. 일반 글(스크래핑) 페이징 조회 - 직접 작성글 및 다산북스 글 제외
         query = supabase
           .from("bw_posts")
-          .select("*")
+          .select(POST_COLUMNS)
           .eq("board_type", "job")
           .eq("is_deleted", false)
           .eq("is_auto", true)
@@ -217,7 +218,7 @@ function PostList() {
         
         countQuery = supabase
           .from("bw_posts")
-          .select("*", { count: "exact", head: true })
+          .select("id", { count: "exact", head: true })
           .eq("board_type", "job")
           .eq("is_deleted", false)
           .eq("is_auto", true)
@@ -247,7 +248,7 @@ function PostList() {
         setPinnedPosts([]);
         query = supabase
           .from("bw_posts")
-          .select("*")
+          .select(POST_COLUMNS)
           .eq("is_deleted", false)
           .eq("board_type", currentBoard)
           .order("is_notice", { ascending: false })
@@ -255,7 +256,7 @@ function PostList() {
           .range(offset, offset + POSTS_PER_PAGE - 1);
         countQuery = supabase
           .from("bw_posts")
-          .select("*", { count: "exact", head: true })
+          .select("id", { count: "exact", head: true })
           .eq("is_deleted", false)
           .eq("board_type", currentBoard);
       }

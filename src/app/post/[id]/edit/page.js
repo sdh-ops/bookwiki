@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/lib/supabase";
+import { POST_COLUMNS } from "@/lib/columns";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import Editor from "@/components/Editor";
@@ -48,7 +49,7 @@ export default function EditPage() {
 
             const { data, error } = await supabase
                 .from("bw_posts")
-                .select("*")
+                .select(POST_COLUMNS)
                 .eq("id", id)
                 .single();
 
