@@ -6,7 +6,7 @@ async function testFetchMissing() {
     const author = '앤디 위어';
     
     try {
-        const url = 'http://www.aladin.co.kr/ttb/api/ItemSearch.aspx';
+        const url = 'https://www.aladin.co.kr/ttb/api/ItemSearch.aspx';
         const params = {
           ttbkey: ALADIN_API_KEY,
           Query: title,

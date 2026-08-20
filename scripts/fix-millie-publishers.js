@@ -12,7 +12,7 @@ const BATCH_SIZE = 5; // 병렬 처리 개수 (API 호출 제한 고려)
 async function fetchCorrectInfo(title, author) {
   try {
     const query = `${title} ${author}`;
-    const url = `http://www.aladin.co.kr/ttb/api/ItemSearch.aspx?ttbkey=${ALADIN_API_KEY}&Query=${encodeURIComponent(query)}&QueryType=Keyword&MaxResults=1&start=1&SearchTarget=Book&output=js&Version=20131101`;
+    const url = `https://www.aladin.co.kr/ttb/api/ItemSearch.aspx?ttbkey=${ALADIN_API_KEY}&Query=${encodeURIComponent(query)}&QueryType=Keyword&MaxResults=1&start=1&SearchTarget=Book&output=js&Version=20131101`;
     
     const response = await axios.get(url);
     const item = response.data.item?.[0];

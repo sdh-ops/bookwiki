@@ -24,7 +24,7 @@ async function fetchFromAladin(title, author) {
     try {
         console.log(`🔍 [Aladin API] Searching for: ${title} / ${author}`);
         // ISBN 검색 시도 (제목+저자)
-        const url = `http://www.aladin.co.kr/ttb/api/ItemSearch.aspx?ttbkey=${ALADIN_API_KEY}&Query=${encodeURIComponent(title + ' ' + author)}&QueryType=Keyword&MaxResults=1&start=1&SearchTarget=Book&output=js&Version=20131101`;
+        const url = `https://www.aladin.co.kr/ttb/api/ItemSearch.aspx?ttbkey=${ALADIN_API_KEY}&Query=${encodeURIComponent(title + ' ' + author)}&QueryType=Keyword&MaxResults=1&start=1&SearchTarget=Book&output=js&Version=20131101`;
         const res = await axios.get(url);
         if (res.data && res.data.item && res.data.item.length > 0) {
             return res.data.item[0];

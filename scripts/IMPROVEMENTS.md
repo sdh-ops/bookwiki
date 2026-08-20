@@ -172,7 +172,7 @@ node scripts/check-platform-data.js
 
 ### 알라딘 API
 - **API Key**: `ttbsue_1201547001`
-- **엔드포인트**: `http://www.aladin.co.kr/ttb/api/ItemList.aspx`
+- **엔드포인트**: `https://www.aladin.co.kr/ttb/api/ItemList.aspx`
 - **장점**: ISBN 자동 수집, 안정적인 데이터
 
 ### 실행 시 주의사항

@@ -155,7 +155,7 @@ async function fetchMissingInfo(title, author) {
 
   try {
     const safeTitle = title.replace(/\[도서\]/g, '').split('(')[0].split('-')[0].trim();
-    const url = 'http://www.aladin.co.kr/ttb/api/ItemSearch.aspx';
+    const url = 'https://www.aladin.co.kr/ttb/api/ItemSearch.aspx';
     const baseParams = {
       ttbkey: ALADIN_API_KEY,
       QueryType: 'Keyword',

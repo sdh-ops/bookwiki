@@ -6,7 +6,7 @@ const ALADIN_API_KEY = 'ttbsue_1201547001';
 async function fetchMissingInfo(title, author) {
   try {
     const safeTitle = title.replace(/\[도서\]/g, '').split('(')[0].split('-')[0].trim();
-    const url = 'http://www.aladin.co.kr/ttb/api/ItemSearch.aspx';
+    const url = 'https://www.aladin.co.kr/ttb/api/ItemSearch.aspx';
     const params = {
       ttbkey: ALADIN_API_KEY,
       Query: safeTitle + ' ' + (author !== '저자 미상' ? author.split(' ')[0] : ''),

@@ -10,7 +10,7 @@ async function testAladinAPI() {
   // Test 1: ItemList with Bestseller
   console.log('Test 1: ItemList.aspx (Bestseller)');
   try {
-    const url = 'http://www.aladin.co.kr/ttb/api/ItemList.aspx';
+    const url = 'https://www.aladin.co.kr/ttb/api/ItemList.aspx';
     const params = {
       ttbkey: ALADIN_API_KEY,
       QueryType: 'Bestseller',
@@ -47,7 +47,7 @@ async function testAladinAPI() {
   // Test 2: Different QueryType
   console.log('\n\nTest 2: ItemList.aspx (BestSeller - different spelling)');
   try {
-    const url = 'http://www.aladin.co.kr/ttb/api/ItemList.aspx';
+    const url = 'https://www.aladin.co.kr/ttb/api/ItemList.aspx';
     const params = {
       ttbkey: ALADIN_API_KEY,
       QueryType: 'BestSeller',  // 대소문자 다르게
@@ -72,7 +72,7 @@ async function testAladinAPI() {
   // Test 3: ItemSearch (기존 방식)
   console.log('\n\nTest 3: ItemSearch.aspx (fallback to scraping method)');
   try {
-    const url = 'http://www.aladin.co.kr/ttb/api/ItemSearch.aspx';
+    const url = 'https://www.aladin.co.kr/ttb/api/ItemSearch.aspx';
     const params = {
       ttbkey: ALADIN_API_KEY,
       Query: '소설',

@@ -10,7 +10,7 @@ const { supabase } = require('./common');
  */
 
 const ALADIN_API_KEY = 'ttbsue_1201547001';
-const ALADIN_SEARCH_URL = 'http://www.aladin.co.kr/ttb/api/ItemSearch.aspx';
+const ALADIN_SEARCH_URL = 'https://www.aladin.co.kr/ttb/api/ItemSearch.aspx';
 const DELAY_MS = 1000; // API 호출 간격 (1초)
 
 async function searchBookOnAladin(title, author) {
