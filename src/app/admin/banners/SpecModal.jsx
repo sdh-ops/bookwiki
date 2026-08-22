@@ -107,8 +107,10 @@ export default function SpecModal({ onClose }) {
 
         <div className="p-6 space-y-6 text-sm text-gray-700">
           <p className="text-xs text-gray-500 bg-blue-50 border border-blue-100 rounded px-3 py-2">
-            소재 <strong>한 장</strong>으로 PC·모바일을 모두 대응합니다. 위 「규격 안내문 복사」를
-            누르면 광고주에게 그대로 보낼 수 있는 문구가 클립보드에 담깁니다.
+            소재는 <strong>두 장(PC·모바일 각각)</strong> 또는 <strong>한 장(안전영역)</strong> 중
+            편한 쪽으로 받으시면 됩니다. 두 장이면 모바일에서도 잘림이 없어 문구를 온전히 쓸 수
+            있습니다. 위 「규격 안내문 복사」를 누르면 광고주에게 그대로 보낼 수 있는 문구가
+            클립보드에 담깁니다.
           </p>
 
           <section>
@@ -118,8 +120,9 @@ export default function SpecModal({ onClose }) {
                 <thead className="bg-gray-50 text-gray-600">
                   <tr>
                     <th className="px-3 py-2 text-left">위치</th>
-                    <th className="px-3 py-2 text-left">소재 크기</th>
-                    <th className="px-3 py-2 text-left">안전영역</th>
+                    <th className="px-3 py-2 text-left">PC 소재</th>
+                    <th className="px-3 py-2 text-left">모바일 소재</th>
+                    <th className="px-3 py-2 text-left">한 장으로 낼 때 안전영역</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
@@ -133,6 +136,18 @@ export default function SpecModal({ onClose }) {
                         <span className="font-bold text-gray-800">{p.imageSize}</span>
                         <p className="text-[11px] text-gray-400">고화질 {p.imageSizeRetina}</p>
                       </td>
+                      <td className="px-3 py-2 whitespace-nowrap">
+                        {p.mobileCreative ? (
+                          <>
+                            <span className="font-bold text-gray-800">{p.mobileImageSize}</span>
+                            <p className="text-[11px] text-gray-400">
+                              고화질 {p.mobileImageSizeRetina}
+                            </p>
+                          </>
+                        ) : (
+                          <span className="text-gray-400">— (모바일 미노출)</span>
+                        )}
+                      </td>
                       <td className="px-3 py-2 text-gray-600">{p.safeArea}</td>
                     </tr>
                   ))}
@@ -142,7 +157,10 @@ export default function SpecModal({ onClose }) {
           </section>
 
           <section>
-            <h4 className="font-bold text-gray-900 mb-1">가로형 배너 안전영역</h4>
+            <h4 className="font-bold text-gray-900 mb-1">가로형 배너 안전영역 (한 장으로 낼 때)</h4>
+            <p className="text-[11px] text-gray-500">
+              PC·모바일 소재를 각각 받았다면 아래 잘림은 발생하지 않습니다.
+            </p>
             <SafeAreaDiagram />
           </section>
 

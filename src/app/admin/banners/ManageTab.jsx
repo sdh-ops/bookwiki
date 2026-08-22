@@ -14,6 +14,7 @@ const EMPTY_FORM = {
   name: "",
   advertiser: "",
   image_url: "",
+  image_url_mobile: "",
   link_url: "",
   placement: "home_top",
   is_active: true,
@@ -26,6 +27,41 @@ const EMPTY_FORM = {
   payment_status: "미입금",
   memo: "",
 };
+
+/**
+ * 소재 업로드 한 칸 (파일 선택 + URL 직접 입력).
+ * PC 칸과 모바일 칸이 완전히 같은 모양이라 한 곳에 모아 둔다.
+ */
+function CreativeField({ id, title, sizeHint, help, value, uploading, onFile, onUrlChange }) {
+  return (
+    <div className="border border-dashed border-gray-300 rounded-lg p-4 bg-gray-50">
+      <div className="flex items-baseline gap-2 flex-wrap">
+        <span className="text-sm font-bold text-gray-700">{title}</span>
+        <span className="text-[11px] text-gray-400">{sizeHint}</span>
+      </div>
+      <div className="mt-2 flex flex-wrap items-center gap-3">
+        <label
+          htmlFor={id}
+          className="inline-flex items-center gap-2 px-4 py-2 bg-[#2c3e50] text-white rounded font-bold text-sm cursor-pointer hover:bg-[#34495e] transition"
+        >
+          🖼️ 이미지 파일 선택
+        </label>
+        <input id={id} type="file" accept="image/*" onChange={onFile} className="hidden" />
+        <span className="text-xs text-gray-500">
+          {uploading ? "업로드 중..." : value ? "이미지가 등록되었습니다" : "JPG, PNG, GIF, WEBP · 5MB 이하"}
+        </span>
+      </div>
+      <input
+        type="text"
+        value={value}
+        onChange={onUrlChange}
+        placeholder="또는 이미지 URL 직접 입력"
+        className="mt-2 w-full px-3 py-2 border border-gray-300 rounded text-sm bg-white focus:outline-none focus:border-[#2c3e50]"
+      />
+      {help && <p className="mt-1.5 text-[11px] text-gray-500">{help}</p>}
+    </div>
+  );
+}
 
 /** 오늘(KST) 기준으로 게재 기간 안에 들어와 있고 활성인 배너인지 */
 function isLive(b) {
@@ -44,7 +80,9 @@ export default function ManageTab() {
   const [plans, setPlans] = useState([]);
   const [form, setForm] = useState(EMPTY_FORM);
   const [selectedPlanId, setSelectedPlanId] = useState("custom");
-  const [uploading, setUploading] = useState(false);
+  // 업로드 중인 칸 이름(image_url | image_url_mobile). null = 업로드 중 아님.
+  // PC·모바일 두 칸이 각자 진행 상태를 보여야 해서 boolean 으로는 부족하다.
+  const [uploadingField, setUploadingField] = useState(null);
   const [saving, setSaving] = useState(false);
   const [showSpec, setShowSpec] = useState(false);
 
@@ -88,6 +126,7 @@ export default function ManageTab() {
       name: b.name || "",
       advertiser: b.advertiser || "",
       image_url: b.image_url || "",
+      image_url_mobile: b.image_url_mobile || "",
       link_url: b.link_url || "",
       placement: b.placement || "home_top",
       is_active: b.is_active,
@@ -128,17 +167,19 @@ export default function ManageTab() {
     }));
   }
 
-  async function handleImageUpload(e) {
+  async function handleImageUpload(e, field) {
     const file = e.target.files?.[0];
     if (!file) return;
-    setUploading(true);
+    setUploadingField(field);
     try {
       const { url } = await uploadImage(file);
-      setForm((f) => ({ ...f, image_url: url }));
+      setForm((f) => ({ ...f, [field]: url }));
     } catch (err) {
       alert(err.message || "이미지 업로드 실패");
     } finally {
-      setUploading(false);
+      setUploadingField(null);
+      // 같은 파일을 다시 골라도 change 가 뜨도록 입력값을 비운다
+      e.target.value = "";
     }
   }
 
@@ -154,6 +195,9 @@ export default function ManageTab() {
       name: form.name.trim(),
       advertiser: form.advertiser.trim() || null,
       image_url: form.image_url.trim(),
+      // 빈 문자열 대신 NULL 로 저장한다 — Banner 가 `|| PC소재` 로 판정하므로
+      // 어느 쪽이든 동작은 같지만, "안 넣었다"를 DB에서 한눈에 구분할 수 있다.
+      image_url_mobile: form.image_url_mobile.trim() || null,
       link_url: form.link_url.trim(),
       is_active: form.is_active,
       start_date: form.start_date || null,
@@ -239,6 +283,7 @@ export default function ManageTab() {
     loadBanners();
   }
 
+  const placementMeta = getPlacement(form.placement);
   const selectedPlan = plans.find((p) => p.id === selectedPlanId);
   const isBundleSelected = !form.id && selectedPlan && selectedPlan.placements.length > 1;
 
@@ -328,7 +373,7 @@ export default function ManageTab() {
           </label>
         </div>
 
-        {/* 이미지 */}
+        {/* 이미지 — 모바일 소재를 따로 받는 위치는 두 칸으로 나뉜다 */}
         <div>
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-sm font-bold text-gray-600">배너 이미지 *</span>
@@ -339,40 +384,44 @@ export default function ManageTab() {
             >
               📐 소재 규격 보기 · 복사
             </button>
-            <span className="text-[11px] text-gray-400">
-              {getPlacement(form.placement).imageSize} · 안전영역 {getPlacement(form.placement).safeArea}
-            </span>
           </div>
-          <div className="mt-1 flex flex-wrap items-center gap-3 border border-dashed border-gray-300 rounded-lg p-4 bg-gray-50">
-            <label
-              htmlFor="banner-image-upload"
-              className="inline-flex items-center gap-2 px-4 py-2 bg-[#2c3e50] text-white rounded font-bold text-sm cursor-pointer hover:bg-[#34495e] transition"
-            >
-              🖼️ 이미지 파일 선택
-            </label>
-            <input
+          <div className={`mt-2 grid grid-cols-1 gap-4 ${placementMeta.mobileCreative ? "md:grid-cols-2" : ""}`}>
+            <CreativeField
               id="banner-image-upload"
-              type="file"
-              accept="image/*"
-              onChange={handleImageUpload}
-              className="hidden"
+              title={placementMeta.mobileCreative ? "PC 소재 *" : "배너 이미지 *"}
+              sizeHint={placementMeta.imageSize}
+              value={form.image_url}
+              uploading={uploadingField === "image_url"}
+              onFile={(e) => handleImageUpload(e, "image_url")}
+              onUrlChange={(e) => setForm({ ...form, image_url: e.target.value })}
+              help={
+                placementMeta.mobileCreative
+                  ? "모바일 소재를 따로 올리지 않으면 이 소재의 가운데만 잘라서 모바일에 씁니다."
+                  : `안전영역 ${placementMeta.safeArea}`
+              }
             />
-            <span className="text-xs text-gray-500">
-              {uploading
-                ? "업로드 중..."
-                : form.image_url
-                ? "이미지가 등록되었습니다"
-                : "JPG, PNG, GIF, WEBP · 5MB 이하"}
-            </span>
+            {placementMeta.mobileCreative && (
+              <CreativeField
+                id="banner-image-upload-mobile"
+                title="모바일 소재 (선택)"
+                sizeHint={placementMeta.mobileImageSize}
+                value={form.image_url_mobile}
+                uploading={uploadingField === "image_url_mobile"}
+                onFile={(e) => handleImageUpload(e, "image_url_mobile")}
+                onUrlChange={(e) => setForm({ ...form, image_url_mobile: e.target.value })}
+                help={
+                  form.image_url_mobile
+                    ? "모바일에서는 이 소재가 잘림 없이 그대로 노출됩니다."
+                    : `비워두면 지금까지처럼 PC 소재의 ${placementMeta.safeArea} 만 잘라서 노출합니다.`
+                }
+              />
+            )}
           </div>
-          <input
-            type="text"
-            value={form.image_url}
-            onChange={(e) => setForm({ ...form, image_url: e.target.value })}
-            placeholder="또는 이미지 URL 직접 입력"
-            className="mt-2 w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:border-[#2c3e50]"
+          <CreativePreview
+            imageUrl={form.image_url}
+            mobileImageUrl={form.image_url_mobile}
+            placement={form.placement}
           />
-          <CreativePreview imageUrl={form.image_url} placement={form.placement} />
         </div>
 
         <label className="block">
@@ -489,7 +538,7 @@ export default function ManageTab() {
         <div className="flex gap-2 pt-2">
           <button
             type="submit"
-            disabled={saving || uploading}
+            disabled={saving || !!uploadingField}
             className="px-6 py-2 bg-[#2c3e50] text-white rounded font-bold text-sm hover:bg-[#34495e] disabled:opacity-50"
           >
             {saving ? "저장 중..." : form.id ? "수정 저장" : "등록"}
@@ -542,6 +591,11 @@ export default function ManageTab() {
                     >
                       {b.is_active ? "게재중" : "중지"}
                     </span>
+                    {b.image_url_mobile && (
+                      <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-emerald-50 text-emerald-600 border border-emerald-200">
+                        📱 모바일 소재 별도
+                      </span>
+                    )}
                     {b.price_krw != null && (
                       <span
                         className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${

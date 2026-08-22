@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { getDeviceType } from "@/lib/device";
-import { getPlacement } from "@/lib/bannerPlacements";
+import { getPlacement, PC_MEDIA_QUERY } from "@/lib/bannerPlacements";
 
 // 같은 세션에서 같은 배너를 반복 클릭해도 30분에 1회만 집계한다.
 // (광고주 리포트의 클릭수가 새로고침·오클릭으로 부풀지 않도록)
@@ -104,6 +104,8 @@ function todayKST() {
 /**
  * 배너 광고 슬롯.
  * - 게재중 배너를 위치별 로테이션 방식(랜덤/가중치/고정)으로 1개 노출
+ * - 모바일 전용 소재(image_url_mobile)가 있으면 기기별로 다른 이미지를 노출.
+ *   없으면 PC 소재를 모바일에서 가운데만 남기고 잘라 쓴다(안전영역 방식)
  * - 노출·클릭 이벤트를 기기 구분과 함께 bw_banner_events 에 기록
  * - 게재중 배너가 없으면 위치 설정에 따라 "광고 배너 영역" 자리를 보여준다
  *
@@ -150,7 +152,7 @@ export default function Banner({ placement = "home_top", className }) {
         loadPlacementSettings(),
         supabase
           .from("bw_banners")
-          .select("id, name, image_url, link_url, sort_order, weight")
+          .select("id, name, image_url, image_url_mobile, link_url, sort_order, weight")
           .eq("placement", placement)
           .eq("is_active", true)
           .eq("is_deleted", false)
@@ -256,13 +258,23 @@ export default function Banner({ placement = "home_top", className }) {
         aria-label={`광고: ${banner.name}`}
         className="block w-full overflow-hidden rounded transition hover:opacity-95"
       >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={banner.image_url}
-          alt={banner.name}
-          loading={placement === "home_top" ? "eager" : "lazy"}
-          className={`w-full h-full object-cover object-center ${meta.frameClass}`}
-        />
+        {/*
+          모바일 전용 소재가 있으면 기기별로 다른 파일을 내보낸다.
+          <picture> 는 브라우저가 조건에 맞는 한 장만 내려받으므로 두 장을 받아
+          트래픽이 늘지 않는다. 교체 지점(PC_MEDIA_QUERY)은 프레임 비율이 바뀌는
+          Tailwind md 와 같은 768px — 어긋나면 4:1 자리에 8:1 소재가 들어간다.
+          모바일 소재가 없으면 두 갈래 모두 PC 소재라 기존 안전영역 방식 그대로다.
+        */}
+        <picture className="block w-full">
+          <source media={PC_MEDIA_QUERY} srcSet={banner.image_url} />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={banner.image_url_mobile || banner.image_url}
+            alt={banner.name}
+            loading={placement === "home_top" ? "eager" : "lazy"}
+            className={`w-full h-full object-cover object-center ${meta.frameClass}`}
+          />
+        </picture>
       </a>
     </div>
   );
