@@ -28,4 +28,8 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          # 알라딘은 누락된 출판사·출간일을 메우는 **폴백**에만 쓴다(수집 본체는 HTML 스크래핑).
+          # 2026-09-05 에 키를 하드코딩에서 환경변수로 뺐다 — 이 줄이 없으면 그 보완이 조용히 멈춘다.
+          # ⚠️ 알라딘 Open API 는 2026-10-30 종료. 그 뒤엔 이 값이 있어도 폴백은 안 돈다.
+          ALADIN_TTB_KEY: ${{ secrets.ALADIN_TTB_KEY }}
         run: node scripts/bestseller-final.js

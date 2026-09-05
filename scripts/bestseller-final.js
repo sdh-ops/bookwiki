@@ -6,6 +6,11 @@ const cheerio = require('cheerio');
 const { supabase } = require('./common');
 
 const ALADIN_API_KEY = process.env.ALADIN_TTB_KEY;
+// 알라딘은 **폴백**이다 — 없어도 수집은 돈다. 다만 조용히 비면 「출판사가 왜 자꾸 비지」로만 보인다.
+// 시작할 때 한 번 소리내어 남긴다. (2026-10-30 알라딘 Open API 종료 후엔 늘 이 상태가 된다.)
+if (!ALADIN_API_KEY) {
+  console.warn('[bestseller] ALADIN_TTB_KEY 없음 — 출판사/출간일 보완(폴백)을 건너뜁니다. 수집 자체는 계속합니다.');
+}
 
 /**
  * [Bestseller Scraper FINAL - 5 Platforms Integrated]
