@@ -3,7 +3,7 @@
 const axios = require('axios');
 const { supabase } = require('./common');
 
-const ALADIN_API_KEY = 'ttbsue_1201547001';
+const ALADIN_API_KEY = process.env.ALADIN_TTB_KEY;
 const BATCH_SIZE = 5; // 병렬 처리 개수 (API 호출 제한 고려)
 
 /**

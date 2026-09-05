@@ -1,11 +1,24 @@
 import { NextResponse } from 'next/server';
 
-const ALADIN_API_KEY = 'ttbsue_1201547001';
+// 알라딘 Open API 키. ⛔ 하드코딩하지 마라 — 이 저장소는 **공개**다(2026-09-05 이전엔 박혀 있었다).
+// ⚠️ 알라딘 Open API 는 2026-10-30 종료된다. 신규 키 발급도 끝나 **재발급이 불가**하다.
+//    그날 이후 이 라우트는 늘 실패한다 — 호출부(admin/bestseller)에 이미 폴백이 있다.
+const ALADIN_API_KEY = process.env.ALADIN_TTB_KEY;
 const ALADIN_LOOKUP_URL = 'https://www.aladin.co.kr/ttb/api/ItemLookUp.aspx';
 const ALADIN_SEARCH_URL = 'https://www.aladin.co.kr/ttb/api/ItemSearch.aspx';
 
 export async function GET(request) {
   try {
+    // 키가 없으면 `ttbkey=undefined` 로 알라딘을 부르게 된다 — 그러면 「책을 못 찾았다」처럼
+    // 보여서 진짜 원인(환경변수 누락)이 숨는다. 여기서 분명히 끊는다.
+    if (!ALADIN_API_KEY) {
+      console.error('[aladin] ALADIN_TTB_KEY 환경변수가 없습니다 — 조회를 중단합니다');
+      return NextResponse.json(
+        { error: 'ALADIN_TTB_KEY not configured' },
+        { status: 503 }
+      );
+    }
+
     const { searchParams } = new URL(request.url);
     const isbn = searchParams.get('isbn');
     const title = searchParams.get('title');

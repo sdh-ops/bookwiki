@@ -1,5 +1,5 @@
 const axios = require('axios');
-const ALADIN_API_KEY = 'ttbsue_1201547001';
+const ALADIN_API_KEY = process.env.ALADIN_TTB_KEY;
 
 async function testFetchMissing() {
     const title = '프로젝트 헤일메리';

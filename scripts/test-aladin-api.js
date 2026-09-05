@@ -1,8 +1,9 @@
 "use strict";
 
+require('./common'); // .env.local 을 process.env 로 읽어 온다(ALADIN_TTB_KEY)
 const axios = require('axios');
 
-const ALADIN_API_KEY = 'ttbsue_1201547001';
+const ALADIN_API_KEY = process.env.ALADIN_TTB_KEY;
 
 async function testAladinAPI() {
   console.log('\n=== Testing Aladin Bestseller API ===\n');

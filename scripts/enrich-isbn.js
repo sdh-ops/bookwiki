@@ -9,7 +9,7 @@ const { supabase } = require('./common');
  * - ISBN, 표지, 설명, 출판일 등 업데이트
  */
 
-const ALADIN_API_KEY = 'ttbsue_1201547001';
+const ALADIN_API_KEY = process.env.ALADIN_TTB_KEY;
 const ALADIN_SEARCH_URL = 'https://www.aladin.co.kr/ttb/api/ItemSearch.aspx';
 const DELAY_MS = 1000; // API 호출 간격 (1초)
 
