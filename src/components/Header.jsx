@@ -154,11 +154,10 @@ function MobileAccountMenu({ user, isAdmin, onLogout }) {
   );
 }
 
-function HeaderInner() {
+function HeaderInner({ active }) {
   const [isAdmin, setIsAdmin] = useState(false);
   const [user, setUser] = useState(null);
   const pathname = usePathname();
-  const active = useActiveTab();
 
   useEffect(() => {
     let cancelled = false;
@@ -237,11 +236,16 @@ function HeaderInner() {
   );
 }
 
-// useSearchParams 를 쓰므로 Suspense 로 감싼다(정적 페이지 빌드가 통째로 클라이언트 렌더로 떨어지지 않게)
+function HeaderWithActiveTab() {
+  return <HeaderInner active={useActiveTab()} />;
+}
+
+// useSearchParams 를 쓰므로 Suspense 로 감싼다(정적 페이지 빌드가 통째로 클라이언트 렌더로 떨어지지 않게).
+// 대기 화면도 같은 헤더를 그린다 — 빈 초록 띠만 보이다 탭이 튀어나오지 않게(현재 탭 표시만 잠깐 늦다).
 export default function Header() {
   return (
-    <Suspense fallback={<div className="bg-[#355E3B] h-[100px] md:h-14" />}>
-      <HeaderInner />
+    <Suspense fallback={<HeaderInner active={null} />}>
+      <HeaderWithActiveTab />
     </Suspense>
   );
 }
