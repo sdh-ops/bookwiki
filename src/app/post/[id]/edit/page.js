@@ -7,6 +7,8 @@ import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import Editor from "@/components/Editor";
 import { uploadImage, uploadAttachment, formatFileSize } from "@/lib/upload";
+import { BOARD_NAMES } from "@/lib/boards";
+import { toast } from "@/lib/notify";
 
 export default function EditPage() {
     const { id } = useParams();
@@ -56,9 +58,9 @@ export default function EditPage() {
                 .eq("id", id)
                 .single();
 
-            if (error) {
-                alert("게시글을 찾을 수 없습니다.");
-                router.push("/");
+            if (error || !data) {
+                toast("글을 찾을 수 없습니다.", "error");
+                router.replace("/");
                 return;
             }
 
@@ -68,15 +70,15 @@ export default function EditPage() {
 
             // 관리자는 본인 글이 아니면 수정 불가
             if (adminStatus && !isOwner) {
-                alert("관리자는 다른 사용자의 게시글을 수정할 수 없습니다. 삭제만 가능합니다.");
-                router.push(`/post/${id}`);
+                toast("관리자는 다른 사람의 글을 고칠 수 없습니다. 삭제만 할 수 있습니다.", "error");
+                router.replace(`/post/${id}`);
                 return;
             }
 
             // 본인 글이거나 비회원 글이어야 수정 가능
             if (!isOwner && !isGuestPost) {
-                alert("수정 권한이 없습니다.");
-                router.push(`/post/${id}`);
+                toast("쓴 사람만 고칠 수 있습니다.", "error");
+                router.replace(`/post/${id}`);
                 return;
             }
 
@@ -100,12 +102,13 @@ export default function EditPage() {
     const handleSubmit = async (e) => {
         e.preventDefault();
         if (!title || !content) {
-            alert("모든 필드를 채워주세요.");
+            toast("제목과 내용을 입력해 주세요.", "error");
             return;
         }
 
         if (isGuestPost && !guestPassword) {
-            alert("비회원 글은 작성 시 입력한 비밀번호가 필요합니다.");
+            toast("글을 쓸 때 입력한 비밀번호를 넣어 주세요.", "error");
+            document.getElementById("guest-password")?.focus();
             return;
         }
 
@@ -115,7 +118,7 @@ export default function EditPage() {
         if (usePoll) {
             const validOptions = pollOptions.filter(opt => opt.text.trim() !== "");
             if (validOptions.length < 2) {
-                alert("투표 항목을 2개 이상 입력해주세요.");
+                toast("투표 항목을 2개 이상 입력해 주세요.", "error");
                 setIsSubmitting(false);
                 return;
             }
@@ -138,29 +141,52 @@ export default function EditPage() {
         });
 
         if (error) {
-            alert("수정에 실패했습니다: " + error.message);
+            toast(error.message || "저장하지 못했습니다.", "error");
         } else {
+            toast("수정했습니다.");
             router.push(`/post/${id}`);
             router.refresh();
         }
         setIsSubmitting(false);
     };
 
-    const boardCategories = [
-        { name: "자유게시판", id: "free" },
-        { name: "구인구직", id: "job" },
-        { name: "지원사업", id: "support" },
-        { name: "AI허브", id: "ai" },
-    ];
+    // 게시판 이름은 정본(lib/boards)에서 — 예전엔 여기만 톡톡을 '자유게시판'이라 불렀다
+    const boardCategories = Object.entries(BOARD_NAMES).map(([id, name]) => ({ id, name }));
 
-    if (loading) return <div className="p-10 text-center">로딩 중...</div>;
+    if (loading) return <div className="p-10 text-center text-sm text-gray-500" aria-busy="true">글을 불러오는 중...</div>;
 
     return (
         <main className="min-h-screen bg-white">
             
 
-            <section className="max-w-3xl mx-auto px-4 py-8">
+            <section className="max-w-3xl mx-auto px-4 py-6 md:py-8">
+                <div className="flex items-center justify-between mb-4">
+                    <Link href={`/post/${id}`} className="inline-flex items-center gap-1 h-9 -ml-2 px-2 rounded-md text-sm font-medium text-gray-600 hover:text-[#355E3B] hover:bg-gray-50">
+                        <span aria-hidden="true">←</span> 글로 돌아가기
+                    </Link>
+                    <h1 className="text-base font-bold text-gray-900">글 수정</h1>
+                </div>
                 <form onSubmit={handleSubmit} className="space-y-6">
+                    {isGuestPost && (
+                        <div className="p-4 rounded-lg bg-amber-50 border border-amber-200">
+                            <label htmlFor="guest-password" className="block text-sm font-bold text-gray-800 mb-1">
+                                비밀번호 <span className="text-red-500">*</span>
+                            </label>
+                            <p className="mb-2 text-xs text-gray-600">
+                                비회원 글이라 글을 쓸 때 입력한 비밀번호가 맞아야 저장됩니다.
+                            </p>
+                            <input
+                                id="guest-password"
+                                type="password"
+                                value={guestPassword}
+                                onChange={(e) => setGuestPassword(e.target.value)}
+                                placeholder="글 작성 시 입력한 비밀번호"
+                                autoComplete="current-password"
+                                className="w-full max-w-xs h-11 px-3 border border-gray-300 rounded-md text-base md:text-sm bg-white focus:outline-none focus:border-[#355E3B]"
+                            />
+                        </div>
+                    )}
+
                     <div>
                         <label className="block text-sm font-bold text-gray-700 mb-2">게시판 선택</label>
                         <div className="flex flex-wrap gap-2">
@@ -223,7 +249,7 @@ export default function EditPage() {
                                         const result = await uploadAttachment(file);
                                         results.push(result);
                                     } catch (err) {
-                                        alert(`${file.name} 업로드 실패: ${err.message}`);
+                                        toast(`${file.name} 업로드 실패: ${err.message}`, "error");
                                     }
                                 }
                                 setAttachments(prev => [...prev, ...results]);
@@ -250,7 +276,7 @@ export default function EditPage() {
                                         const result = await uploadAttachment(file);
                                         results.push(result);
                                     } catch (err) {
-                                        alert(`${file.name} 업로드 실패: ${err.message}`);
+                                        toast(`${file.name} 업로드 실패: ${err.message}`, "error");
                                     }
                                 }
                                 setAttachments(prev => [...prev, ...results]);
@@ -330,24 +356,6 @@ export default function EditPage() {
                         )}
                     </div>
 
-                    {isGuestPost && (
-                        <div className="pt-4 border-t border-gray-100">
-                            <label className="block text-sm font-bold text-gray-700 mb-2">
-                                비밀번호 <span className="text-red-500">*</span>
-                            </label>
-                            <input
-                                type="password"
-                                value={guestPassword}
-                                onChange={(e) => setGuestPassword(e.target.value)}
-                                placeholder="글 작성 시 입력한 비밀번호"
-                                autoComplete="current-password"
-                                className="w-full max-w-xs px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:border-[#355E3B]"
-                            />
-                            <p className="mt-1 text-xs text-gray-500">
-                                비회원 글은 본인 확인을 위해 작성 시 입력한 비밀번호가 필요합니다.
-                            </p>
-                        </div>
-                    )}
 
                     <div className="flex justify-end space-x-3 pt-4 border-t border-gray-100">
                         <Link href={`/post/${id}`} className="px-6 py-2 text-sm text-gray-600 border border-gray-200 rounded hover:bg-gray-50">취소</Link>

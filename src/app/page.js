@@ -6,1003 +6,441 @@ import { POST_COLUMNS } from "@/lib/columns";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import Banner from "@/components/Banner";
-import { fetchVisibleCategories, extractCategory } from "@/lib/postCategories";
-import { kstShortDateLabel, withWeekday } from "@/lib/date";
-
-// Board type to Korean name mapping
-const boardTypeNames = {
-  job: "구인구직",
-  support: "지원사업",
-  free: "톡톡",
-  ai: "AI허브",
-};
+import SiteFooter from "@/components/SiteFooter";
+import { PostRow, PostCard } from "@/components/board/PostListItems";
+import Pagination from "@/components/board/Pagination";
+import BoardCalendar from "@/components/board/BoardCalendar";
+import { fetchVisibleCategories } from "@/lib/postCategories";
+import { BOARD_NAMES, LIST_TITLES, buildListHref, readListPosition, clearListScroll } from "@/lib/boards";
 
 const POSTS_PER_PAGE = 20;
+const WRITABLE_FROM_LIST = new Set(["job", "free"]);
+
+// 사이드바 주간 베스트 — 최근 7일 글을 점수(조회 + 댓글×5, 오래될수록 감쇠)로 줄 세운다
+async function fetchWeeklyBest() {
+  const oneWeekAgo = new Date();
+  oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+  const { data, error } = await supabase
+    .from("bw_posts")
+    .select("id, title, view_count, comment_count, created_at")
+    .eq("is_deleted", false)
+    .gte("created_at", oneWeekAgo.toISOString())
+    .limit(400);
+  if (error) {
+    console.error("[home] weekly best:", error.message);
+    return [];
+  }
+  const now = new Date();
+  return (data || [])
+    .map((p) => {
+      const daysOld = Math.floor((now - new Date(p.created_at)) / 86400000);
+      const baseScore = (p.view_count || 0) + (p.comment_count || 0) * 5;
+      return { ...p, baseScore, hotScore: baseScore / (daysOld + 1) };
+    })
+    .filter((p) => p.baseScore >= 20)
+    .sort((a, b) => b.hotScore - a.hotScore)
+    .slice(0, 5);
+}
+
+/**
+ * 목록 조회. 페이지·검색어·말머리·필터 전부 서버에서 거른다.
+ * (말머리는 예전에 받아 온 20개 안에서만 걸러서, 말머리를 고르면 몇 개만 보이고
+ *  페이지 수는 전체 기준으로 남는 어긋남이 있었다.)
+ */
+async function fetchPostList({ board, page, q, jobFilter, category }) {
+  const offset = (page - 1) * POSTS_PER_PAGE;
+  const base = (columns, opts) => supabase.from("bw_posts").select(columns, opts).eq("is_deleted", false);
+  const ordered = (query) =>
+    query.order("is_notice", { ascending: false }).order("created_at", { ascending: false }).range(offset, offset + POSTS_PER_PAGE - 1);
+
+  if (q) {
+    let query = base(POST_COLUMNS, { count: "exact" }).ilike("title", `%${q}%`);
+    if (board !== "all" && board !== "hot") query = query.eq("board_type", board);
+    const { data, count, error } = await ordered(query);
+    if (error) throw error;
+    return { posts: data || [], pinned: [], count: count || 0 };
+  }
+
+  const applyFilters = (query) => {
+    let next = query;
+    if (board === "hot") next = next.eq("is_hot", true);
+    else if (board !== "all") next = next.eq("board_type", board);
+    if (board === "job") {
+      // 자동 수집 글만 페이지로 넘긴다 — 직접 작성글은 1페이지 위에 따로 고정
+      next = next.eq("is_auto", true).not("author", "ilike", "%다산북스%").not("title", "ilike", "%다산북스%");
+      if (jobFilter === "hiring" || jobFilter === "seeking") next = next.eq("job_type", jobFilter);
+    }
+    if (board === "free" && category) next = next.ilike("title", `%[${category}]%`);
+    return next;
+  };
+
+  let pinned = [];
+  if (board === "job") {
+    // 직접 작성글(다산북스 포함). is_auto 를 관리자가 true 로 바꾼 글은 자동 쪽으로 간다.
+    let direct = base(POST_COLUMNS).eq("board_type", "job").or("is_auto.eq.false,is_auto.is.null");
+    if (jobFilter === "hiring" || jobFilter === "seeking") direct = direct.eq("job_type", jobFilter);
+    const { data, error } = await direct.order("is_notice", { ascending: false }).order("created_at", { ascending: false });
+    if (error) throw error;
+    pinned = data || [];
+  }
+
+  const [listRes, countRes] = await Promise.all([
+    ordered(applyFilters(base(POST_COLUMNS))),
+    applyFilters(base("id", { count: "exact", head: true })),
+  ]);
+  if (listRes.error) throw listRes.error;
+  if (countRes.error) throw countRes.error;
+  return { posts: listRes.data || [], pinned, count: countRes.count || 0 };
+}
+
+function ListSkeleton() {
+  return (
+    <div className="space-y-2" aria-busy="true" aria-label="글 목록을 불러오는 중">
+      {Array.from({ length: 8 }).map((_, i) => (
+        <div key={i} className="h-14 md:h-10 rounded-md bg-gray-100 animate-pulse" />
+      ))}
+    </div>
+  );
+}
+
+function AiPreparing() {
+  return (
+    <div className="bg-gray-50 rounded-xl border border-gray-100 p-10 md:p-20 text-center">
+      <div className="max-w-md mx-auto">
+        <div className="text-6xl mb-6" aria-hidden="true">🏗️</div>
+        <h2 className="text-2xl font-bold text-gray-800 mb-4">AI 허브 서비스 준비 중</h2>
+        <p className="text-gray-500 text-sm md:text-base leading-relaxed font-medium mb-6">출판 실무자의 업무를 도울 AI 도구를 준비하고 있습니다.</p>
+        <div className="inline-flex items-center gap-2 px-4 py-2 bg-yellow-100 text-yellow-700 rounded-full text-sm font-bold">
+          <span className="relative flex h-2 w-2">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75" />
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-yellow-500" />
+          </span>
+          현재 집중 개발 중
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// 목록/캘린더 · 말머리 같은 작은 전환 버튼 (진짜 링크 — 뒤로가기로 되돌아온다)
+function Chip({ href, selected, children, tone = "default", title }) {
+  const base = "shrink-0 inline-flex items-center h-9 md:h-8 px-3 text-sm md:text-xs rounded-full border transition";
+  const style = selected
+    ? "bg-[#355E3B] text-white border-[#355E3B] font-bold"
+    : tone === "sponsor"
+    ? "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100"
+    : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50";
+  return (
+    <Link href={href} aria-current={selected ? "true" : undefined} className={`${base} ${style}`} title={title}>
+      {children}
+    </Link>
+  );
+}
+
+function EmptyState({ q, board, category, clearSearchHref }) {
+  let message = "아직 글이 없습니다.";
+  let action = null;
+  if (q) {
+    message = `‘${q}’에 맞는 제목이 없습니다. 다른 낱말로 찾아보세요.`;
+    action = (
+      <Link href={clearSearchHref} className="text-sm font-bold text-[#355E3B] underline underline-offset-2">
+        검색 지우기
+      </Link>
+    );
+  } else if (board === "free" && category) {
+    message = `[${category}] 말머리 글이 아직 없습니다.`;
+    action = (
+      <Link href="/?board=free" className="text-sm font-bold text-[#355E3B] underline underline-offset-2">
+        톡톡 전체 보기
+      </Link>
+    );
+  } else if (WRITABLE_FROM_LIST.has(board)) {
+    action = (
+      <Link href={`/write?board=${board}`} className="text-sm font-bold text-[#355E3B] underline underline-offset-2">
+        첫 글 쓰기
+      </Link>
+    );
+  }
+  return (
+    <div className="py-14 text-center bg-gray-50 rounded-lg border border-gray-100">
+      <p className="text-sm text-gray-500 mb-3">{message}</p>
+      {action}
+    </div>
+  );
+}
 
 function PostList() {
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [user, setUser] = useState(null);
-  const [posts, setPosts] = useState([]);
-  const [pinnedPosts, setPinnedPosts] = useState([]);
-  const [bestPosts, setBestPosts] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [totalCount, setTotalCount] = useState(0);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [supportView, setSupportView] = useState("list"); // list or calendar
-  const [jobView, setJobView] = useState("list"); // list or calendar
-  const [jobFilter, setJobFilter] = useState("all"); // legacy: all, hiring, seeking
-  const [freeFilter, setFreeFilter] = useState("all"); // 톡톡 카테고리 필터
-  // 톡톡 말머리 — DB 관리. 스폰서 말머리는 광고 게재중일 때만 내려온다.
-  const [freeCategories, setFreeCategories] = useState([]);
-  const [calendarEvents, setCalendarEvents] = useState([]);
-  const [calendarDate, setCalendarDate] = useState(new Date());
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
   const searchParams = useSearchParams();
   const router = useRouter();
   const currentBoard = searchParams.get("board") || "all";
-  const pageParam = searchParams.get("page");
-  const viewParam = searchParams.get("view");
-  const filterParam = searchParams.get("filter");
-  const categoryParam = searchParams.get("category");
-  const searchQueryParam = searchParams.get("q");
+  const currentPage = Math.max(1, parseInt(searchParams.get("page"), 10) || 1);
+  const view = searchParams.get("view") === "calendar" ? "calendar" : "list";
+  const jobFilter = searchParams.get("filter") || "all";
+  const category = searchParams.get("category") || "";
+  const q = searchParams.get("q") || "";
 
-  useEffect(() => {
-    const page = parseInt(pageParam) || 1;
-    setCurrentPage(page);
-    if (viewParam === "calendar") {
-      setSupportView("calendar");
-      setJobView("calendar");
-    } else {
-      setSupportView("list");
-      setJobView("list");
-    }
-    if (filterParam) setJobFilter(filterParam);
-    else setJobFilter("all"); // 디폴트를 전체로 설정
-    if (categoryParam) setFreeFilter(categoryParam);
-    else setFreeFilter("all");
-    if (searchQueryParam) setSearchQuery(searchQueryParam);
-    else setSearchQuery("");
-  }, [pageParam, viewParam, filterParam, categoryParam, searchQueryParam]);
+  // 조회 결과는 「어떤 조건으로 받은 것인지(key)」와 함께 둔다.
+  // 조건이 바뀌면 key 가 달라져 자동으로 「불러오는 중」이 되고, 늦게 온 옛 응답은 버려진다.
+  const [result, setResult] = useState({ key: null, posts: [], pinned: [], count: 0, error: null });
+  const [reloadKey, setReloadKey] = useState(0);
+  const [bestPosts, setBestPosts] = useState([]);
+  const [user, setUser] = useState(null);
+  const [freeCategories, setFreeCategories] = useState([]);
+  const [searchInput, setSearchInput] = useState(q);
 
-  // 톡톡 말머리 로드 (스폰서 말머리는 광고 게재중일 때만 포함됨)
+  // 주소의 검색어가 바뀌면(뒤로가기·검색 지우기) 입력칸도 따라간다
+  const [syncedQ, setSyncedQ] = useState(q);
+  if (syncedQ !== q) {
+    setSyncedQ(q);
+    setSearchInput(q);
+  }
+
+  // 톡톡 말머리 (스폰서 말머리는 광고 게재중일 때만 내려온다)
   useEffect(() => {
     let cancelled = false;
-    fetchVisibleCategories("free").then((rows) => {
-      if (!cancelled) setFreeCategories(rows);
-    });
+    fetchVisibleCategories("free").then((rows) => !cancelled && setFreeCategories(rows));
     return () => {
       cancelled = true;
     };
   }, []);
 
   useEffect(() => {
-    async function fetchData() {
-      setLoading(true);
-      const offset = (currentPage - 1) * POSTS_PER_PAGE;
+    let cancelled = false;
+    fetchWeeklyBest().then((rows) => !cancelled && setBestPosts(rows));
+    supabase.auth.getUser().then(({ data }) => !cancelled && setUser(data.user));
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
-      // 검색 모드일 때
-      if (searchQueryParam) {
-        let searchQuery = supabase
-          .from("bw_posts")
-          .select(POST_COLUMNS, { count: "exact" })
-          .ilike("title", `%${searchQueryParam}%`)
-          .eq("is_deleted", false);
+  const showsList = currentBoard !== "ai" && !(view === "calendar" && (currentBoard === "support" || currentBoard === "job"));
 
-        // 현재 게시판만 검색 (전체/HOT 제외)
-        if (currentBoard !== "all" && currentBoard !== "hot") {
-          searchQuery = searchQuery.eq("board_type", currentBoard);
-        }
+  const requestKey = JSON.stringify([currentBoard, currentPage, q, jobFilter, category, reloadKey]);
 
-        const { data: searchData, count: searchCount } = await searchQuery
-          .order("is_notice", { ascending: false })
-          .order("created_at", { ascending: false })
-          .range(offset, offset + POSTS_PER_PAGE - 1);
-
-        setPosts(searchData || []);
-        setTotalCount(searchCount || 0);
-        setLoading(false);
-        return;
-      }
-
-      // 사이드바 주간 베스트용 (최근 1주일)
-      // HOT 승격은 예전에 여기서 방문자마다 실행했다 — 홈을 열 때마다 전체 글을 훑고
-      // UPDATE 까지 돌렸다. 지금은 20분 주기 크론(bw_promote_hot_posts)이 담당한다.
-      const oneWeekAgo = new Date();
-      oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
-
-      const { data: hotPosts } = await supabase
-        .from("bw_posts")
-        .select("id, title, author, view_count, comment_count, board_type, created_at, is_notice, user_id")
-        .eq("is_deleted", false)
-        .gte("created_at", oneWeekAgo.toISOString())
-        .limit(400);
-
-      // 사이드바 주간 베스트 계산 (점수 기반 Top 10)
-      if (hotPosts) {
-        const now = new Date();
-        const scored = hotPosts.map(p => {
-          const createdAt = new Date(p.created_at);
-          const daysOld = Math.floor((now - createdAt) / (1000 * 60 * 60 * 24));
-          const baseScore = (p.view_count || 0) + ((p.comment_count || 0) * 5);
-          const hotScore = baseScore / (daysOld + 1);
-          return { ...p, baseScore, hotScore };
-        }).filter(p => p.baseScore >= 20);
-
-        const top20 = scored.sort((a, b) => b.hotScore - a.hotScore).slice(0, 20);
-        setBestPosts(top20.slice(0, 10));
-      }
-
-      let query;
-      let countQuery;
-
-      if (currentBoard === "hot") {
-        setPinnedPosts([]);
-        query = supabase
-          .from("bw_posts")
-          .select(POST_COLUMNS)
-          .eq("is_deleted", false)
-          .eq("is_hot", true)
-          .order("is_notice", { ascending: false })
-          .order("created_at", { ascending: false })
-          .range(offset, offset + POSTS_PER_PAGE - 1);
-        countQuery = supabase
-          .from("bw_posts")
-          .select("id", { count: "exact", head: true })
-          .eq("is_deleted", false)
-          .eq("is_hot", true);
-      } else if (currentBoard === "all") {
-        setPinnedPosts([]);
-        query = supabase
-          .from("bw_posts")
-          .select(POST_COLUMNS)
-          .eq("is_deleted", false)
-          .order("is_notice", { ascending: false })
-          .order("created_at", { ascending: false })
-          .range(offset, offset + POSTS_PER_PAGE - 1);
-        countQuery = supabase
-          .from("bw_posts")
-          .select("id", { count: "exact", head: true })
-          .eq("is_deleted", false);
-      } else if (currentBoard === "job") {
-        // 1. 직접 작성글(다산북스 포함) 고정용 조회 - 필터 적용
-        // is_auto가 명시적으로 true인 경우 관리자가 자동 전환한 것이므로 다산북스라도 직접에서 제외
-        let directQuery = supabase
-          .from("bw_posts")
-          .select(POST_COLUMNS)
-          .eq("board_type", "job")
-          .eq("is_deleted", false)
-          .or("is_auto.eq.false,is_auto.is.null");
-
-        // 2. 일반 글(스크래핑) 페이징 조회 - 직접 작성글 및 다산북스 글 제외
-        query = supabase
-          .from("bw_posts")
-          .select(POST_COLUMNS)
-          .eq("board_type", "job")
-          .eq("is_deleted", false)
-          .eq("is_auto", true)
-          .not("author", "ilike", "%다산북스%")
-          .not("title", "ilike", "%다산북스%");
-        
-        countQuery = supabase
-          .from("bw_posts")
-          .select("id", { count: "exact", head: true })
-          .eq("board_type", "job")
-          .eq("is_deleted", false)
-          .eq("is_auto", true)
-          .not("author", "ilike", "%다산북스%")
-          .not("title", "ilike", "%다산북스%");
-
-        // 서버 사이드 구인/구직 필터 적용 (명시적 타입 기반) - legacy support
-        if (jobFilter !== "all") {
-          if (jobFilter === "hiring") {
-            query = query.eq("job_type", "hiring");
-            countQuery = countQuery.eq("job_type", "hiring");
-            directQuery = directQuery.eq("job_type", "hiring");
-          } else if (jobFilter === "seeking") {
-            query = query.eq("job_type", "seeking");
-            countQuery = countQuery.eq("job_type", "seeking");
-            directQuery = directQuery.eq("job_type", "seeking");
-          }
-        }
-
-        const { data: direct } = await directQuery
-          .order("is_notice", { ascending: false })
-          .order("created_at", { ascending: false });
-        setPinnedPosts(direct || []);
-
-        query = query.order("is_notice", { ascending: false }).order("created_at", { ascending: false }).range(offset, offset + POSTS_PER_PAGE - 1);
-      } else {
-        setPinnedPosts([]);
-        query = supabase
-          .from("bw_posts")
-          .select(POST_COLUMNS)
-          .eq("is_deleted", false)
-          .eq("board_type", currentBoard)
-          .order("is_notice", { ascending: false })
-          .order("created_at", { ascending: false })
-          .range(offset, offset + POSTS_PER_PAGE - 1);
-        countQuery = supabase
-          .from("bw_posts")
-          .select("id", { count: "exact", head: true })
-          .eq("is_deleted", false)
-          .eq("board_type", currentBoard);
-      }
-
-      const [{ data: postsData }, { count }] = await Promise.all([query, countQuery]);
-      if (postsData) setPosts(postsData);
-      if (count !== null) setTotalCount(count);
-
-      // Check login and admin
-      const { data: { user } } = await supabase.auth.getUser();
-      setUser(user);
-      if (user) {
-        try {
-          const { data: adminData } = await supabase
-            .from("bw_admins")
-            .select("email")
-            .eq("email", user.email)
-            .maybeSingle();
-          setIsAdmin(!!adminData);
-        } catch (e) {
-          console.log("Admin check error:", e);
-        }
-      }
-      setLoading(false);
-    }
-    fetchData();
-  }, [currentBoard, currentPage, searchQueryParam]);
-
-  // Load calendar events for support board
   useEffect(() => {
-    async function fetchCalendarEvents() {
-      if (currentBoard !== "support" && currentBoard !== "job") return;
-      const { data: posts } = await supabase
-        .from("bw_posts")
-        .select("id, title, content, created_at, deadline")
-        .eq("board_type", currentBoard)
-        .order("created_at", { ascending: false });
+    if (!showsList) return;
+    let cancelled = false;
+    fetchPostList({ board: currentBoard, page: currentPage, q, jobFilter, category })
+      .then(({ posts: rows, pinned, count }) => {
+        if (!cancelled) setResult({ key: requestKey, posts: rows, pinned, count, error: null });
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        console.error("[home] list:", err?.message || err);
+        setResult({ key: requestKey, posts: [], pinned: [], count: 0, error: "글 목록을 불러오지 못했습니다." });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [showsList, requestKey, currentBoard, currentPage, q, jobFilter, category]);
 
-      if (posts) {
-        const eventsWithDeadlines = posts
-          .map(post => {
-            // 명시적 deadline 필드가 있으면 사용, 없으면 content에서 파싱 (legacy)
-            let date = post.deadline;
-            if (!date && post.content) {
-              const deadlineMatch = post.content?.match(/마감일:<\/strong>\s*(\d{4}-\d{2}-\d{2})/);
-              if (deadlineMatch) date = deadlineMatch[1];
-            }
-            
-            if (date) {
-              return { ...post, deadline: date };
-            }
-            return null;
-          })
-          .filter(Boolean);
-        setCalendarEvents(eventsWithDeadlines);
-      }
+  const loading = showsList && result.key !== requestKey;
+  const { posts, pinned: pinnedPosts, count: totalCount, error: loadError } = result;
+
+  // 글을 보고 돌아왔으면 보던 자리로 스크롤 (목록이 비동기로 그려져 브라우저가 스스로 못 한다)
+  useEffect(() => {
+    if (loading) return;
+    const saved = readListPosition();
+    const here = window.location.pathname + window.location.search;
+    if (saved?.url === here && typeof saved.scrollY === "number") {
+      // rAF 는 탭이 가려져 있으면 돌지 않으므로 타이머로 (effect 는 이미 그린 뒤라 바로 스크롤해도 된다)
+      setTimeout(() => window.scrollTo(0, saved.scrollY), 0);
+      clearListScroll();
     }
-    fetchCalendarEvents();
-  }, [currentBoard]);
-
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    window.location.reload();
-  };
-
-  const boardCategories = [
-    { name: "전체", id: "all" },
-    { name: "HOT", id: "hot" },
-    { name: "구인구직", id: "job" },
-    { name: "지원사업", id: "support" },
-    { name: "톡톡", id: "free" },
-    { name: "베스트셀러", id: "bestseller", href: "/bestseller" },
-    { name: "AI허브", id: "ai" },
-  ];
-
-  const handleBoardClick = (cat) => {
-    if (cat.href) {
-      router.push(cat.href);
-      return;
-    }
-    if (cat.id === "all") {
-      router.push("/");
-    } else {
-      router.push(`/?board=${cat.id}`);
-    }
-  };
+  }, [loading]);
 
   const totalPages = Math.ceil(totalCount / POSTS_PER_PAGE);
+  const listParams = { board: currentBoard, q, filter: jobFilter, category, view };
+  const hrefForPage = (page) => buildListHref({ ...listParams, page });
+  const clearSearchHref = buildListHref({ board: currentBoard });
 
-  const handlePageChange = (page) => {
-    if (page < 1 || page > totalPages) return;
-    const params = new URLSearchParams();
-    if (currentBoard !== "all") params.set("board", currentBoard);
-    if (page > 1) params.set("page", page.toString());
-    const queryString = params.toString();
-    router.push(queryString ? `/?${queryString}` : "/");
+  const handleSearch = (e) => {
+    e.preventDefault();
+    const term = searchInput.trim();
+    if (!term) return;
+    router.push(buildListHref({ board: currentBoard, q: term }));
   };
 
-  const getPageNumbers = () => {
-    const pages = [];
-    const maxVisible = 5;
-    let start = Math.max(1, currentPage - Math.floor(maxVisible / 2));
-    let end = Math.min(totalPages, start + maxVisible - 1);
-    if (end - start + 1 < maxVisible) {
-      start = Math.max(1, end - maxVisible + 1);
-    }
-    for (let i = start; i <= end; i++) {
-      pages.push(i);
-    }
-    return pages;
-  };
+  const notices = posts.filter((p) => p.is_notice);
+  const normals = posts.filter((p) => !p.is_notice);
+  const pinned = currentBoard === "job" && currentPage === 1 && !q ? pinnedPosts : [];
+  const isEmpty = notices.length + normals.length + pinned.length === 0;
+  const listNumber = (idx) => totalCount - (currentPage - 1) * POSTS_PER_PAGE - idx;
 
-  // Calendar helpers
-  const calYear = calendarDate.getFullYear();
-  const calMonth = calendarDate.getMonth();
-  const calFirstDay = new Date(calYear, calMonth, 1).getDay();
-  const calDaysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
-  const monthNames = ['1월', '2월', '3월', '4월', '5월', '6월', '7월', '8월', '9월', '10월', '11월', '12월'];
-  const dayNames = ['일', '월', '화', '수', '목', '금', '토'];
-
-  const getEventsForDay = (day) => {
-    const dateStr = `${calYear}-${String(calMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-    return calendarEvents.filter(e => e.deadline === dateStr);
-  };
-
-  const isToday = (day) => {
-    const today = new Date();
-    return today.getFullYear() === calYear && today.getMonth() === calMonth && today.getDate() === day;
-  };
-
-  const isPastDay = (day) => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    return new Date(calYear, calMonth, day) < today;
-  };
-
-  const handleSupportViewChange = (view) => {
-    if (view === "calendar") {
-      router.push("/?board=support&view=calendar");
-    } else {
-      router.push("/?board=support");
-    }
-  };
-
-  const handleJobViewChange = (view) => {
-    if (view === "calendar") {
-      router.push("/?board=job&view=calendar");
-    } else {
-      router.push("/?board=job");
-    }
-  };
-
-  // 구인/구직 분류 함수
-  const isHiringPost = (title) => {
-    const hiringKeywords = ["모십니다", "채용", "모집", "구합니다", "채용합니다"];
-    return hiringKeywords.some(keyword => title.includes(keyword));
-  };
-
-  // 톡톡 말머리 목록 (필터 칩 + 제목 파싱에 함께 쓰는 정본)
-  const freeCategoryLabels = freeCategories.map((c) => c.label);
-
-  // 현재 URL 이 가리키는 말머리가 광고 종료로 목록에서 빠졌더라도
-  // 필터 자체는 동작해야 하므로 파싱 후보에는 포함시킨다.
-  const parsableLabels =
-    freeFilter !== "all" && !freeCategoryLabels.includes(freeFilter)
-      ? [...freeCategoryLabels, freeFilter]
-      : freeCategoryLabels;
-
-  const extractFreeCategory = (title) => extractCategory(title, parsableLabels);
-
-  // 필터링된 게시글
-  const getFilteredPosts = () => {
-    let filtered = posts;
-
-    // 구인구직 필터
-    if (currentBoard === "job" && jobFilter !== "all") {
-      filtered = filtered.filter(post => {
-        // job_type 필드가 있으면 사용 (마이그레이션 후)
-        if (post.job_type) {
-          return post.job_type === jobFilter;
-        }
-        // 없으면 제목 기반 폴백 (구 데이터 호환성)
-        const isHiring = isHiringPost(post.title);
-        return jobFilter === "hiring" ? isHiring : !isHiring;
-      });
-    }
-
-    // 톡톡 카테고리 필터
-    if (currentBoard === "free" && freeFilter !== "all") {
-      filtered = filtered.filter(post => {
-        const category = extractFreeCategory(post.title);
-        return category === freeFilter;
-      });
-    }
-
-    return filtered;
-  };
-
-  const filteredPosts = getFilteredPosts();
-
-  // 필터링된 고정 게시글
-  const getFilteredPinnedPosts = () => {
-    let filtered = pinnedPosts;
-    if (currentBoard === "job" && jobFilter !== "all") {
-      filtered = filtered.filter(post => {
-        if (post.job_type) return post.job_type === jobFilter;
-        const isHiring = isHiringPost(post.title);
-        return jobFilter === "hiring" ? isHiring : !isHiring;
-      });
-    }
-    return filtered;
-  };
-
-  const filteredPinnedPosts = getFilteredPinnedPosts();
-
-  // 게시물 검색 (현재 게시판 내에서만)
-  const handleSearch = () => {
-    if (!searchQuery.trim()) {
-      return;
-    }
-
-    // Navigate to search results page
-    const params = new URLSearchParams();
-    params.set("q", searchQuery);
-    if (currentBoard !== "all") {
-      params.set("board", currentBoard);
-    }
-    params.set("page", "1");
-
-    router.push(`/?${params.toString()}`);
-  };
+  const listTitle = q ? `‘${q}’ 검색 결과` : LIST_TITLES[currentBoard] || `${BOARD_NAMES[currentBoard] || ""} 최신글`;
+  const canWriteHere = currentBoard !== "ai" && currentBoard !== "support";
+  const writeHref = WRITABLE_FROM_LIST.has(currentBoard) ? `/write?board=${currentBoard}` : "/write";
 
   return (
     <div className="flex flex-col min-h-screen pt-4">
-      {/* Banner */}
       <Banner placement="home_top" />
 
-      {/* Main Content */}
       <section className="w-full max-w-6xl mx-auto px-4 py-6 grid grid-cols-1 lg:grid-cols-4 gap-6">
-        {/* Left - Post List (3 columns) */}
-        <div className="lg:col-span-3 order-2 lg:order-1">
-          <div className="flex justify-between items-center mb-4 pb-2 border-b-2 border-[#355E3B]">
-            <div className="flex items-center gap-4 flex-wrap">
-              <h2 className="text-lg font-bold text-[#355E3B]">
-                {currentBoard === "hot" ? "HOT 인기글 (최근 7일)" : currentBoard === "ai" ? "AI 허브" : `${boardCategories.find(c => c.id === currentBoard)?.name} 최신글`}
-              </h2>
-              {currentBoard === "support" && (
-                <div className="flex border border-gray-300 rounded overflow-hidden text-xs">
-                  <button
-                    onClick={() => handleSupportViewChange("list")}
-                    className={`px-3 py-1 ${supportView === "list" ? "bg-[#355E3B] text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
-                  >
+        <div className="lg:col-span-3 order-2 lg:order-1 min-w-0">
+          <div className="flex justify-between items-center gap-3 mb-3 pb-2 border-b-2 border-[#355E3B]">
+            <div className="flex items-center gap-3 flex-wrap min-w-0">
+              <h1 className="text-lg font-bold text-[#355E3B] truncate">{listTitle}</h1>
+              {(currentBoard === "support" || currentBoard === "job") && !q && (
+                <div className="flex gap-1.5">
+                  <Chip href={buildListHref({ board: currentBoard })} selected={view === "list"}>
                     목록
-                  </button>
-                  <button
-                    onClick={() => handleSupportViewChange("calendar")}
-                    className={`px-3 py-1 ${supportView === "calendar" ? "bg-[#355E3B] text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
-                  >
+                  </Chip>
+                  <Chip href={buildListHref({ board: currentBoard, view: "calendar" })} selected={view === "calendar"}>
                     📅 캘린더
-                  </button>
-                </div>
-              )}
-              {currentBoard === "job" && (
-                <div className="flex border border-gray-300 rounded overflow-hidden text-xs">
-                  <button
-                    onClick={() => handleJobViewChange("list")}
-                    className={`px-3 py-1 ${jobView === "list" ? "bg-[#355E3B] text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
-                  >
-                    목록
-                  </button>
-                  <button
-                    onClick={() => handleJobViewChange("calendar")}
-                    className={`px-3 py-1 ${jobView === "calendar" ? "bg-[#355E3B] text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
-                  >
-                    📅 캘린더
-                  </button>
-                </div>
-              )}
-              {/* 톡톡 게시판 말머리 필터 (DB 관리 · 스폰서 말머리는 광고 게재중에만 노출) */}
-              {currentBoard === "free" && freeCategories.length > 0 && (
-                <div className="flex border border-gray-300 rounded overflow-hidden text-xs">
-                  <button
-                    onClick={() => router.push("/?board=free")}
-                    className={`px-3 py-1 ${freeFilter === "all" ? "bg-[#355E3B] text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
-                  >
-                    전체
-                  </button>
-                  {freeCategories.map((cat) => {
-                    const selected = freeFilter === cat.label;
-                    return (
-                      <button
-                        key={cat.label}
-                        onClick={() => router.push(`/?board=free&category=${encodeURIComponent(cat.label)}`)}
-                        className={`px-3 py-1 border-l border-gray-200 ${
-                          selected
-                            ? "bg-[#355E3B] text-white"
-                            : cat.is_sponsored
-                            ? "bg-amber-50 text-amber-700 hover:bg-amber-100"
-                            : "bg-white text-gray-600 hover:bg-gray-50"
-                        }`}
-                        title={cat.is_sponsored ? `${cat.sponsor_advertiser} 제휴 말머리` : undefined}
-                      >
-                        {cat.label}
-                        {cat.is_sponsored && (
-                          <span className={`ml-1 text-[9px] align-top ${selected ? "text-white/70" : "text-amber-500"}`}>AD</span>
-                        )}
-                      </button>
-                    );
-                  })}
+                  </Chip>
                 </div>
               )}
             </div>
-            {currentBoard !== "ai" && currentBoard !== "hot" && currentBoard !== "all" && currentBoard !== "support" && (
-              <Link href={`/write?board=${currentBoard}`} className="text-xs bg-[#355E3B] text-white px-3 py-1 rounded">글쓰기</Link>
-            )}
-            {(currentBoard === "all" || currentBoard === "hot") && (
-              <Link href="/write" className="text-xs bg-[#355E3B] text-white px-3 py-1 rounded">글쓰기</Link>
+            {canWriteHere && (
+              // 모바일은 헤더의 글쓰기(지금 게시판을 골라 둔다)가 같은 일을 하므로 숨긴다
+              <Link href={writeHref} className="hidden md:inline-flex items-center h-8 text-xs font-bold bg-[#355E3B] text-white px-3 rounded-md hover:bg-[#2A4A2E] shrink-0">
+                글쓰기
+              </Link>
             )}
           </div>
 
-          {/* AI Hub - Preparing Service View */}
-          {currentBoard === "ai" ? (
-            <div className="bg-gray-50 rounded-xl border border-gray-100 p-10 md:p-20 text-center">
-              <div className="max-w-md mx-auto">
-                <div className="text-6xl mb-6">🏗️</div>
-                <h3 className="text-2xl font-bold text-gray-800 mb-4">AI 허브 서비스 준비 중</h3>
-                      <p className="text-gray-400 text-sm md:text-base leading-relaxed font-medium">
-                        출판 실무자의 업무를 도울 AI 도구를 준비하고 있습니다.
-                      </p>
-                <div className="inline-flex items-center gap-2 px-4 py-2 bg-yellow-100 text-yellow-700 rounded-full text-sm font-bold">
-                  <span className="relative flex h-2 w-2">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-yellow-500"></span>
-                  </span>
-                  현재 집중 개발 중
-                </div>
-              </div>
-            </div>
-          ) : (currentBoard === "support" || currentBoard === "job") && (supportView === "calendar" || jobView === "calendar") ? (
-            <div className="bg-white">
-              {/* Calendar Header */}
-              <div className="flex items-center justify-between mb-4 p-3 bg-gray-50 rounded-lg">
-                <button
-                  onClick={() => setCalendarDate(new Date(calYear, calMonth - 1, 1))}
-                  className="px-3 py-1 text-sm bg-white border rounded hover:bg-gray-100"
+          {/* 톡톡 말머리 — 모바일에선 가로로 넘겨 본다 */}
+          {currentBoard === "free" && !q && freeCategories.length > 0 && (
+            <div className="flex gap-1.5 overflow-x-auto scrollbar-hide -mx-4 px-4 md:mx-0 md:px-0 md:flex-wrap mb-3">
+              <Chip href="/?board=free" selected={!category}>
+                전체
+              </Chip>
+              {freeCategories.map((cat) => (
+                <Chip
+                  key={cat.label}
+                  href={buildListHref({ board: "free", category: cat.label })}
+                  selected={category === cat.label}
+                  tone={cat.is_sponsored ? "sponsor" : "default"}
+                  title={cat.is_sponsored ? `${cat.sponsor_advertiser} 제휴 말머리` : undefined}
                 >
-                  ◀ 이전
-                </button>
-                <h3 className="text-lg font-bold">{calYear}년 {monthNames[calMonth]}</h3>
-                <button
-                  onClick={() => setCalendarDate(new Date(calYear, calMonth + 1, 1))}
-                  className="px-3 py-1 text-sm bg-white border rounded hover:bg-gray-100"
-                >
-                  다음 ▶
-                </button>
-              </div>
-
-              {/* Day Names */}
-              <div className="grid grid-cols-7 gap-0 mb-1">
-                {dayNames.map((name, idx) => (
-                  <div
-                    key={name}
-                    className={`text-center text-xs font-bold py-2 ${idx === 0 ? 'text-red-500' : idx === 6 ? 'text-blue-500' : 'text-gray-600'}`}
-                  >
-                    {name}
-                  </div>
-                ))}
-              </div>
-
-              {/* Calendar Grid */}
-              <div className="grid grid-cols-7 gap-0 border border-gray-200 rounded-lg overflow-hidden">
-                {/* Empty cells */}
-                {Array.from({ length: calFirstDay }).map((_, i) => (
-                  <div key={`empty-${i}`} className="h-20 md:h-24 bg-gray-50 border-b border-r border-gray-100"></div>
-                ))}
-                {/* Day cells */}
-                {Array.from({ length: calDaysInMonth }).map((_, i) => {
-                  const day = i + 1;
-                  const dayEvents = getEventsForDay(day);
-                  const todayClass = isToday(day) ? "bg-blue-50" : "bg-white";
-                  const pastClass = isPastDay(day) ? "text-gray-400" : "";
-
-                  return (
-                    <div key={day} className={`h-20 md:h-24 border-b border-r border-gray-100 p-1 overflow-hidden ${todayClass}`}>
-                      <div className={`text-xs font-bold mb-1 ${pastClass} ${isToday(day) ? 'text-blue-600' : ''}`}>
-                        {day}
-                      </div>
-                      <div className="space-y-0.5">
-                        {dayEvents.slice(0, 2).map((event, idx) => (
-                          <Link
-                            key={idx}
-                            href={`/post/${event.id}`}
-                            className="block text-[9px] md:text-[10px] bg-red-100 text-red-700 px-1 py-0.5 rounded truncate hover:bg-red-200"
-                            title={event.title}
-                          >
-                            {event.title.replace(/\[.*?\]/g, '').trim().substring(0, 12)}...
-                          </Link>
-                        ))}
-                        {dayEvents.length > 2 && (
-                          <div className="text-[9px] text-gray-500">+{dayEvents.length - 2}개</div>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Upcoming Deadlines */}
-              <div className="mt-6 bg-gray-50 rounded-lg p-4">
-                <h4 className="font-bold text-sm mb-3">다가오는 마감</h4>
-                {calendarEvents.filter(e => new Date(e.deadline) >= new Date(new Date().setHours(0,0,0,0))).length === 0 ? (
-                  <p className="text-xs text-gray-500">마감 예정인 {currentBoard === 'job' ? '구인공고가' : '지원사업이'} 없습니다.</p>
-                ) : (
-                  <ul className="space-y-2">
-                    {calendarEvents
-                      .filter(e => new Date(e.deadline) >= new Date(new Date().setHours(0,0,0,0)))
-                      .sort((a, b) => new Date(a.deadline) - new Date(b.deadline))
-                      .slice(0, 5)
-                      .map(event => (
-                        <li key={event.id} className="flex items-start gap-3 text-sm">
-                          <span className="text-red-600 font-bold whitespace-nowrap text-xs">{withWeekday(event.deadline)}</span>
-                          <Link href={`/post/${event.id}`} className="text-gray-700 hover:text-blue-600 truncate text-xs">
-                            {event.title}
-                          </Link>
-                        </li>
-                      ))}
-                  </ul>
-                )}
-              </div>
-            </div>
-          ) : (
-          <>
-          <div className="overflow-x-auto w-full">
-            {loading ? (
-              <div className="w-full py-32 flex flex-col items-center justify-center bg-gray-50 rounded-lg border border-gray-100">
-                <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-[#355E3B] mb-4"></div>
-                <div className="text-sm font-bold text-gray-500">데이터를 불러오는 중입니다...</div>
-              </div>
-            ) : (
-              <>
-                {/* 데스크톱 테이블 */}
-                <table className="w-full text-sm text-left hidden md:table">
-                  <thead className="text-xs text-gray-500 border-b border-gray-200">
-                    <tr>
-                      <th className="px-2 py-2 font-medium w-16">번호</th>
-                      <th className="px-2 py-2 font-medium">제목</th>
-                      <th className="px-2 py-2 font-medium w-24">글쓴이</th>
-                      <th className="px-2 py-2 font-medium w-20 text-center">날짜</th>
-                      <th className="px-2 py-2 font-medium w-16 text-center">조회</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {filteredPosts.length === 0 ? (
-                  <tr><td colSpan="5" className="py-10 text-center text-gray-400 text-xs">작성된 게시물이 없습니다.</td></tr>
-                ) : (
-                  <>
-                    {/* 공지사항 먼저 표시 */}
-                    {filteredPosts.filter(p => p.is_notice).map((post) => (
-                      <tr key={post.id} className="bg-blue-50 hover:bg-blue-100 cursor-pointer" onClick={() => router.push(`/post/${post.id}`)}>
-                        <td className="px-2 py-2 text-xs text-blue-600 font-bold">공지</td>
-                        <td className="px-2 py-2 font-bold text-gray-900">
-                          <span className="text-[#355E3B] mr-2 text-[10px] font-bold">[{boardTypeNames[post.board_type] || post.board_type}]</span>
-                          {post.title}
-                          {post.comment_count > 0 && (
-                            <span className="text-red-500 ml-1 text-[10px] font-bold">[{post.comment_count}]</span>
-                          )}
-                        </td>
-                        <td className="px-2 py-2 text-xs text-gray-600 truncate max-w-[80px]">
-                          {post.author}
-                          {post.user_id && (
-                            <span
-                              className="ml-0.5 text-green-500 font-bold"
-                              style={{
-                                textShadow: '0 1px 0 rgba(255,255,255,0.5), 0 -1px 0 rgba(0,0,0,0.3)',
-                                filter: 'drop-shadow(0 1px 1px rgba(0,0,0,0.2))'
-                              }}
-                              title="회원"
-                            >
-                              ✓
-                            </span>
-                          )}
-                        </td>
-                        <td className="px-2 py-2 text-xs text-gray-400 text-center">{kstShortDateLabel(post.created_at)}</td>
-                        <td className="px-2 py-2 text-xs text-gray-400 text-center">{post.view_count}</td>
-                      </tr>
-                    ))}
-                    {/* 구인구직 게시판: 직접 작성글 1페이지 상단 고정 (다산북스 게시글 포함) */}
-                    {currentBoard === "job" && currentPage === 1 && filteredPinnedPosts.map((post) => (
-                      <tr key={post.id} className="bg-green-50 hover:bg-green-100 cursor-pointer" onClick={() => router.push(`/post/${post.id}`)}>
-                        <td className="px-2 py-2 text-xs text-green-600 font-bold">직접</td>
-                        <td className="px-2 py-2 font-medium text-gray-800">
-                          {post.is_hot && (
-                            <span className="text-[10px] bg-red-500 text-white px-1.5 py-0.5 mr-1.5 rounded-sm font-bold">HOT</span>
-                          )}
-                          <span className="text-[#355E3B] mr-2 text-[10px] font-bold">[{boardTypeNames[post.board_type] || post.board_type}]</span>
-                          {post.title}
-                          {post.comment_count > 0 && (
-                            <span className="text-red-500 ml-1 text-[10px] font-bold">[{post.comment_count}]</span>
-                          )}
-                        </td>
-                        <td className="px-2 py-2 text-xs text-gray-600 truncate max-w-[80px]">
-                          {post.author}
-                          {post.user_id && (
-                            <span
-                              className="ml-0.5 text-green-500 font-bold"
-                              style={{
-                                textShadow: '0 1px 0 rgba(255,255,255,0.5), 0 -1px 0 rgba(0,0,0,0.3)',
-                                filter: 'drop-shadow(0 1px 1px rgba(0,0,0,0.2))'
-                              }}
-                              title="회원"
-                            >
-                              ✓
-                            </span>
-                          )}
-                        </td>
-                        <td className="px-2 py-2 text-xs text-gray-400 text-center">{kstShortDateLabel(post.created_at)}</td>
-                        <td className="px-2 py-2 text-xs text-gray-400 text-center">{post.view_count}</td>
-                      </tr>
-                    ))}
-                    {/* 일반 게시글 */}
-                    {filteredPosts.filter(p => !p.is_notice).map((post, idx) => (
-                      <tr key={post.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => router.push(`/post/${post.id}`)}>
-                        <td className="px-2 py-2 text-xs text-gray-400">{totalCount - ((currentPage - 1) * POSTS_PER_PAGE) - idx}</td>
-                        <td className="px-2 py-2 font-medium text-gray-800">
-                          {post.is_hot && (
-                            <span className="text-[10px] bg-red-500 text-white px-1.5 py-0.5 mr-1.5 rounded-sm font-bold">HOT</span>
-                          )}
-                          <span className="text-[#355E3B] mr-2 text-[10px] font-bold">[{boardTypeNames[post.board_type] || post.board_type}]</span>
-                          {post.title}
-                          {post.comment_count > 0 && (
-                            <span className="text-red-500 ml-1 text-[10px] font-bold">[{post.comment_count}]</span>
-                          )}
-                        </td>
-                        <td className="px-2 py-2 text-xs text-gray-600 truncate max-w-[80px]">
-                          {post.author}
-                          {post.user_id && (
-                            <span
-                              className="ml-0.5 text-green-500 font-bold"
-                              style={{
-                                textShadow: '0 1px 0 rgba(255,255,255,0.5), 0 -1px 0 rgba(0,0,0,0.3)',
-                                filter: 'drop-shadow(0 1px 1px rgba(0,0,0,0.2))'
-                              }}
-                              title="회원"
-                            >
-                              ✓
-                            </span>
-                          )}
-                        </td>
-                        <td className="px-2 py-2 text-xs text-gray-400 text-center">{kstShortDateLabel(post.created_at)}</td>
-                        <td className="px-2 py-2 text-xs text-gray-400 text-center">{post.view_count}</td>
-                      </tr>
-                    ))}
-                  </>
-                )}
-              </tbody>
-            </table>
-
-            {/* 모바일 카드 뷰 */}
-            <div className="md:hidden space-y-2">
-              {filteredPosts.length === 0 ? (
-                <div className="py-10 text-center text-gray-400 text-xs">작성된 게시물이 없습니다.</div>
-              ) : (
-                <>
-                  {/* 공지사항 */}
-                  {filteredPosts.filter(p => p.is_notice).map((post) => (
-                    <div
-                      key={post.id}
-                      className="bg-blue-50 border border-blue-100 rounded p-3 cursor-pointer"
-                      onClick={() => router.push(`/post/${post.id}`)}
-                    >
-                      <div className="flex items-start gap-2 mb-1">
-                        <span className="text-[10px] bg-blue-500 text-white px-1.5 py-0.5 rounded font-bold shrink-0">공지</span>
-                      </div>
-                      <h3 className="text-sm font-bold text-gray-900 mb-2 line-clamp-2">
-                        <span className="text-[10px] text-[#355E3B] font-bold mr-1">[{boardTypeNames[post.board_type]}]</span>
-                        {post.title}
-                        {post.comment_count > 0 && (
-                          <span className="text-red-500 ml-1 text-[10px]">[{post.comment_count}]</span>
-                        )}
-                      </h3>
-                      <div className="flex items-center text-[10px] text-gray-400 gap-2">
-                        <span>{post.author}{post.user_id && <span className="text-green-500 ml-0.5 font-bold" style={{textShadow: '0 1px 0 rgba(255,255,255,0.5), 0 -1px 0 rgba(0,0,0,0.3)', filter: 'drop-shadow(0 1px 1px rgba(0,0,0,0.2))'}} title="회원">✓</span>}</span>
-                        <span>·</span>
-                        <span>{kstShortDateLabel(post.created_at)}</span>
-                        <span>·</span>
-                        <span>조회 {post.view_count}</span>
-                      </div>
-                    </div>
-                  ))}
-                  {/* 구인구직 직접작성글 */}
-                  {currentBoard === "job" && filteredPinnedPosts.filter(p => !p.is_notice).map((post) => (
-                    <div
-                      key={post.id}
-                      className="bg-green-50 border border-green-100 rounded p-3 cursor-pointer"
-                      onClick={() => router.push(`/post/${post.id}`)}
-                    >
-                      <div className="flex items-start gap-2 mb-1">
-                        <span className="text-[10px] bg-green-500 text-white px-1.5 py-0.5 rounded font-bold shrink-0">직접</span>
-                        {post.is_hot && (
-                          <span className="text-[10px] bg-red-500 text-white px-1.5 py-0.5 rounded font-bold shrink-0">HOT</span>
-                        )}
-                      </div>
-                      <h3 className="text-sm font-medium text-gray-800 mb-2 line-clamp-2">
-                        <span className="text-[10px] text-[#355E3B] font-bold mr-1">[{boardTypeNames[post.board_type]}]</span>
-                        {post.title}
-                        {post.comment_count > 0 && (
-                          <span className="text-red-500 ml-1 text-[10px]">[{post.comment_count}]</span>
-                        )}
-                      </h3>
-                      <div className="flex items-center text-[10px] text-gray-400 gap-2">
-                        <span>{post.author}{post.user_id && <span className="text-green-500 ml-0.5 font-bold" style={{textShadow: '0 1px 0 rgba(255,255,255,0.5), 0 -1px 0 rgba(0,0,0,0.3)', filter: 'drop-shadow(0 1px 1px rgba(0,0,0,0.2))'}} title="회원">✓</span>}</span>
-                        <span>·</span>
-                        <span>{kstShortDateLabel(post.created_at)}</span>
-                        <span>·</span>
-                        <span>조회 {post.view_count}</span>
-                      </div>
-                    </div>
-                  ))}
-                  {/* 일반 게시글 */}
-                  {filteredPosts.filter(p => !p.is_notice && (currentBoard !== "job" || p.is_auto)).map((post) => (
-                    <div
-                      key={post.id}
-                      className="bg-white border border-gray-100 rounded p-3 cursor-pointer hover:bg-gray-50"
-                      onClick={() => router.push(`/post/${post.id}`)}
-                    >
-                      <div className="flex items-start gap-2 mb-1">
-                        {post.is_hot && (
-                          <span className="text-[10px] bg-red-500 text-white px-1.5 py-0.5 rounded font-bold shrink-0">HOT</span>
-                        )}
-                      </div>
-                      <h3 className="text-sm font-medium text-gray-800 mb-2 line-clamp-2">
-                        <span className="text-[10px] text-[#355E3B] font-bold mr-1">[{boardTypeNames[post.board_type]}]</span>
-                        {post.title}
-                        {post.comment_count > 0 && (
-                          <span className="text-red-500 ml-1 text-[10px]">[{post.comment_count}]</span>
-                        )}
-                      </h3>
-                      <div className="flex items-center text-[10px] text-gray-400 gap-2">
-                        <span>{post.author}{post.user_id && <span className="text-green-500 ml-0.5 font-bold" style={{textShadow: '0 1px 0 rgba(255,255,255,0.5), 0 -1px 0 rgba(0,0,0,0.3)', filter: 'drop-shadow(0 1px 1px rgba(0,0,0,0.2))'}} title="회원">✓</span>}</span>
-                        <span>·</span>
-                        <span>{kstShortDateLabel(post.created_at)}</span>
-                        <span>·</span>
-                        <span>조회 {post.view_count}</span>
-                      </div>
-                    </div>
-                  ))}
-                </>
-              )}
-            </div>
-              </>
-            )}
-          </div>
-
-          {/* 페이지별 검색 */}
-          <div className="mt-8 mb-4">
-            <div className="relative max-w-md mx-auto">
-              <input
-                type="text"
-                placeholder={`${boardTypeNames[currentBoard] || '전체'}에서 검색`}
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-[#355E3B]"
-              />
-              <button
-                onClick={handleSearch}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-[#355E3B]"
-              >
-                🔍
-              </button>
-            </div>
-
-            {/* 검색 모드 표시 */}
-            {searchQueryParam && (
-              <div className="mt-4 max-w-md mx-auto flex items-center justify-between bg-blue-50 border border-blue-200 rounded-lg px-4 py-2">
-                <span className="text-sm text-blue-700">
-                  <span className="font-bold">'{searchQueryParam}'</span> 검색 결과 ({totalCount}개)
-                </span>
-                <button
-                  onClick={() => {
-                    setSearchQuery("");
-                    const params = new URLSearchParams();
-                    if (currentBoard !== "all") {
-                      params.set("board", currentBoard);
-                    }
-                    router.push(`/?${params.toString()}`);
-                  }}
-                  className="text-xs text-blue-600 hover:text-blue-800 font-medium"
-                >
-                  검색 취소
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="flex justify-center items-center mt-6 space-x-1">
-              <button
-                onClick={() => handlePageChange(1)}
-                disabled={currentPage === 1}
-                className="px-2 py-1 text-xs text-gray-500 hover:bg-gray-100 rounded disabled:opacity-30 disabled:cursor-not-allowed"
-              >
-                «
-              </button>
-              <button
-                onClick={() => handlePageChange(currentPage - 1)}
-                disabled={currentPage === 1}
-                className="px-2 py-1 text-xs text-gray-500 hover:bg-gray-100 rounded disabled:opacity-30 disabled:cursor-not-allowed"
-              >
-                ‹
-              </button>
-              {getPageNumbers().map((page) => (
-                <button
-                  key={page}
-                  onClick={() => handlePageChange(page)}
-                  className={`px-3 py-1 text-xs rounded ${
-                    currentPage === page
-                      ? "bg-[#355E3B] text-white font-bold"
-                      : "text-gray-600 hover:bg-gray-100"
-                  }`}
-                >
-                  {page}
-                </button>
+                  {cat.label}
+                  {cat.is_sponsored && <span className={`ml-1 text-[9px] align-top ${category === cat.label ? "text-white/70" : "text-amber-500"}`}>AD</span>}
+                </Chip>
               ))}
-              <button
-                onClick={() => handlePageChange(currentPage + 1)}
-                disabled={currentPage === totalPages}
-                className="px-2 py-1 text-xs text-gray-500 hover:bg-gray-100 rounded disabled:opacity-30 disabled:cursor-not-allowed"
-              >
-                ›
-              </button>
-              <button
-                onClick={() => handlePageChange(totalPages)}
-                disabled={currentPage === totalPages}
-                className="px-2 py-1 text-xs text-gray-500 hover:bg-gray-100 rounded disabled:opacity-30 disabled:cursor-not-allowed"
-              >
-                »
-              </button>
-              <span className="ml-4 text-xs text-gray-400">
-                총 {totalCount.toLocaleString()}개
-              </span>
             </div>
           )}
-          </>
+
+          {q && (
+            <div className="mb-3 flex items-center justify-between gap-3 bg-blue-50 border border-blue-200 rounded-lg px-4 py-2.5">
+              <span className="text-sm text-blue-800">
+                {BOARD_NAMES[currentBoard] ? `${BOARD_NAMES[currentBoard]}에서 ` : ""}
+                <span className="font-bold">‘{q}’</span> {loading ? "찾는 중…" : `${totalCount.toLocaleString()}개`}
+              </span>
+              <Link href={clearSearchHref} className="shrink-0 text-sm text-blue-700 hover:text-blue-900 font-medium py-1">
+                검색 지우기
+              </Link>
+            </div>
+          )}
+
+          {currentBoard === "ai" ? (
+            <AiPreparing />
+          ) : !showsList ? (
+            <BoardCalendar board={currentBoard} />
+          ) : (
+            <>
+              {loading ? (
+                <ListSkeleton />
+              ) : loadError ? (
+                <div className="py-14 text-center bg-red-50 rounded-lg border border-red-100">
+                  <p className="text-sm text-red-700 mb-3">{loadError} 인터넷 연결을 확인해 주세요.</p>
+                  <button type="button" onClick={() => setReloadKey((k) => k + 1)} className="min-h-10 px-4 text-sm font-bold text-white bg-[#355E3B] rounded-md">
+                    다시 시도
+                  </button>
+                </div>
+              ) : isEmpty ? (
+                <EmptyState q={q} board={currentBoard} category={category} clearSearchHref={clearSearchHref} />
+              ) : (
+                <>
+                  <table className="w-full text-sm text-left hidden md:table">
+                    <thead className="text-xs text-gray-500 border-b border-gray-200">
+                      <tr>
+                        <th scope="col" className="px-2 py-2 font-medium w-16">번호</th>
+                        <th scope="col" className="px-2 py-2 font-medium">제목</th>
+                        <th scope="col" className="px-2 py-2 font-medium w-24">글쓴이</th>
+                        <th scope="col" className="px-2 py-2 font-medium w-24 text-center">날짜</th>
+                        <th scope="col" className="px-2 py-2 font-medium w-16 text-center">조회</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {notices.map((post) => (
+                        <PostRow key={post.id} post={post} tone="notice" />
+                      ))}
+                      {pinned.map((post) => (
+                        <PostRow key={post.id} post={post} tone="pinned" />
+                      ))}
+                      {normals.map((post, idx) => (
+                        <PostRow key={post.id} post={post} number={listNumber(idx)} />
+                      ))}
+                    </tbody>
+                  </table>
+
+                  <div className="md:hidden space-y-2">
+                    {notices.map((post) => (
+                      <PostCard key={post.id} post={post} tone="notice" />
+                    ))}
+                    {pinned.filter((p) => !p.is_notice).map((post) => (
+                      <PostCard key={post.id} post={post} tone="pinned" />
+                    ))}
+                    {normals.map((post) => (
+                      <PostCard key={post.id} post={post} />
+                    ))}
+                  </div>
+                </>
+              )}
+
+              {!loading && !loadError && (
+                <Pagination currentPage={currentPage} totalPages={totalPages} totalCount={totalCount} hrefFor={hrefForPage} />
+              )}
+
+              <form role="search" onSubmit={handleSearch} className="relative max-w-md mx-auto mt-8 mb-4">
+                <label htmlFor="board-search" className="sr-only">
+                  {BOARD_NAMES[currentBoard] || "전체"}에서 제목 검색
+                </label>
+                <input
+                  id="board-search"
+                  type="search"
+                  enterKeyHint="search"
+                  placeholder={`${BOARD_NAMES[currentBoard] || "전체"}에서 제목 검색`}
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
+                  className="w-full h-11 pl-4 pr-12 border border-gray-300 rounded-lg text-base md:text-sm focus:outline-none focus:border-[#355E3B]"
+                />
+                <button
+                  type="submit"
+                  aria-label="검색"
+                  className="absolute right-1 top-1/2 -translate-y-1/2 w-10 h-10 flex items-center justify-center rounded-md text-gray-500 hover:text-[#355E3B] hover:bg-gray-50"
+                >
+                  🔍
+                </button>
+              </form>
+            </>
           )}
         </div>
 
-        {/* Right - Sidebar */}
         <aside className="lg:col-span-1 order-1 lg:order-2">
-          {/* Best Posts (Weekly HOT) - 모바일에서 숨김 */}
           {bestPosts.length > 0 && (
             <div className="border border-gray-200 hidden lg:block">
               <div className="bg-yellow-400 text-gray-800 px-3 py-2 text-xs font-bold border-b border-gray-200 flex items-center gap-1">
-                <span>🔥</span> 주간 베스트
+                <span aria-hidden="true">🔥</span> 주간 베스트
               </div>
-              <ul className="text-xs">
-                {bestPosts.slice(0, 5).map((post, idx) => (
+              <ol className="text-xs">
+                {bestPosts.map((post, idx) => (
                   <li key={post.id} className="border-b border-gray-100 last:border-0">
-                    <Link
-                      href={`/post/${post.id}`}
-                      className="block px-3 py-2 hover:bg-gray-50 text-gray-700"
-                    >
+                    <Link href={`/post/${post.id}`} className="block px-3 py-2 hover:bg-gray-50 text-gray-700">
                       <div className="flex items-start gap-2">
                         <span className="text-red-500 font-bold">{idx + 1}</span>
                         <span className="truncate flex-1">{post.title}</span>
                       </div>
-                      <div className="text-[10px] text-gray-400 mt-1 ml-4">
+                      <div className="text-[11px] text-gray-500 mt-1 ml-4">
                         조회 {post.view_count || 0} · 댓글 {post.comment_count || 0}
                       </div>
                     </Link>
                   </li>
                 ))}
-              </ul>
+              </ol>
             </div>
           )}
 
-          {/* User Menu for logged in users */}
           {user && (
             <div className="border border-gray-200 mt-4 hidden lg:block">
               <div className="bg-gray-100 px-3 py-2 text-xs font-bold border-b border-gray-200">내 활동</div>
@@ -1021,39 +459,27 @@ function PostList() {
             </div>
           )}
 
-          {/* 사이드 배너 — PC 전용(내부 wrapClass 가 hidden lg:block).
-              로그인 여부와 무관하게 항상 노출한다. */}
+          {/* 사이드 배너 — PC 전용(내부 wrapClass 가 hidden lg:block). 로그인 여부와 무관하게 항상 노출 */}
           <Banner placement="sidebar" />
         </aside>
       </section>
 
-      {/* Footer */}
-      <footer className="mt-10 border-t border-gray-200 bg-gray-50 py-10">
-        <div className="max-w-6xl mx-auto px-4 text-center text-xs text-gray-400">
-          <p className="mb-2">© 2026 북위키 (Book-Wiki). All rights reserved.</p>
-          <p className="space-x-3">
-            <span>문의 <a href="mailto:bookwiki.official@gmail.com" className="text-[#355E3B] hover:underline">bookwiki.official@gmail.com</a></span>
-            <Link href="/terms" className="hover:underline">이용약관</Link>
-            <Link href="/privacy" className="hover:underline">개인정보처리방침</Link>
-          </p>
-        </div>
-      </footer>
+      <SiteFooter />
     </div>
   );
 }
 
 export default function Home() {
   return (
-    <Suspense fallback={
-      <div className="flex flex-col min-h-screen pt-4">
-        <main className="flex-grow max-w-6xl mx-auto px-4 w-full">
-          <div className="py-32 flex flex-col items-center justify-center bg-gray-50 rounded-lg border border-gray-100 mt-10">
-            <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-[#355E3B] mb-4"></div>
-            <div className="text-sm font-bold text-gray-500">페이지를 준비 중입니다...</div>
-          </div>
-        </main>
-      </div>
-    }>
+    <Suspense
+      fallback={
+        <div className="flex flex-col min-h-screen pt-4">
+          <main className="flex-grow max-w-6xl mx-auto px-4 w-full mt-10">
+            <ListSkeleton />
+          </main>
+        </div>
+      }
+    >
       <PostList />
     </Suspense>
   );

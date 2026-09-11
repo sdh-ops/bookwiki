@@ -8,6 +8,7 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
 } from 'recharts';
 import { generateBookReport, generatePublisherReport } from "@/lib/reportGenerator";
+import { toast } from "@/lib/notify";
 
 const PLATFORMS = [
   { id: "kyobo", name: "교보문고", color: "#1E40AF", url: "https://www.kyobobook.co.kr/" },
@@ -78,7 +79,8 @@ export default function BestsellerPage() {
   // Navigation states
   const [isAdmin, setIsAdmin] = useState(false);
   const [user, setUser] = useState(null);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  // 모바일은 서점 5곳을 한 줄씩 세로로 쌓으면 750px 칸이 다섯 개라 한 곳씩 골라 본다
+  const [mobilePlatform, setMobilePlatform] = useState(PLATFORMS[0].id);
   const router = useRouter();
 
   // Trend analysis states
@@ -314,7 +316,11 @@ export default function BestsellerPage() {
       });
 
       setSearchResults(representatives);
-    } catch (e) {} finally {
+    } catch (e) {
+      console.error("[bestseller] trend search:", e);
+      setSearchResults([]);
+      toast("검색 중 문제가 생겼습니다. 잠시 후 다시 시도해 주세요.", "error");
+    } finally {
       setTrendLoading(false);
     }
   }
@@ -441,38 +447,12 @@ export default function BestsellerPage() {
     });
   }, [trendCategory]);
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    window.location.reload();
-  };
-
-  const boardCategories = [
-    { name: "전체", id: "all" },
-    { name: "HOT", id: "hot" },
-    { name: "구인구직", id: "job" },
-    { name: "지원사업", id: "support" },
-    { name: "톡톡", id: "free" },
-    { name: "베스트셀러", id: "bestseller", href: "/bestseller" },
-    { name: "AI허브", id: "ai" },
-  ];
-
-  const handleBoardClick = (cat) => {
-    if (cat.href) {
-      router.push(cat.href);
-      return;
-    }
-    if (cat.id === "all") {
-      router.push("/");
-    } else {
-      router.push(`/?board=${cat.id}`);
-    }
-  };
-
   return (
     <div className="min-h-screen bg-white pb-20">
 
 
       <main className="max-w-6xl mx-auto px-4 mt-8">
+        <h1 className="sr-only">서점 베스트셀러</h1>
         {/* TAB CONTROLS */}
         <div className="flex justify-center mb-8">
           <div className="flex border border-gray-200 rounded-lg overflow-hidden text-sm shadow-sm bg-white">
@@ -583,12 +563,32 @@ export default function BestsellerPage() {
               );
             })()}
 
+            {/* 모바일: 서점 고르기 */}
+            <div role="tablist" aria-label="서점" className="md:hidden flex gap-1.5 overflow-x-auto scrollbar-hide -mx-4 px-4 mb-3">
+              {PLATFORMS.map(platform => {
+                const selected = mobilePlatform === platform.id;
+                return (
+                  <button
+                    key={platform.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={selected}
+                    onClick={() => setMobilePlatform(platform.id)}
+                    className={`shrink-0 h-10 px-4 rounded-full text-sm font-bold border transition ${selected ? "text-white border-transparent" : "bg-white text-gray-600 border-gray-200"}`}
+                    style={selected ? { backgroundColor: platform.color } : undefined}
+                  >
+                    {platform.name}
+                  </button>
+                );
+              })}
+            </div>
+
             {/* Platform Columns Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
               {PLATFORMS.map(platform => {
                 const books = platformData[platform.id] || [];
                 return (
-                  <div key={platform.id} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col h-[750px]">
+                  <div key={platform.id} className={`bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex-col md:flex md:h-[750px] ${mobilePlatform === platform.id ? "flex" : "hidden"}`}>
                     <a 
                       href={platform.url} 
                       target="_blank" 
@@ -598,7 +598,7 @@ export default function BestsellerPage() {
                     >
                       {platform.name}
                     </a>
-                    <div className="flex-1 overflow-y-auto p-2 space-y-1.5 scrollbar-hide">
+                    <div className="flex-1 md:overflow-y-auto p-2 space-y-1.5 scrollbar-hide">
                       {loading ? (
                         <div className="h-full flex items-center justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#355E3B]"></div></div>
                       ) : books.length > 0 ? (

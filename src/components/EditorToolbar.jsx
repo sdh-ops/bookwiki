@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
+import { toast } from "@/lib/notify";
 
 export default function EditorToolbar({ editor, onImageUpload }) {
   const [showLinkInput, setShowLinkInput] = useState(false);
@@ -47,7 +48,7 @@ export default function EditorToolbar({ editor, onImageUpload }) {
       const url = await onImageUpload(file);
       editor.chain().focus().setImage({ src: url }).run();
     } catch (err) {
-      alert("이미지 업로드 실패: " + err.message);
+      toast(`이미지를 올리지 못했습니다: ${err.message}`, "error");
     } finally {
       setUploadingImage(false);
       e.target.value = "";

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, Suspense } from "react";
 import { supabase } from "@/lib/supabase";
+import { toast } from "@/lib/notify";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Editor from "@/components/Editor";
@@ -104,40 +105,40 @@ function WritePageContent() {
     const handleSubmit = async (e) => {
         e.preventDefault();
         if (!title || !content || !author) {
-            alert("모든 필드를 채워주세요.");
+            toast("제목·내용·닉네임을 모두 입력해 주세요.", "error");
             return;
         }
 
         // Non-members can only post to 톡톡
         if (!user && boardType !== "free") {
-            alert("비회원은 톡톡 게시판에만 글을 작성할 수 있습니다.");
+            toast("비회원은 톡톡 게시판에만 글을 쓸 수 있습니다. 로그인하면 다른 게시판도 쓸 수 있어요.", "error");
             return;
         }
 
         // Guest posts require password
         if (!user && !password) {
-            alert("비회원 글쓰기는 비밀번호가 필요합니다.");
+            toast("나중에 고치거나 지울 때 쓸 비밀번호를 입력해 주세요.", "error");
             return;
         }
 
         // 톡톡 게시판에서 말머리 확인
         if (boardType === "free" && !freeCategory) {
-            alert("톡톡 게시판에서는 말머리를 선택해주세요.");
+            toast("톡톡 게시판은 말머리를 골라 주세요.", "error");
             return;
         }
 
         // 구인구직 게시판 필수 필드 확인
         if (boardType === "job") {
             if (!jobCategory) {
-                alert("직군을 선택해주세요.");
+                toast("직군을 골라 주세요.", "error");
                 return;
             }
             if (!experienceLevel) {
-                alert("경력을 선택해주세요.");
+                toast("경력을 골라 주세요.", "error");
                 return;
             }
             if (!deadline) {
-                alert("마감일을 선택해주세요.");
+                toast("마감일을 골라 주세요.", "error");
                 return;
             }
         }
@@ -171,7 +172,7 @@ function WritePageContent() {
         if (usePoll) {
             const validOptions = pollOptions.filter(opt => opt.text.trim() !== "");
             if (validOptions.length < 2) {
-                alert("투표 항목을 2개 이상 입력해주세요.");
+                toast("투표 항목을 2개 이상 입력해 주세요.", "error");
                 setIsSubmitting(false);
                 return;
             }
@@ -182,12 +183,15 @@ function WritePageContent() {
 
         postData.attachments = attachments;
 
-        const { error } = await supabase.from("bw_posts").insert([postData]);
+        // 인자 없는 select() 는 select=* 라 password 까지 요구한다 — 새 글 id 만 받는다
+        const { data: created, error } = await supabase.from("bw_posts").insert([postData]).select("id").single();
 
         if (error) {
-            alert("글 작성에 실패했습니다: " + error.message);
+            toast(`글을 올리지 못했습니다: ${error.message}`, "error");
         } else {
-            router.push(`/?board=${boardType}`);
+            toast("글을 올렸습니다.");
+            // 방금 쓴 글로 바로 간다(예전엔 목록으로 가서 내 글을 다시 찾아야 했다)
+            router.push(created?.id ? `/post/${created.id}` : `/?board=${boardType}`);
             router.refresh();
         }
         setIsSubmitting(false);
@@ -460,7 +464,7 @@ function WritePageContent() {
                                         const result = await uploadAttachment(file);
                                         results.push(result);
                                     } catch (err) {
-                                        alert(`${file.name} 업로드 실패: ${err.message}`);
+                                        toast(`${file.name} 업로드 실패: ${err.message}`, "error");
                                     }
                                 }
                                 setAttachments(prev => [...prev, ...results]);
@@ -487,7 +491,7 @@ function WritePageContent() {
                                         const result = await uploadAttachment(file);
                                         results.push(result);
                                     } catch (err) {
-                                        alert(`${file.name} 업로드 실패: ${err.message}`);
+                                        toast(`${file.name} 업로드 실패: ${err.message}`, "error");
                                     }
                                 }
                                 setAttachments(prev => [...prev, ...results]);

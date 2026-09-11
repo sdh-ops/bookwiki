@@ -9,6 +9,7 @@ import { Color } from "@tiptap/extension-color";
 import Highlight from "@tiptap/extension-highlight";
 import { useEffect, useRef } from "react";
 import EditorToolbar from "./EditorToolbar";
+import { toast } from "@/lib/notify";
 
 export default function Editor({ content, onChange, onImageUpload }) {
   // ref로 최신 onImageUpload 유지 (stale closure 방지)
@@ -18,6 +19,9 @@ export default function Editor({ content, onChange, onImageUpload }) {
   }, [onImageUpload]);
 
   const editor = useEditor({
+    // Next.js 에서는 명시하지 않으면 개발 모드에서 Tiptap 이 예외를 던져 글쓰기·수정 화면이 통째로 죽는다
+    // (운영 빌드는 조용히 false 로 동작 — 그 동작을 그대로 적어 둔 것)
+    immediatelyRender: false,
     extensions: [
       StarterKit,
       Link.configure({
@@ -66,7 +70,7 @@ export default function Editor({ content, onChange, onImageUpload }) {
             const tr = view.state.tr.replaceSelectionWith(node);
             view.dispatch(tr);
           })
-          .catch((err) => alert("이미지 업로드 실패: " + err.message));
+          .catch((err) => toast(`이미지를 올리지 못했습니다: ${err.message}`, "error"));
         return true;
       },
       // 클립보드 이미지 붙여넣기 (스크린샷 포함)
@@ -88,7 +92,7 @@ export default function Editor({ content, onChange, onImageUpload }) {
             const tr = view.state.tr.replaceSelectionWith(node);
             view.dispatch(tr);
           })
-          .catch((err) => alert("이미지 업로드 실패: " + err.message));
+          .catch((err) => toast(`이미지를 올리지 못했습니다: ${err.message}`, "error"));
         return true;
       },
     },

@@ -116,8 +116,8 @@ export default function CalendarPage() {
     <div className="max-w-4xl mx-auto p-4">
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-xl font-bold text-gray-800">지원사업 마감 캘린더</h1>
-        <Link href="/?board=support" className="text-sm text-blue-600 hover:underline">
-          목록으로
+        <Link href="/?board=support" className="inline-flex items-center gap-1 min-h-10 px-3 rounded-md text-sm font-medium text-gray-600 hover:text-[#355E3B] hover:bg-gray-50">
+          <span aria-hidden="true">☰</span> 목록으로
         </Link>
       </div>
 
@@ -128,8 +128,10 @@ export default function CalendarPage() {
           {/* Calendar Header */}
           <div className="flex items-center justify-between mb-4 bg-white p-3 rounded-lg shadow-sm">
             <button
+              type="button"
+              aria-label="이전 달"
               onClick={prevMonth}
-              className="px-3 py-1 text-sm bg-gray-100 rounded hover:bg-gray-200"
+              className="min-h-10 px-3 text-sm bg-gray-100 rounded-md hover:bg-gray-200"
             >
               ◀ 이전
             </button>
@@ -137,8 +139,10 @@ export default function CalendarPage() {
               {year}년 {monthNames[month]}
             </h2>
             <button
+              type="button"
+              aria-label="다음 달"
               onClick={nextMonth}
-              className="px-3 py-1 text-sm bg-gray-100 rounded hover:bg-gray-200"
+              className="min-h-10 px-3 text-sm bg-gray-100 rounded-md hover:bg-gray-200"
             >
               다음 ▶
             </button>

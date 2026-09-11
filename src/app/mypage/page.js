@@ -6,14 +6,9 @@ import { POST_COLUMNS, COMMENT_COLUMNS } from "@/lib/columns";
 import { fetchMyUsername } from "@/lib/account";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
-
-// Board type to Korean name mapping
-const boardTypeNames = {
-    job: "구인구직",
-    support: "지원사업",
-    free: "톡톡",
-    ai: "AI허브",
-};
+import { BOARD_NAMES as boardTypeNames } from "@/lib/boards";
+import { kstShortDateLabel, kstDateTimeLabel } from "@/lib/date";
+import { toast } from "@/lib/notify";
 
 function MyPageContent() {
     const [user, setUser] = useState(null);
@@ -56,8 +51,8 @@ function MyPageContent() {
             const { data: { user } } = await supabase.auth.getUser();
 
             if (!user) {
-                alert("로그인이 필요합니다.");
-                router.push("/login");
+                toast("로그인이 필요합니다.", "error");
+                router.replace("/login");
                 return;
             }
 
@@ -308,7 +303,7 @@ function MyPageContent() {
             // 4. Supabase Auth에서 로그아웃 (클라이언트 세션 정리)
             await supabase.auth.signOut();
 
-            alert("회원 탈퇴가 완료되었습니다. 이용해주셔서 감사합니다.");
+            toast("회원 탈퇴가 완료되었습니다. 이용해 주셔서 감사합니다.");
             router.push("/");
         } catch (error) {
             console.error("Withdraw error:", error);
@@ -374,94 +369,83 @@ function MyPageContent() {
                     </div>
                 </div>
 
-                {/* Tabs */}
-                <div className="flex border-b border-gray-200 mb-6">
-                    <button
-                        onClick={() => router.push("/mypage")}
-                        className={`px-6 py-3 text-sm font-medium border-b-2 -mb-px ${currentTab === "posts" ? "border-[#355E3B] text-[#355E3B]" : "border-transparent text-gray-500 hover:text-gray-700"}`}
-                    >
-                        내가 쓴 글 ({posts.length})
-                    </button>
-                    <button
-                        onClick={() => router.push("/mypage?tab=comments")}
-                        className={`px-6 py-3 text-sm font-medium border-b-2 -mb-px ${currentTab === "comments" ? "border-[#355E3B] text-[#355E3B]" : "border-transparent text-gray-500 hover:text-gray-700"}`}
-                    >
-                        내가 쓴 댓글 ({comments.length})
-                    </button>
-                </div>
+                {/* Tabs — 진짜 링크라 뒤로가기로 탭이 되돌아온다 */}
+                <nav aria-label="내 활동" className="flex border-b border-gray-200 mb-6">
+                    {[
+                        { id: "posts", href: "/mypage", label: `내가 쓴 글 (${posts.length})` },
+                        { id: "comments", href: "/mypage?tab=comments", label: `내가 쓴 댓글 (${comments.length})` },
+                    ].map((tab) => (
+                        <Link
+                            key={tab.id}
+                            href={tab.href}
+                            replace
+                            aria-current={currentTab === tab.id ? "page" : undefined}
+                            className={`px-4 md:px-6 min-h-12 flex items-center text-sm font-medium border-b-2 -mb-px ${currentTab === tab.id ? "border-[#355E3B] text-[#355E3B] font-bold" : "border-transparent text-gray-500 hover:text-gray-700"}`}
+                        >
+                            {tab.label}
+                        </Link>
+                    ))}
+                </nav>
 
-                {/* Posts Tab */}
+                {/* 내가 쓴 글 — PC·모바일 같은 목록(좁은 화면에서 표가 찌그러지던 것) */}
                 {currentTab === "posts" && (
-                    <div>
-                        {posts.length === 0 ? (
-                            <div className="py-20 text-center text-gray-400 text-sm">
-                                작성한 글이 없습니다.
-                            </div>
-                        ) : (
-                            <table className="w-full text-sm text-left">
-                                <thead className="text-xs text-gray-500 border-b border-gray-200">
-                                    <tr>
-                                        <th className="px-2 py-2 font-medium">제목</th>
-                                        <th className="px-2 py-2 font-medium w-24">게시판</th>
-                                        <th className="px-2 py-2 font-medium w-24 text-center">날짜</th>
-                                        <th className="px-2 py-2 font-medium w-16 text-center">조회</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-gray-100">
-                                    {posts.map((post) => (
-                                        <tr
-                                            key={post.id}
-                                            className="hover:bg-gray-50 cursor-pointer"
-                                            onClick={() => router.push(`/post/${post.id}`)}
-                                        >
-                                            <td className="px-2 py-3 font-medium text-gray-800">
-                                                {post.title}
-                                                {post.comment_count > 0 && (
-                                                    <span className="text-red-500 ml-1 text-[10px] font-bold">[{post.comment_count}]</span>
-                                                )}
-                                            </td>
-                                            <td className="px-2 py-3 text-xs text-[#355E3B] font-bold">{boardTypeNames[post.board_type] || post.board_type}</td>
-                                            <td className="px-2 py-3 text-xs text-gray-400 text-center">{new Date(post.created_at).toLocaleDateString()}</td>
-                                            <td className="px-2 py-3 text-xs text-gray-400 text-center">{post.view_count}</td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        )}
-                    </div>
+                    posts.length === 0 ? (
+                        <div className="py-16 text-center bg-gray-50 rounded-lg">
+                            <p className="text-sm text-gray-500 mb-3">아직 쓴 글이 없습니다.</p>
+                            <Link href="/write" className="text-sm font-bold text-[#355E3B] underline underline-offset-2">첫 글 쓰기</Link>
+                        </div>
+                    ) : (
+                        <ul className="divide-y divide-gray-100 border-y border-gray-100">
+                            {posts.map((post) => (
+                                <li key={post.id}>
+                                    <Link href={`/post/${post.id}`} className="block px-2 py-3 hover:bg-gray-50">
+                                        <p className="text-[15px] md:text-sm font-medium text-gray-800 break-words">
+                                            {post.title}
+                                            {post.comment_count > 0 && (
+                                                <span className="text-red-500 ml-1 text-xs font-bold">[{post.comment_count}]</span>
+                                            )}
+                                        </p>
+                                        <p className="mt-1 flex items-center gap-1.5 text-xs text-gray-500">
+                                            <span className="font-bold text-[#355E3B]">{boardTypeNames[post.board_type] || post.board_type}</span>
+                                            <span aria-hidden="true">·</span>
+                                            <span>{kstShortDateLabel(post.created_at)}</span>
+                                            <span aria-hidden="true">·</span>
+                                            <span>조회 {post.view_count}</span>
+                                        </p>
+                                    </Link>
+                                </li>
+                            ))}
+                        </ul>
+                    )
                 )}
 
-                {/* Comments Tab */}
+                {/* 내가 쓴 댓글 */}
                 {currentTab === "comments" && (
-                    <div>
-                        {comments.length === 0 ? (
-                            <div className="py-20 text-center text-gray-400 text-sm">
-                                작성한 댓글이 없습니다.
-                            </div>
-                        ) : (
-                            <div className="space-y-4">
-                                {comments.map((comment) => (
-                                    <div
-                                        key={comment.id}
-                                        className="border border-gray-200 rounded p-4 hover:bg-gray-50 cursor-pointer"
-                                        onClick={() => router.push(`/post/${comment.post_id}`)}
-                                    >
-                                        <div className="flex justify-between items-start mb-2">
-                                            <span className="text-xs text-[#355E3B] font-bold">
+                    comments.length === 0 ? (
+                        <div className="py-16 text-center bg-gray-50 rounded-lg text-sm text-gray-500">
+                            아직 쓴 댓글이 없습니다.
+                        </div>
+                    ) : (
+                        <ul className="space-y-3">
+                            {comments.map((comment) => (
+                                <li key={comment.id}>
+                                    <Link href={`/post/${comment.post_id}`} className="block border border-gray-200 rounded-lg p-4 hover:bg-gray-50">
+                                        <div className="flex justify-between items-start gap-3 mb-2">
+                                            <span className="text-xs text-[#355E3B] font-bold truncate">
                                                 {comment.bw_posts?.title || "삭제된 게시글"}
                                             </span>
-                                            <span className="text-[10px] text-gray-400">
-                                                {new Date(comment.created_at).toLocaleString()}
+                                            <span className="shrink-0 text-xs text-gray-500">
+                                                {kstDateTimeLabel(comment.created_at)}
                                             </span>
                                         </div>
-                                        <p className="text-sm text-gray-700 whitespace-pre-wrap line-clamp-2">
+                                        <p className="text-sm text-gray-700 whitespace-pre-wrap break-words [overflow-wrap:anywhere] line-clamp-2">
                                             {comment.content}
                                         </p>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
+                                    </Link>
+                                </li>
+                            ))}
+                        </ul>
+                    )
                 )}
             </section>
 
@@ -623,7 +607,7 @@ function MyPageContent() {
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    확인을 위해 <span className="text-red-600 font-bold">'탈퇴합니다'</span>를 입력하세요
+                                    확인을 위해 <span className="text-red-600 font-bold">‘탈퇴합니다’</span>를 입력하세요
                                 </label>
                                 <input
                                     type="text"

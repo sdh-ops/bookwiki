@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
+import { toast } from "@/lib/notify";
 
 export default function PollWidget({ postId, pollOptions, user }) {
   const [hasVoted, setHasVoted] = useState(false);
@@ -88,7 +89,7 @@ export default function PollWidget({ postId, pollOptions, user }) {
       }));
     } catch (error) {
       console.error("투표 오류:", error);
-      alert("투표 실패: " + (error.message || "알 수 없는 오류가 발생했습니다."));
+      toast(`투표하지 못했습니다: ${error.message || "알 수 없는 오류"}`, "error");
     } finally {
       setSubmitting(false);
     }

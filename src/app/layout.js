@@ -3,6 +3,7 @@ import "./globals.css";
 import { Analytics } from "@vercel/analytics/next";
 import PageTracker from "@/components/PageTracker";
 import Header from "@/components/Header";
+import NotifyHost from "@/components/NotifyHost";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -15,6 +16,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata = {
+  metadataBase: new URL("https://www.bookwiki.co.kr"),
   title: {
     default: "북위키 (BookWiki) | 출판업계 정보 공유 플랫폼",
     template: "%s | 북위키"
@@ -50,9 +52,8 @@ export const metadata = {
     index: true,
     follow: true,
   },
-  alternates: {
-    canonical: "https://www.bookwiki.co.kr",
-  },
+  // canonical 은 여기서 정하지 않는다. 루트에 두면 모든 하위 화면이 물려받아
+  // 글 상세까지 전부 「정본은 홈」이라고 검색엔진에 알리게 된다. 글 상세는 자기 주소를 적는다.
   verification: {
     other: {
       "naver-site-verification": "931ec1217c2427fde23e687a8a2d02f91c87532a",
@@ -89,6 +90,7 @@ export default function RootLayout({ children }) {
         />
         <Header />
         {children}
+        <NotifyHost />
         <PageTracker />
         <Analytics />
       </body>
