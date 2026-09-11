@@ -1,7 +1,9 @@
 "use client";
 
-import { useMemo } from "react";
-import DOMPurify from "isomorphic-dompurify";
+import { useMemo, useSyncExternalStore } from "react";
+// isomorphic-dompurify 는 서버에서 jsdom 을 끌어오는데, Vercel 에선 jsdom 이 파일을 못 찾아 글 상세가 통째로 500 이 났다.
+// 본문 소독은 브라우저의 DOMPurify 로만 한다(서버는 본문 자리를 비워 두고 곧바로 채운다).
+import DOMPurify from "dompurify";
 import PollWidget from "@/components/PollWidget";
 import { kstDateLabel } from "@/lib/date";
 
@@ -165,8 +167,14 @@ function DocumentPreview({ url }) {
 }
 
 /** 글 본문 — 채용 정보 · 본문 · 투표 · 첨부 · 문서 미리보기 */
+const noSubscribe = () => () => {};
+
 export default function PostBody({ post, postId, user }) {
-  const html = useMemo(() => DOMPurify.sanitize(post.content || "", SANITIZE_OPTIONS), [post.content]);
+  const inBrowser = useSyncExternalStore(noSubscribe, () => true, () => false);
+  const html = useMemo(
+    () => (inBrowser ? DOMPurify.sanitize(post.content || "", SANITIZE_OPTIONS) : ""),
+    [inBrowser, post.content]
+  );
 
   return (
     <div className="min-h-[200px] text-gray-800 leading-relaxed text-[15px] md:text-sm">
