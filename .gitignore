@@ -33,6 +33,8 @@ yarn-error.log*
 # env files
 .env*
  .env*
+# 팀원이 복사해 쓰는 예시 파일만 올린다(값은 비어 있다)
+!.env.example
 
 # uploads
 /public/uploads/

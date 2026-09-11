@@ -1,0 +1,59 @@
+name: PR 검사
+
+# 팀원 PR(포크)마다 돈다. 포크에서 온 PR 에는 GitHub 가 비밀값을 주지 않으므로 여기서도 쓰지 않는다.
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch: # 저장소 주인이 검사 자체를 시험할 때
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: 빌드 통과
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - name: 의존성 설치
+        run: npm install --legacy-peer-deps
+        env:
+          PUPPETEER_SKIP_DOWNLOAD: 'true' # 수집용 크롬은 빌드에 필요 없다
+      - name: next build
+        run: npm run build
+        env:
+          # 빌드만 확인한다 — 실제 DB 에 붙지 않는 가짜 값
+          NEXT_PUBLIC_SUPABASE_URL: https://build-check.invalid.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: build-check-placeholder
+          NEXT_TELEMETRY_DISABLED: '1'
+
+  guard:
+    name: 보호 구역 변경 알림
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: 운영자 전용 경로를 건드렸는지
+        run: |
+          git fetch origin "${{ github.base_ref }}" --depth=1
+          CHANGED=$(git diff --name-only "origin/${{ github.base_ref }}"...HEAD)
+          HIT=$(echo "$CHANGED" | grep -E '^(scripts/|migrations/|\.github/|src/app/admin/|src/app/api/|src/lib/(supabase|columns|account)\.js$|next\.config\.mjs$|\.env)' || true)
+          if [ -n "$HIT" ]; then
+            echo "## ⛔ 운영자 전용 경로가 바뀌었습니다 — 꼭 직접 읽어 보세요" >> "$GITHUB_STEP_SUMMARY"
+            echo "$HIT" | sed 's/^/- /' >> "$GITHUB_STEP_SUMMARY"
+            echo "$HIT" | while read -r f; do echo "::error file=$f::운영자 전용 경로 (AGENTS.md §3)"; done
+            exit 1
+          fi
+          SHARED=$(echo "$CHANGED" | grep -E '^(package(-lock)?\.json|src/app/layout\.js|src/app/globals\.css|src/components/Header\.jsx|src/lib/boards\.js)$' || true)
+          if [ -n "$SHARED" ]; then
+            echo "## ⚠️ 공용 파일이 바뀌었습니다 — PR 설명의 이유를 확인하세요" >> "$GITHUB_STEP_SUMMARY"
+            echo "$SHARED" | sed 's/^/- /' >> "$GITHUB_STEP_SUMMARY"
+            echo "$SHARED" | while read -r f; do echo "::warning file=$f::공용 파일 — 변경 이유 확인 (AGENTS.md §3)"; done
+          fi
+          echo "보호 구역 변경 없음" >> "$GITHUB_STEP_SUMMARY"
