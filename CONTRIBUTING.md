@@ -45,7 +45,7 @@ bookwiki 폴더에서 AGENTS.md 규칙대로 새 작업을 시작해 줘. 만들
 gh repo fork sdh-ops/bookwiki --clone
 cd bookwiki
 cp .env.example .env.local          # 받은 공개 키 두 개를 넣는다
-npm install --legacy-peer-deps
+npm install
 npm run dev                         # http://localhost:3000
 ```
 

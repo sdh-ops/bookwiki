@@ -20,7 +20,7 @@ jobs:
           node-version: '22'
           cache: 'npm'
       - name: 의존성 설치
-        run: npm install --legacy-peer-deps
+        run: npm install
         env:
           PUPPETEER_SKIP_DOWNLOAD: 'true' # 수집용 크롬은 빌드에 필요 없다
       - name: next build

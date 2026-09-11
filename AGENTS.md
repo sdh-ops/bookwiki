@@ -47,7 +47,7 @@ migrations/              # DB 변경 SQL — 손대지 않는다
 
 **명령어**
 ```bash
-npm install --legacy-peer-deps   # 처음 한 번
+npm install                      # 처음 한 번 (--legacy-peer-deps 는 쓰지 않는다 — 차트용 react-is 가 빠져 빌드가 깨진다)
 npm run dev                      # 개발 서버 http://localhost:3000
 npm run build                    # PR 전에 반드시 통과해야 한다
 ```
@@ -64,7 +64,7 @@ gh repo fork sdh-ops/bookwiki --clone        # 내 계정으로 복사 + 내 컴
 cd bookwiki
 git remote -v                                # origin = 내 포크, upstream = sdh-ops/bookwiki 여야 한다
 cp .env.example .env.local                   # 값 두 개는 사용자가 저장소 주인에게 받아 넣는다
-npm install --legacy-peer-deps
+npm install
 npm run dev
 ```
 `.env.local` 에는 **공개 키 두 개만** 들어간다(`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`).
@@ -181,7 +181,7 @@ gh pr checks <번호> --repo sdh-ops/bookwiki         # 「빌드 통과」「�
 `gh api -X POST repos/sdh-ops/bookwiki/actions/runs/<id>/approve` 로 돌린다.
 
 1. **읽기** — 바뀐 파일 전부를 읽는다. §3 ⛔ 경로가 있으면 가장 먼저 짚는다. 키·비밀번호·외부 스크립트·`dangerouslySetInnerHTML`·DB 쓰기 코드를 찾는다.
-2. **돌려 보기** — `gh pr checkout <번호>` → `npm install --legacy-peer-deps` → `npm run build` → 개발 서버로 띄워
+2. **돌려 보기** — `gh pr checkout <번호>` → `npm install` → `npm run build` → 개발 서버로 띄워
    PC(1280)·모바일(375) 화면을 직접 본다(가로 넘침·콘솔 오류·버튼 크기). 캡처를 주인에게 보여 준다.
    ⚠️ 로컬도 라이브 DB 다 — 확인하면서 글·댓글을 만들지 않는다.
 3. **보고** — 「무엇이 바뀌었나 / 문제 / 고칠 것」을 짧게. 고칠 게 있으면 PR 댓글 초안을 만들어 주인에게 보여 주고,

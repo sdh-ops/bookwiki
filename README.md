@@ -11,7 +11,7 @@
 - AI(Claude Code·Codex·Cursor 등) 작업 규칙: [AGENTS.md](AGENTS.md)
 
 ```bash
-npm install --legacy-peer-deps
+npm install
 cp .env.example .env.local   # 공개 키 두 개를 넣는다
 npm run dev                  # http://localhost:3000
 ```
