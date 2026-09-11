@@ -68,6 +68,15 @@ async function initBrowser() {
   return browser;
 }
 
+// 굿즈 필터에 걸린 항목을 로그에 남기며 거른다 (순위가 비는 이유를 추적할 수 있게)
+function keepValid(platform) {
+  return (b) => {
+    const ok = isValidBook(b.title, b.author);
+    if (!ok) console.warn(`  [-] ${platform}: 굿즈/비도서로 판단해 제외 #${b.rank ?? '?'} "${b.title}" / ${b.author}`);
+    return ok;
+  };
+}
+
 // 도서 유효성 검사 함수
 function isValidBook(title, author) {
   if (!title || title.length < 2) return false;
@@ -472,7 +481,7 @@ async function scrapeKyobo(category, retries = 3) {
           ...b,
           author: cleanAuthor(b.author),
           pub_date: formatDate(b.pub_date)
-        })).filter(b => isValidBook(b.title, b.author));
+        })).filter(keepValid('kyobo'));
       }
 
       if (attempt < retries) {
@@ -569,7 +578,7 @@ async function scrapeRidi(category, retries = 3) {
           author: cleanAuthor(book.author),
           pub_date: book.pub_date ? book.pub_date.split('T')[0] : null
         }))
-        .filter(book => isValidBook(book.title, book.author));
+        .filter(keepValid('ridi'));
 
       if (cleanedBooks.length > 0) return cleanedBooks;
     } catch (e) {
@@ -646,7 +655,7 @@ async function scrapeMillie(category, retries = 3) {
         publisher: item.publisher_name || '밀리의서재',
         cover_url: item.cover_image_url || null,
         pub_date: item.publish_date || null
-      })).filter(b => isValidBook(b.title, b.author));
+      })).filter(keepValid('millie'));
 
       console.log(`  [Millie] Found ${books.length} items.`);
       return books;
@@ -734,25 +743,32 @@ async function sync(platform, books, categoryName, targetDate = null) {
           if (!isInvalid(existing.description)) finalDescription = existing.description; else if (!isInvalid(b.description)) finalDescription = b.description;
         }
 
-        const { data, error } = await supabase
+        const row = { title: b.title, author: b.author, publisher: finalPublisher, pub_date: finalPubDate, isbn: finalIsbn, description: finalDescription };
+        const upsertBook = (values) => supabase
           .from('bw_books')
-          .upsert(
-            { title: b.title, author: b.author, publisher: finalPublisher, pub_date: finalPubDate, isbn: finalIsbn, description: finalDescription },
-            { onConflict: 'title,author', ignoreDuplicates: false }
-          )
+          .upsert(values, { onConflict: 'title,author', ignoreDuplicates: false })
           .select('id, title, author')
           .single();
-        
+
+        let { data, error } = await upsertBook(row);
+
+        // 같은 ISBN 이 다른 제목·저자 표기로 이미 있으면(알라딘 보완이 붙인 ISBN 이 겹침) ISBN 없이 이 제목으로 저장한다.
+        // 예전엔 기존 행을 돌려줬는데, 그 행의 제목이 달라 아래 순위 매칭에서 빠져 순위가 조용히 비었다
+        // (2026-09-10 교보 종합 50권 중 8권). 남의 책 id 에 붙이면 엉뚱한 제목이 순위에 뜨므로 그러지도 않는다.
+        if (error && error.message.includes('bw_books_isbn_key')) {
+          console.warn(`      [~] ISBN ${finalIsbn} 이 다른 표기로 이미 있어 ISBN 없이 저장: "${b.title}"`);
+          ({ data, error } = await upsertBook({ ...row, isbn: null }));
+        }
+
         if (error) {
-          if (error.message.includes('bw_books_isbn_key')) {
-             const { data: existingByIsbn } = await supabase.from('bw_books').select('id, title, author').eq('isbn', b.isbn).single();
-             if (existingByIsbn) return existingByIsbn;
-          }
           console.error(`      [!] Upsert failed for "${b.title}":`, error.message);
           return null;
         }
         return data;
-      } catch (e) { return null; }
+      } catch (e) {
+        console.error(`      [!] Upsert threw for "${b.title}":`, e?.message || e);
+        return null;
+      }
     }));
 
     const upsertedBooks = upsertResults.filter(Boolean);
@@ -803,6 +819,14 @@ async function sync(platform, books, categoryName, targetDate = null) {
       seenBookIds.add(s.book_id);
       return true;
     });
+
+    // 저장하지 못한 순위는 이름을 대고 남긴다 — 화면의 「빠진 순위」를 로그에서 바로 찾을 수 있게
+    const savedRanks = new Set(dedupedSnapshots.map(s => s.rank));
+    const dropped = enrichedBooks.filter(b => !savedRanks.has(b.rank));
+    if (dropped.length > 0) {
+      console.warn(`  [!] ${platform}/${categoryName}: ${dropped.length}개 순위 저장 안 됨 — ` +
+        dropped.map(b => `#${b.rank} "${b.title}"`).join(', '));
+    }
 
     if (dedupedSnapshots.length > 0) {
       const { error: snapError } = await supabase.from('bw_bestseller_snapshots')
