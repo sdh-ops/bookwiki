@@ -6,10 +6,16 @@ const cheerio = require('cheerio');
 const { supabase } = require('./common');
 
 const ALADIN_API_KEY = process.env.ALADIN_TTB_KEY;
-// 알라딘은 **폴백**이다 — 없어도 수집은 돈다. 다만 조용히 비면 「출판사가 왜 자꾸 비지」로만 보인다.
-// 시작할 때 한 번 소리내어 남긴다. (2026-10-30 알라딘 Open API 종료 후엔 늘 이 상태가 된다.)
-if (!ALADIN_API_KEY) {
-  console.warn('[bestseller] ALADIN_TTB_KEY 없음 — 출판사/출간일 보완(폴백)을 건너뜁니다. 수집 자체는 계속합니다.');
+const YES24_API_KEY = process.env.YES24_API_KEY;
+// 출판사·출간일 보완은 **폴백**이다 — 없어도 수집(HTML 스크래핑)은 돈다.
+// 다만 조용히 비면 「출판사가 왜 자꾸 비지」로만 보인다. 시작할 때 한 번 소리내어 남긴다.
+//
+// 【2026-09-14】 1순위를 YES24 Open API 로 바꿨다. 알라딘은 10-30 에 끝난다.
+// ⚠️ YES24 키는 **더난 ERP 와 같은 키**다(일 20,000회를 나눠 쓴다). 캐시(aladdinCache)를 그대로 쓴다.
+if (!YES24_API_KEY && !ALADIN_API_KEY) {
+  console.warn('[bestseller] YES24_API_KEY·ALADIN_TTB_KEY 둘 다 없음 — 출판사/출간일 보완을 건너뜁니다. 수집 자체는 계속합니다.');
+} else if (!YES24_API_KEY) {
+  console.warn('[bestseller] YES24_API_KEY 없음 — 알라딘 폴백만 씁니다(2026-10-30 종료).');
 }
 
 /**
@@ -162,10 +168,65 @@ function getPreviousDate(dateStr) {
   return d.toISOString().split('T')[0];
 }
 
-// 누락된 출판사/출간일 정보를 알라딘 API를 통해 보완 (Fallback)
+// 제목 유사도 검사 (앞 4글자 이상 일치 여부) — 두 소스가 같이 쓴다.
+function titleLooksSame(wantTitle, foundTitle) {
+  const normalize = (s) => String(s ?? '').replace(/\s/g, '').replace(/[^\uAC00-\uD7A3a-zA-Z0-9]/g, '').toLowerCase();
+  const a = normalize(wantTitle).substring(0, Math.min(4, normalize(wantTitle).length));
+  return a.length > 0 && normalize(foundTitle).includes(a);
+}
+
+/**
+ * YES24 Open API 로 출판사·출간일을 찾는다. 못 찾으면 null — 그러면 호출부가 알라딘으로 내려간다.
+ * ⛔ 429(초당 10회)는 쉬었다 한 번만 다시 친다. 안 쉬고 다시 치면 또 429 다.
+ */
+async function fetchFromYes24(safeTitle, author) {
+  if (!YES24_API_KEY) return null;
+  const query = (author && author !== '저자 미상' && author !== '알수없음')
+    ? `${safeTitle} ${author.split(' ')[0]}`
+    : safeTitle;
+
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const res = await axios.get('https://apis.yes24.com/v1/goods/itemList', {
+        params: { query, category: 'BOOK', pageSize: 10, detail: 'Y' },
+        headers: { 'X-Api-Key': YES24_API_KEY },
+        timeout: 8000,
+        validateStatus: () => true,
+      });
+      if (res.status === 429 && attempt === 0) {
+        await new Promise((r) => setTimeout(r, 1200));
+        continue;
+      }
+      if (res.status !== 200 || res.data?.success !== true) return null;
+      const items = res.data?.data?.items ?? [];
+      if (items.length === 0) return null;
+      const book = items.find((i) => titleLooksSame(safeTitle, i.title)) || items[0];
+      if (!titleLooksSame(safeTitle, book.title)) return null;   // 엉뚱한 책이면 안 쓴다
+      const pub = String(book.publishDate ?? '').trim();
+      return {
+        publisher: book.publisher ?? null,
+        pubDate: /^\d{8}$/.test(pub) ? `${pub.slice(0, 4)}-${pub.slice(4, 6)}-${pub.slice(6)}` : null,
+        description: book.contentDetail?.bookIntroduction ?? null,
+        isbn: book.isbn13 ?? null,
+      };
+    } catch (e) {
+      return null;
+    }
+  }
+  return null;
+}
+
+// 누락된 출판사/출간일 정보를 보완 (Fallback). 1순위 YES24 · 2순위 알라딘(2026-10-30 종료).
 async function fetchMissingInfo(title, author) {
   const cacheKey = `${title}|||${author}`;
   if (aladdinCache.has(cacheKey)) return aladdinCache.get(cacheKey);
+
+  {
+    const safeTitle = title.replace(/\[도서\]/g, '').split('(')[0].split('-')[0].trim();
+    const y = await fetchFromYes24(safeTitle, author);
+    if (y) { aladdinCache.set(cacheKey, y); return y; }
+  }
+  if (!ALADIN_API_KEY) { aladdinCache.set(cacheKey, null); return null; }
 
   try {
     const safeTitle = title.replace(/\[도서\]/g, '').split('(')[0].split('-')[0].trim();
@@ -186,12 +247,7 @@ async function fetchMissingInfo(title, author) {
       return response.data?.item || [];
     }
 
-    // 제목 유사도 검사 (앞 4글자 이상 일치 여부)
-    function titleMatches(foundTitle) {
-      const normalize = s => s.replace(/\s/g, '').replace(/[^\uAC00-\uD7A3a-zA-Z0-9]/g, '').toLowerCase();
-      const a = normalize(safeTitle).substring(0, Math.min(4, normalize(safeTitle).length));
-      return normalize(foundTitle).includes(a);
-    }
+    const titleMatches = (foundTitle) => titleLooksSame(safeTitle, foundTitle);
 
     let items = [];
 

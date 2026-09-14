@@ -15,8 +15,15 @@ import { createClient } from '@supabase/supabase-js';
 //   실사용은 베스트셀러 목록에 새로 뜬 책만 긁게 되므로 하루 수십 건 수준이다.
 //
 // 【robots】 알라딘 robots.txt 는 `/shop/` 을 허용하고 `/search/`·`/ttb/` 를 막는다.
-// ⛔ 그래서 **제목 검색은 스크래핑하지 않는다.** 제목 경로는 Open API 로만 두고,
-//    2026-10-30 뒤에는 실패한다 — 호출부(베스트셀러 상세 팝업)에 이미 폴백 문구가 있다.
+// ⛔ 그래서 **제목 검색은 스크래핑하지 않는다.**
+//
+// 【2026-09-14 — 제목 검색을 YES24 Open API 로 옮겼다】
+// 알라딘 Open API 는 10-30 에 끝나므로 제목 경로가 그날부터 늘 503 이 될 예정이었다.
+// YES24 는 공식 API 라 robots 문제가 없고 응답도 2KB 다. 알라딘 키가 남아 있으면 폴백으로 둔다.
+// ⚠️ YES24 키는 **더난 ERP 와 같은 키**다(일 20,000회를 나눠 쓴다). 그래서 이 라우트의
+//    「우리가 아는 책만」 가드를 그대로 유지한다 — 없으면 우리 키로 남의 조회를 대신 해준다.
+
+import { yes24ByIsbn, yes24Search, yes24Key, toBook } from '@/lib/yes24';
 
 const PRODUCT_URL = 'https://www.aladin.co.kr/shop/wproduct.aspx?ISBN=';
 const ALADIN_SEARCH_URL = 'https://www.aladin.co.kr/ttb/api/ItemSearch.aspx';
@@ -158,8 +165,15 @@ async function lookupByIsbn(isbn, type) {
     return NextResponse.json({ error: 'Book not found' }, { status: 404 });
   }
 
-  // ② 상품 페이지에서 읽는다.
-  const book = parseProduct(await fetchHtml(PRODUCT_URL + encodeURIComponent(isbn)));
+  // ② 바깥에서 읽는다. YES24 API(2KB)를 먼저 — 알라딘 상품 페이지는 **390KB** 다.
+  //    ⛔ unknown(못 읽음)일 때만 알라딘으로 내려간다. none(그 책이 YES24 에 없음)이면
+  //       알라딘에는 있을 수 있으니 역시 내려간다 — 둘 다 아니면 캐시 반쪽이라도 준다.
+  let book = null;
+  if (yes24Key()) {
+    const o = await yes24ByIsbn(isbn);
+    if (o.state === 'ok') book = toBook(o.items[0]);
+  }
+  if (!book) book = parseProduct(await fetchHtml(PRODUCT_URL + encodeURIComponent(isbn)));
   if (!book) {
     // 캐시에 반쪽이라도 있으면 그거라도 준다 — 빈손보다 낫다.
     if (cached?.cover_url || cached?.description) {
@@ -193,15 +207,43 @@ async function lookupByIsbn(isbn, type) {
   return NextResponse.json({ ...book, isbn: book.isbn ?? isbn });
 }
 
+/** 저자 표기에서 역할어를 떼고 첫 사람만 남긴다. 「이한이 역」 → 「이한이」 */
+function firstAuthorName(author) {
+  return String(author ?? '')
+    .split(/[,/|]/)[0]
+    .replace(/\s(저자|저|지음|글|그림|역자|역|옮김|번역|외)$/, '')
+    .trim()
+    .toLowerCase();
+}
+
 /**
- * 제목 검색 — Open API 전용.
+ * 제목 검색.
  * ⛔ 스크래핑하지 않는다: 알라딘 robots.txt 가 `/search/` 를 막는다.
- * ⚠️ 2026-10-30 이후에는 늘 실패한다. 호출부에 「직접 검색해보세요」 폴백이 이미 있다.
+ * ⭐ 1순위 YES24 Open API(공식·2KB) · 2순위 알라딘 Open API(2026-10-30 종료).
+ *    둘 다 없으면 503 — 호출부에 「직접 검색해보세요」 폴백이 이미 있다.
  */
 async function searchByTitle(title, author, type) {
+  // ── YES24 먼저 ──────────────────────────────────────────────────────────────
+  if (yes24Key()) {
+    const o = await yes24Search(title, 10);
+    if (o.state === 'ok') {
+      let best = o.items[0];
+      const clean = firstAuthorName(author);
+      if (clean) {
+        // 저자 전용 검색이 없어 통합 검색이다 — 저자 이름이 든 항목을 고른다.
+        const hit = o.items.find((i) => String(i.author ?? '').toLowerCase().includes(clean));
+        if (hit) best = hit;
+      }
+      const b = toBook(best);
+      if (type === 'cover') return NextResponse.json({ cover: b.cover ?? null });
+      return NextResponse.json(b);
+    }
+    // state === 'none' 은 「YES24 에 없다」는 사실이다. 알라딘에는 있을 수 있으니 내려간다.
+  }
+
   if (!ALADIN_API_KEY) {
     return NextResponse.json(
-      { error: 'title search unavailable (Aladin Open API ended)' },
+      { error: 'title search unavailable (YES24/Aladin both unavailable)' },
       { status: 503 }
     );
   }
