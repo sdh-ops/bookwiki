@@ -59,3 +59,32 @@ export function firstImageUrl(post) {
   const attached = (post.attachments || []).find((a) => a?.type?.startsWith("image/") && a.url?.startsWith("https://"));
   return attached?.url || null;
 }
+
+/**
+ * 사이트맵에 실을 공개 글 전부 (id, created_at).
+ *
+ * ⛔ 한 번의 select 로 끝내지 마라. Supabase 는 요청당 행 수에 상한(기본 1000)이 있어서
+ * 글이 그만큼 늘면 뒷글이 조용히 빠진다 — 사이트맵은 빠진 걸 아무도 못 알아챈다.
+ * 1000개씩 끊어 받고, 받은 게 한 장보다 적으면 그게 마지막 장이다.
+ */
+export async function getSitemapPosts() {
+  const supabase = serverSupabase();
+  const PAGE = 1000;
+  const posts = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await supabase
+      .from("bw_posts")
+      .select("id, created_at")
+      .eq("is_deleted", false)
+      .order("created_at", { ascending: false })
+      .range(from, from + PAGE - 1);
+    if (error) {
+      // 사이트맵은 비어서 나가면 안 된다 — 여기까지 받은 건 살리고 이유를 남긴다
+      console.error("[sitemap] posts:", error.message);
+      break;
+    }
+    posts.push(...data);
+    if (data.length < PAGE) break;
+  }
+  return posts;
+}

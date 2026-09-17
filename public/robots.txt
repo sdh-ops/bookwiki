@@ -1,3 +1,7 @@
+# 검색결과 주소(?q=)는 막는다 — 내용이 홈과 같고 무한히 늘어난다.
+# 홈의 정본은 src/app/page.js 의 canonical 이 「/」로 못박아 뒀다.
+# render-slide 는 카드 이미지를 뽑는 내부 렌더러다(사람이 볼 화면이 아니다).
+
 User-agent: *
 Allow: /
 Disallow: /admin/
@@ -6,6 +10,8 @@ Disallow: /mypage/
 Disallow: /write/
 Disallow: /reset-password/
 Disallow: /login/
+Disallow: /render-slide
+Disallow: /*?q=
 
 User-agent: Yeti
 Allow: /
@@ -15,5 +21,7 @@ Disallow: /mypage/
 Disallow: /write/
 Disallow: /reset-password/
 Disallow: /login/
+Disallow: /render-slide
+Disallow: /*?q=
 
 Sitemap: https://www.bookwiki.co.kr/sitemap.xml
