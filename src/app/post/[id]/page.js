@@ -11,7 +11,18 @@ import { boardName } from "@/lib/boards";
  *
  * 공개 조회로 안 보이는 글(삭제된 글 등)은 서버가 비워서 넘기고, 브라우저가 로그인 세션으로
  * 다시 읽는다 — 관리자는 휴지통의 글을 이 화면에서 계속 열어 볼 수 있다.
+ *
+ * ⭐ 그린 HTML 은 10분 캐시한다(ISR). 요청마다 새로 그리다가 크롤러 때문에 Vercel 무료 한도
+ * (Fluid Active CPU 4시간)를 다 썼다(2026-10-03). 고치기·지우기·옮기기·되살리기는
+ * `lib/postCache.refreshPostCache` 로 그 글만 바로 비운다. 조회수는 브라우저가 새로 읽는다.
+ * ⛔ 여기서 cookies()·headers()·searchParams 를 읽지 마라 — 읽는 순간 다시 요청마다 그린다.
  */
+export const revalidate = 600;
+
+// 빈 목록 = 빌드 때 미리 그리지 않고, 처음 열린 글부터 그려서 캐시한다
+export async function generateStaticParams() {
+  return [];
+}
 export async function generateMetadata({ params }) {
   const { id } = await params;
   const post = await getPublicPost(id);

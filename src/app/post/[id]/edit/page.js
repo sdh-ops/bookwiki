@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 import { POST_COLUMNS } from "@/lib/columns";
+import { refreshPostCache } from "@/lib/postCache";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import Editor from "@/components/Editor";
@@ -143,6 +144,7 @@ export default function EditPage() {
         if (error) {
             toast(error.message || "저장하지 못했습니다.", "error");
         } else {
+            await refreshPostCache(id);
             toast("수정했습니다.");
             router.push(`/post/${id}`);
             router.refresh();

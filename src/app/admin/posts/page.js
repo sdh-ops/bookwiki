@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { kstDateLabel } from "@/lib/date";
+import { refreshPostCache } from "@/lib/postCache";
 import Link from "next/link";
 
 const boardTypeNames = {
@@ -102,6 +103,7 @@ export default function AdminPostsPage() {
         if (error) {
             alert("삭제 실패: " + error.message);
         } else {
+            await refreshPostCache(postId);
             alert("삭제되었습니다.");
             setPosts(posts.filter(p => p.id !== postId));
         }

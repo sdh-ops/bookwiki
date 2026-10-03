@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { POST_COLUMNS } from "@/lib/columns";
+import { refreshPostCache } from "@/lib/postCache";
 import { BOARD_NAMES, boardHref, announceActiveBoard } from "@/lib/boards";
 import { kstDateTimeLabel } from "@/lib/date";
 import { toast, confirmDialog } from "@/lib/notify";
@@ -127,6 +128,13 @@ export default function PostDetailClient({ id, initialPost, initialNeighbors }) 
       }
       const { error: viewError } = await supabase.rpc("increment_view_count", { post_id: id });
       if (viewError) console.error("[post] view count:", viewError.message);
+      // 서버가 그린 글은 최대 10분 캐시라 조회수가 옛 값이다 — 지금 값을 다시 읽는다
+      if (serverRendered && !viewError) {
+        const { data, error } = await supabase.from("bw_posts").select("view_count").eq("id", id).maybeSingle();
+        if (cancelled) return;
+        if (error) console.error("[post] view count read:", error.message);
+        else if (data) setPost((prev) => (prev ? { ...prev, view_count: data.view_count } : prev));
+      }
     })();
     return () => {
       cancelled = true;
@@ -159,6 +167,7 @@ export default function PostDetailClient({ id, initialPost, initialNeighbors }) 
       toast(error.message || "삭제하지 못했습니다.", "error");
       return false;
     }
+    await refreshPostCache(id);
     toast("글을 삭제했습니다.");
     router.push(boardHref(post.board_type));
     return true;
@@ -220,6 +229,7 @@ export default function PostDetailClient({ id, initialPost, initialNeighbors }) 
       return;
     }
     setPost((prev) => ({ ...prev, ...patch }));
+    await refreshPostCache(id);
     toast(doneMessage);
   };
 
@@ -257,6 +267,7 @@ export default function PostDetailClient({ id, initialPost, initialNeighbors }) 
       return;
     }
     setPost((prev) => ({ ...prev, board_type: targetBoard }));
+    await refreshPostCache(id);
     setShowMoveModal(false);
     toast(`[${BOARD_NAMES[targetBoard]}] 게시판으로 옮겼습니다.`);
     router.refresh(); // 다음글·이전글을 새 게시판 기준으로

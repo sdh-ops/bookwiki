@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { refreshPostCache } from "@/lib/postCache";
 import Link from "next/link";
 
 const boardTypeNames = {
@@ -55,6 +56,7 @@ export default function DeletedPostsPage() {
         if (error) {
             alert("복원 실패: " + error.message);
         } else {
+            await refreshPostCache(postId);
             alert("복원되었습니다.");
             setPosts(posts.filter(p => p.id !== postId));
         }
