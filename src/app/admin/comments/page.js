@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { kstDateLabel } from "@/lib/date";
-import Link from "next/link";
+import Link from "@/components/AppLink";
 
 export default function AdminCommentsPage() {
     const [comments, setComments] = useState([]);

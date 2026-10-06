@@ -4,7 +4,7 @@ import { useEffect, useState, Suspense } from "react";
 import { supabase } from "@/lib/supabase";
 import { POST_COLUMNS } from "@/lib/columns";
 import { useSearchParams, useRouter } from "next/navigation";
-import Link from "next/link";
+import Link from "@/components/AppLink";
 import Banner from "@/components/Banner";
 import SiteFooter from "@/components/SiteFooter";
 import { PostRow, PostCard } from "@/components/board/PostListItems";

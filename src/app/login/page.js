@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { supabase } from "@/lib/supabase";
-import Link from "next/link";
+import Link from "@/components/AppLink";
 
 // 닉네임 금지 단어 목록
 const BANNED_NICKNAMES = ["bookwiki", "북위키", "북위커", "양화대교", "방장", "운영자", "관리자", "admin", "administrator"];

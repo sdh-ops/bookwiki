@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { supabase } from "@/lib/supabase";
 import { usePathname, useSearchParams } from "next/navigation";
-import Link from "next/link";
+import Link from "@/components/AppLink";
 import { NAV_TABS, subscribeActiveBoard, getAnnouncedBoard } from "@/lib/boards";
 
 // 글쓰기 버튼이 지금 보는 게시판을 미리 골라 두는 게시판 (비회원·자동수집 게시판은 제외)

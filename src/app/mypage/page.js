@@ -5,7 +5,7 @@ import { supabase } from "@/lib/supabase";
 import { POST_COLUMNS, COMMENT_COLUMNS } from "@/lib/columns";
 import { fetchMyUsername } from "@/lib/account";
 import { useSearchParams, useRouter } from "next/navigation";
-import Link from "next/link";
+import Link from "@/components/AppLink";
 import { BOARD_NAMES as boardTypeNames } from "@/lib/boards";
 import { kstShortDateLabel, kstDateTimeLabel } from "@/lib/date";
 import { toast } from "@/lib/notify";

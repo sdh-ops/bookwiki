@@ -115,6 +115,9 @@ PR 이 ⛔ 경로를 건드리면 자동 검사(`보호 구역 변경 알림`)�
 - **게시판 이름·주소**: `@/lib/boards` 의 `BOARD_NAMES`, `boardHref()`, `buildListHref()`. 게시판 목록을 새로 적지 않는다.
 - **날짜**: `@/lib/date` (한국 시간 기준). `new Date(...).toLocaleString()` 을 직접 쓰지 않는다.
 - **이동**: 누르면 다른 화면으로 가는 건 `<Link href>` (진짜 링크). `div onClick + router.push` 로 만들지 않는다.
+  - `Link` 는 **`import Link from "@/components/AppLink"`** 로 가져온다. `next/link` 를 직접 쓰면 eslint 가 막는다 —
+    Next 의 Link 는 화면에 보이는 링크마다 그 화면을 미리 받아 둬서, 홈 한 번에 요청이 60건씩 Vercel 로 나가
+    무료 한도(CDN 요청 월 100만)를 깎았다(2026-10-06). AppLink 는 미리 불러오기를 끈 같은 Link 라 쓰는 법은 똑같다.
 - **모바일 먼저**: 폭 375px 에서 가로로 넘치지 않을 것. 누르는 칸 40px 이상. 입력칸 글자 16px(`text-base md:text-sm`) — 아이폰이 확대하지 않게.
 - **스타일**: Tailwind 4. 주 색 `#355E3B`(진녹색). 새 색·새 글꼴은 이유가 있을 때만.
 - **서버 컴포넌트**에서 `jsdom` 계열(`isomorphic-dompurify` 등)을 쓰지 않는다 — Vercel 에서 페이지가 500 이 난다(2026-09 실제로 났다).

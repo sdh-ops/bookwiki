@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
+import Link from "@/components/AppLink";
 
 export default function AdminLayout({ children }) {
     const [isAdmin, setIsAdmin] = useState(false);

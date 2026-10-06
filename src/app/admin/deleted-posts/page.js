@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { refreshPostCache } from "@/lib/postCache";
-import Link from "next/link";
+import Link from "@/components/AppLink";
 
 const boardTypeNames = {
     job: "구인구직",

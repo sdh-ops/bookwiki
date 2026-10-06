@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo } from "react";
 import { supabase } from "@/lib/supabase";
-import Link from "next/link";
+import Link from "@/components/AppLink";
 import { useRouter } from "next/navigation";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer

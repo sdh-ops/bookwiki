@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/AppLink";
 
 // 홈과 글 상세가 각자 들고 있던 푸터를 하나로 (글 상세엔 문의 메일이 빠져 있었다)
 export default function SiteFooter({ narrow = false }) {

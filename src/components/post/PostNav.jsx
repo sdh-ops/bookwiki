@@ -1,7 +1,7 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
-import Link from "next/link";
+import Link from "@/components/AppLink";
 import { boardHref, boardName, backToListHref, readListPosition } from "@/lib/boards";
 import { toast } from "@/lib/notify";
 

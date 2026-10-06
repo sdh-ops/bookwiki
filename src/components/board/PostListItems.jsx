@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import Link from "@/components/AppLink";
 import { useRouter } from "next/navigation";
 import { boardName, rememberListPosition } from "@/lib/boards";
 import { kstShortDateLabel } from "@/lib/date";

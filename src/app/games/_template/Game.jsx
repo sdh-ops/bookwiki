@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useSyncExternalStore } from "react";
-import Link from "next/link";
+import Link from "@/components/AppLink";
 
 /**
  * 게임 템플릿 — 출판 용어 퀴즈.

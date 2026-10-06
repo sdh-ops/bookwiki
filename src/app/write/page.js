@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, Suspense } from "react";
 import { supabase } from "@/lib/supabase";
 import { toast } from "@/lib/notify";
 import { useRouter, useSearchParams } from "next/navigation";
-import Link from "next/link";
+import Link from "@/components/AppLink";
 import Editor from "@/components/Editor";
 import { uploadImage, uploadAttachment, formatFileSize } from "@/lib/upload";
 import { fetchVisibleCategories } from "@/lib/postCategories";

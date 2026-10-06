@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
+import Link from "@/components/AppLink";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { POST_COLUMNS } from "@/lib/columns";

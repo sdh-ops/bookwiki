@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
-import Link from "next/link";
+import Link from "@/components/AppLink";
 
 export default function ResetPasswordPage() {
     const [password, setPassword] = useState("");

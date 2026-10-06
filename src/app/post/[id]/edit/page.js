@@ -5,7 +5,7 @@ import { supabase } from "@/lib/supabase";
 import { POST_COLUMNS } from "@/lib/columns";
 import { refreshPostCache } from "@/lib/postCache";
 import { useRouter, useParams } from "next/navigation";
-import Link from "next/link";
+import Link from "@/components/AppLink";
 import Editor from "@/components/Editor";
 import { uploadImage, uploadAttachment, formatFileSize } from "@/lib/upload";
 import { BOARD_NAMES } from "@/lib/boards";
