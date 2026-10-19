@@ -1,8 +1,12 @@
+import { requireUser } from "@/lib/apiAuth";
 import { NextResponse } from "next/server";
 import puppeteer from "puppeteer";
 import { generateVisualSpecWithGemini } from "@/lib/ai/gemini";
 
 export async function POST(req) {
+  const auth = await requireUser(req);
+  if (auth.response) return auth.response;
+
   let browser = null;
   try {
     const { plan, analysis, slideIndex } = await req.json(); // slideIndex is optional

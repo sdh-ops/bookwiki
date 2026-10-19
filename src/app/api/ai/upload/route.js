@@ -1,3 +1,4 @@
+import { requireUser } from "@/lib/apiAuth";
 import { NextResponse } from "next/server";
 import fs from "fs";
 import path from "path";
@@ -6,6 +7,9 @@ import path from "path";
  * Dedicated Upload API for Background Images & Assets
  */
 export async function POST(req) {
+  const auth = await requireUser(req);
+  if (auth.response) return auth.response;
+
   try {
     const formData = await req.formData();
     const file = formData.get("file");

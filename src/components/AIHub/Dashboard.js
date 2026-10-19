@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import ProjectForm from "./ProjectForm";
+import { authHeader } from "@/lib/authHeader";
 
 export default function AIHubDashboard() {
   const [step, setStep] = useState("ingestion"); // ingestion, analysis, selection, production
@@ -28,6 +29,7 @@ export default function AIHubDashboard() {
 
       const response = await fetch("/api/ai/analyze", {
         method: "POST",
+        headers: await authHeader(),
         body: formData,
       });
 
@@ -56,7 +58,7 @@ export default function AIHubDashboard() {
     try {
       const response = await fetch("/api/ai/render", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...(await authHeader()) },
         body: JSON.stringify({
           plan: planOverride || selectedPlan,
           analysis: analysisData,
@@ -98,6 +100,7 @@ export default function AIHubDashboard() {
       // 1. Upload new background via Dedicated API
       const uploadRes = await fetch("/api/ai/upload", { 
         method: "POST",
+        headers: await authHeader(),
         body: formData,
       });
       const uploadData = await uploadRes.json();
