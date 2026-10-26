@@ -11,6 +11,7 @@ import { PostRow, PostCard } from "@/components/board/PostListItems";
 import Pagination from "@/components/board/Pagination";
 import BoardCalendar from "@/components/board/BoardCalendar";
 import { fetchVisibleCategories } from "@/lib/postCategories";
+import { jobPinCutoffs, pinnedJobOrFilter, regularJobOrFilter } from "@/lib/jobPin";
 import { BOARD_NAMES, LIST_TITLES, buildListHref, readListPosition, clearListScroll } from "@/lib/boards";
 
 const POSTS_PER_PAGE = 20;
@@ -61,13 +62,15 @@ async function fetchPostList({ board, page, q, jobFilter, category }) {
     return { posts: data || [], pinned: [], count: count || 0 };
   }
 
+  const pinCutoffs = jobPinCutoffs();
+
   const applyFilters = (query) => {
     let next = query;
     if (board === "hot") next = next.eq("is_hot", true);
     else if (board !== "all") next = next.eq("board_type", board);
     if (board === "job") {
-      // 자동 수집 글만 페이지로 넘긴다 — 직접 작성글은 1페이지 위에 따로 고정
-      next = next.eq("is_auto", true).not("author", "ilike", "%다산북스%").not("title", "ilike", "%다산북스%");
+      // 자동 수집 글 + 기한 지난 직접 작성글만 페이지로 넘긴다 — 기한 안의 직접 작성글은 1페이지 위에 따로 고정
+      next = next.or(regularJobOrFilter(pinCutoffs));
       if (jobFilter === "hiring" || jobFilter === "seeking") next = next.eq("job_type", jobFilter);
     }
     if (board === "free" && category) next = next.ilike("title", `%[${category}]%`);
@@ -76,8 +79,8 @@ async function fetchPostList({ board, page, q, jobFilter, category }) {
 
   let pinned = [];
   if (board === "job") {
-    // 직접 작성글(다산북스 포함). is_auto 를 관리자가 true 로 바꾼 글은 자동 쪽으로 간다.
-    let direct = base(POST_COLUMNS).eq("board_type", "job").or("is_auto.eq.false,is_auto.is.null");
+    // 기한 안의 직접 작성글(다산북스 포함) — 기한은 lib/jobPin. is_auto 를 관리자가 true 로 바꾼 글은 자동 쪽으로 간다.
+    let direct = base(POST_COLUMNS).eq("board_type", "job").not("is_auto", "is", true).or(pinnedJobOrFilter(pinCutoffs));
     if (jobFilter === "hiring" || jobFilter === "seeking") direct = direct.eq("job_type", jobFilter);
     const { data, error } = await direct.order("is_notice", { ascending: false }).order("created_at", { ascending: false });
     if (error) throw error;

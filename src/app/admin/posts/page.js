@@ -2,9 +2,40 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import { kstDateLabel } from "@/lib/date";
+import { kstDateLabel, shortWithWeekday } from "@/lib/date";
+import { isJobPinned, daysUntilDeadline, daysSinceUpload, OPEN_ENDED_PIN_DAYS } from "@/lib/jobPin";
 import { refreshPostCache } from "@/lib/postCache";
 import Link from "@/components/AppLink";
+
+// 구인 글의 마감일 칸 — 직접 작성글은 이 기한이 지나면 1페이지 고정에서 내려간다(lib/jobPin)
+function JobDeadline({ post }) {
+    if (post.board_type !== "job") return <span className="text-gray-300">-</span>;
+    if (post.deadline) {
+        const left = daysUntilDeadline(post.deadline);
+        const tag = left > 0 ? `D-${left}` : left === 0 ? "오늘" : "지남";
+        return (
+            <span className={left < 0 ? "text-gray-400" : "text-gray-700"}>
+                {shortWithWeekday(post.deadline)} <span className={left < 0 ? "" : "text-red-600 font-bold"}>{tag}</span>
+            </span>
+        );
+    }
+    const days = daysSinceUpload(post.created_at);
+    return (
+        <span className={days > OPEN_ENDED_PIN_DAYS ? "text-gray-400" : "text-gray-700"} title={`충원시 글은 올린 날부터 ${OPEN_ENDED_PIN_DAYS}일까지 고정`}>
+            충원시 · D+{days}
+        </span>
+    );
+}
+
+// 상태 배지 — 기한 지난 구인 직접 작성글은 「기한 지남」(고정에서 내려가 일반 목록에 섞여 있다)
+function StatusBadge({ post }) {
+    if (post.is_notice) return <span className="text-[10px] bg-blue-500 text-white px-1.5 py-0.5 rounded font-bold">공지</span>;
+    if (post.is_auto) return <span className="text-[10px] bg-gray-400 text-white px-1.5 py-0.5 rounded">자동</span>;
+    if (post.board_type === "job" && !isJobPinned(post)) {
+        return <span className="text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded whitespace-nowrap">기한 지남</span>;
+    }
+    return <span className="text-[10px] bg-green-500 text-white px-1.5 py-0.5 rounded">직접</span>;
+}
 
 const boardTypeNames = {
     job: "구인구직",
@@ -30,7 +61,7 @@ export default function AdminPostsPage() {
 
         let query = supabase
             .from("bw_posts")
-            .select("id, title, author, board_type, is_notice, is_auto, created_at, view_count")
+            .select("id, title, author, board_type, is_notice, is_auto, created_at, view_count, deadline")
             .eq("is_deleted", false)
             .order("created_at", { ascending: false })
             .limit(100);
@@ -189,13 +220,7 @@ export default function AdminPostsPage() {
                                 <div key={post.id} className={`p-4 ${post.is_notice ? 'bg-blue-50' : ''}`}>
                                     <div className="flex items-start justify-between gap-2 mb-2">
                                         <div className="flex items-center gap-2">
-                                            {post.is_notice ? (
-                                                <span className="text-[10px] bg-blue-500 text-white px-1.5 py-0.5 rounded font-bold">공지</span>
-                                            ) : post.is_auto ? (
-                                                <span className="text-[10px] bg-gray-400 text-white px-1.5 py-0.5 rounded">자동</span>
-                                            ) : (
-                                                <span className="text-[10px] bg-green-500 text-white px-1.5 py-0.5 rounded">직접</span>
-                                            )}
+                                            <StatusBadge post={post} />
                                             <span className="text-[10px] text-gray-400">{boardTypeNames[post.board_type]}</span>
                                         </div>
                                         <span className="text-[10px] text-gray-400">{kstDateLabel(post.created_at)}</span>
@@ -203,6 +228,12 @@ export default function AdminPostsPage() {
                                     <Link href={`/post/${post.id}`} className="text-sm text-gray-800 hover:text-[#355E3B] font-medium block mb-2">
                                         {post.title.length > 35 ? post.title.substring(0, 35) + "..." : post.title}
                                     </Link>
+                                    {post.board_type === "job" && (
+                                        <div className="text-[11px] mb-2">
+                                            <span className="text-gray-400">마감 </span>
+                                            <JobDeadline post={post} />
+                                        </div>
+                                    )}
                                     <div className="flex items-center justify-between">
                                         <span className="text-[10px] text-gray-500">{post.author} · 조회 {post.view_count || 0}</span>
                                         <div className="flex gap-1">
@@ -249,19 +280,20 @@ export default function AdminPostsPage() {
                                 <th className="px-3 md:px-4 py-3 w-20 hidden lg:table-cell">작성자</th>
                                 <th className="px-3 md:px-4 py-3 w-16 text-center hidden lg:table-cell">조회</th>
                                 <th className="px-3 md:px-4 py-3 w-24 text-center">작성일</th>
+                                <th className="px-3 md:px-4 py-3 w-32 text-center whitespace-nowrap">마감일</th>
                                 <th className="px-3 md:px-4 py-3 w-28 text-center">관리</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
                             {loading ? (
                                 <tr>
-                                    <td colSpan="7" className="px-4 py-8 text-center text-gray-400">
+                                    <td colSpan="8" className="px-4 py-8 text-center text-gray-400">
                                         로딩 중...
                                     </td>
                                 </tr>
                             ) : filteredPosts.length === 0 ? (
                                 <tr>
-                                    <td colSpan="7" className="px-4 py-8 text-center text-gray-400">
+                                    <td colSpan="8" className="px-4 py-8 text-center text-gray-400">
                                         게시물이 없습니다.
                                     </td>
                                 </tr>
@@ -269,13 +301,7 @@ export default function AdminPostsPage() {
                                 filteredPosts.map((post) => (
                                     <tr key={post.id} className={`hover:bg-gray-50 ${post.is_notice ? 'bg-blue-50' : ''}`}>
                                         <td className="px-3 md:px-4 py-3">
-                                            {post.is_notice ? (
-                                                <span className="text-[10px] bg-blue-500 text-white px-1.5 py-0.5 rounded font-bold">공지</span>
-                                            ) : post.is_auto ? (
-                                                <span className="text-[10px] bg-gray-400 text-white px-1.5 py-0.5 rounded">자동</span>
-                                            ) : (
-                                                <span className="text-[10px] bg-green-500 text-white px-1.5 py-0.5 rounded">직접</span>
-                                            )}
+                                            <StatusBadge post={post} />
                                         </td>
                                         <td className="px-3 md:px-4 py-3">
                                             <Link href={`/post/${post.id}`} className="text-gray-800 hover:text-[#355E3B] font-medium text-xs md:text-sm">
@@ -289,6 +315,9 @@ export default function AdminPostsPage() {
                                         <td className="px-3 md:px-4 py-3 text-xs text-gray-400 text-center hidden lg:table-cell">{post.view_count || 0}</td>
                                         <td className="px-3 md:px-4 py-3 text-xs text-gray-400 text-center">
                                             {kstDateLabel(post.created_at)}
+                                        </td>
+                                        <td className="px-3 md:px-4 py-3 text-xs text-center whitespace-nowrap">
+                                            <JobDeadline post={post} />
                                         </td>
                                         <td className="px-3 md:px-4 py-3 text-center">
                                             <div className="flex gap-1 justify-center">
