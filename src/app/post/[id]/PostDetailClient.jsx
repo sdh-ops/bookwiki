@@ -15,7 +15,7 @@ import Modal, { ModalActions } from "@/components/Modal";
 import { MemberBadge } from "@/components/board/PostListItems";
 import PostBody from "@/components/post/PostBody";
 import CommentSection from "@/components/post/CommentSection";
-import { PostTopBar, PostBottomNav } from "@/components/post/PostNav";
+import { PostTopBar, PostBottomNav, sharePost } from "@/components/post/PostNav";
 
 function useViewer() {
   const [user, setUser] = useState(undefined); // undefined = 확인 전
@@ -63,20 +63,23 @@ function NotFound() {
 // 관리 버튼 — 작은 글씨지만 누르는 칸은 넉넉하게
 const ACTION_BTN = "px-2.5 min-h-9 rounded-md hover:bg-gray-100 transition";
 
+// 순서: 공유 · 수정 · (관리자 버튼) · 삭제. 공유는 누구에게나 보인다.
 function ManageBar({ post, user, isAdmin, onEdit, onDelete, onToggleHot, onToggleDirect, onMove }) {
   const isOwner = user && post.user_id === user.id;
-  const canManage = isAdmin || !post.user_id || isOwner;
-  if (!canManage) return null;
+  const canManage = user !== undefined && (isAdmin || !post.user_id || isOwner); // 로그인 확인 전엔 공유만
   const canEdit = !isAdmin || isOwner; // 관리자는 남의 글을 고치지 않는다(이동·삭제만)
 
   return (
     <div className="flex flex-wrap items-center justify-end -mr-2 text-xs font-bold text-gray-500">
-      {canEdit && (
+      <button type="button" onClick={() => sharePost(post.title)} className={`${ACTION_BTN} hover:text-gray-900`}>
+        공유
+      </button>
+      {canManage && canEdit && (
         <button type="button" onClick={onEdit} className={`${ACTION_BTN} hover:text-gray-900`}>
           수정
         </button>
       )}
-      {isAdmin && (
+      {canManage && isAdmin && (
         <>
           <button type="button" onClick={onToggleHot} className={`${ACTION_BTN} text-red-500`}>
             {post.is_hot ? "🔥HOT해제" : "♨️HOT지정"}
@@ -89,9 +92,11 @@ function ManageBar({ post, user, isAdmin, onEdit, onDelete, onToggleHot, onToggl
           </button>
         </>
       )}
-      <button type="button" onClick={onDelete} className={`${ACTION_BTN} hover:text-red-600`}>
-        삭제
-      </button>
+      {canManage && (
+        <button type="button" onClick={onDelete} className={`${ACTION_BTN} hover:text-red-600`}>
+          삭제
+        </button>
+      )}
     </div>
   );
 }
@@ -298,18 +303,16 @@ export default function PostDetailClient({ id, initialPost, initialNeighbors }) 
                 </time>
                 <span className="text-xs text-gray-500">조회 {post.view_count || 0}</span>
               </div>
-              {user !== undefined && (
-                <ManageBar
-                  post={post}
-                  user={user}
-                  isAdmin={isAdmin}
-                  onEdit={handleEdit}
-                  onDelete={handleDelete}
-                  onToggleHot={handleToggleHot}
-                  onToggleDirect={handleToggleDirect}
-                  onMove={openMove}
-                />
-              )}
+              <ManageBar
+                post={post}
+                user={user}
+                isAdmin={isAdmin}
+                onEdit={handleEdit}
+                onDelete={handleDelete}
+                onToggleHot={handleToggleHot}
+                onToggleDirect={handleToggleDirect}
+                onMove={openMove}
+              />
             </div>
           </header>
 

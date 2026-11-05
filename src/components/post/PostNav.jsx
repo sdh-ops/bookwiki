@@ -27,22 +27,42 @@ function useBackHref(boardType) {
   return { href: snapshot.slice(1), keepScroll: snapshot[0] === "1" };
 }
 
-async function sharePost(title) {
-  const url = window.location.href;
-  if (navigator.share) {
-    try {
-      await navigator.share({ title, url });
-      return;
-    } catch (err) {
-      if (err?.name === "AbortError") return; // 사용자가 공유 창을 닫음
-    }
-  }
+// 공유 문구 = 「제목(줄바꿈)주소」 — 카톡에 붙이면 제목이 먼저 보이고 아래 링크가 미리보기로 펼쳐진다
+export function shareText(title, url) {
+  const head = (title || "").trim();
+  return head ? `${head}\n${url}` : url;
+}
+
+// 클립보드 API 가 막힌 웹뷰(일부 인앱 브라우저)용 예전 방식
+function copyWithTextarea(text) {
+  const el = document.createElement("textarea");
+  el.value = text;
+  el.setAttribute("readonly", "");
+  el.style.position = "fixed";
+  el.style.opacity = "0";
+  document.body.appendChild(el);
+  el.select();
   try {
-    await navigator.clipboard.writeText(url);
-    toast("링크를 복사했습니다.");
-  } catch {
-    toast("링크 복사가 막혀 있습니다. 주소창의 주소를 복사해 주세요.", "error");
+    return document.execCommand("copy");
+  } finally {
+    document.body.removeChild(el);
   }
+}
+
+export async function sharePost(title) {
+  const text = shareText(title, window.location.href);
+  try {
+    await navigator.clipboard.writeText(text);
+    toast("제목과 링크를 복사했습니다.");
+    return;
+  } catch {
+    // 아래 예전 방식으로 한 번 더
+  }
+  if (copyWithTextarea(text)) {
+    toast("제목과 링크를 복사했습니다.");
+    return;
+  }
+  toast("복사가 막혀 있습니다. 주소창의 주소를 복사해 주세요.", "error");
 }
 
 // 글 맨 위 — 어느 게시판 글인지, 한 번에 목록으로
@@ -81,12 +101,12 @@ function NeighborLink({ label, post }) {
   );
 }
 
-// 글 아래 — 목록으로 · 공유 · 다음글/이전글
+// 글 아래 — 목록으로 · 다음글/이전글 (공유는 글 머리의 수정·삭제 앞으로 옮겼다)
 export function PostBottomNav({ post, neighbors }) {
   const back = useBackHref(post.board_type);
   return (
     <div className="mt-10">
-      <div className="flex items-center justify-between gap-2 mb-4">
+      <div className="flex items-center gap-2 mb-4">
         <Link
           href={back.href}
           scroll={!back.keepScroll}
@@ -94,13 +114,6 @@ export function PostBottomNav({ post, neighbors }) {
         >
           <span aria-hidden="true">☰</span> 목록으로
         </Link>
-        <button
-          type="button"
-          onClick={() => sharePost(post.title)}
-          className="inline-flex items-center justify-center gap-1 min-h-11 px-4 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100"
-        >
-          <span aria-hidden="true">🔗</span> 공유
-        </button>
       </div>
       {neighbors && (
         <div className="border-y border-gray-200">
