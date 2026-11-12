@@ -8,6 +8,7 @@ import { useRouter, useParams } from "next/navigation";
 import Link from "@/components/AppLink";
 import Editor from "@/components/Editor";
 import { uploadImage, uploadAttachment, formatFileSize } from "@/lib/upload";
+import { findTemporaryImages } from "@/lib/externalImages";
 import { BOARD_NAMES } from "@/lib/boards";
 import { toast } from "@/lib/notify";
 
@@ -104,6 +105,11 @@ export default function EditPage() {
         e.preventDefault();
         if (!title || !content) {
             toast("제목과 내용을 입력해 주세요.", "error");
+            return;
+        }
+        const temporaryImages = findTemporaryImages(content);
+        if (temporaryImages.length) {
+            toast(`본문 이미지 ${temporaryImages.length}장이 곧 사라지는 임시 주소입니다(다른 사이트에서 복사). 그 이미지를 지우고, 파일로 저장해 다시 넣어 주세요.`, "error");
             return;
         }
 

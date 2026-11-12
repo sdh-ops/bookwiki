@@ -67,6 +67,16 @@ header button:focus-visible {
   height: auto;
 }
 
+.post-content .post-img-broken {
+  display: inline-block;
+  margin: 0.5rem 0;
+  padding: 0.5rem 0.75rem;
+  border: 1px dashed #d1d5db;
+  border-radius: 0.5rem;
+  color: #9ca3af;
+  font-size: 0.8125rem;
+}
+
 .post-content table {
   max-width: 100%;
   overflow-x: auto;

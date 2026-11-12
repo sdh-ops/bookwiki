@@ -10,6 +10,72 @@ import Highlight from "@tiptap/extension-highlight";
 import { useEffect, useRef } from "react";
 import EditorToolbar from "./EditorToolbar";
 import { toast } from "@/lib/notify";
+import { fetchImageAsFile, isExternalImageUrl, isTemporaryImageUrl } from "@/lib/externalImages";
+
+/** 문서 안 이미지 중 src 가 같은 노드 위치(뒤에서부터 — 지워도 앞 위치가 안 밀린다) */
+function imagePositions(doc, src) {
+  const found = [];
+  doc.descendants((node, pos) => {
+    if (node.type.name === "image" && node.attrs.src === src) found.push(pos);
+  });
+  return found.reverse();
+}
+
+/**
+ * 붙여 넣은 바깥 이미지를 우리 저장소로 옮긴다.
+ * 못 옮긴 것 중 임시 주소(곧 만료)는 글에서 빼고 알린다 — 남겨 두면 몇 분 뒤 깨진다.
+ * 임시가 아닌 바깥 주소는 그대로 둔다(그 사이트가 살아 있는 동안은 보인다).
+ */
+async function rehostExternalImages(view, upload) {
+  const srcs = new Set();
+  view.state.doc.descendants((node) => {
+    if (node.type.name === "image" && isExternalImageUrl(node.attrs.src)) srcs.add(node.attrs.src);
+  });
+  if (!srcs.size) return;
+
+  let moved = 0;
+  let dropped = 0;
+  for (const src of srcs) {
+    const file = await fetchImageAsFile(src);
+    let url = null;
+    if (file) {
+      try {
+        url = await upload(file);
+      } catch {
+        url = null;
+      }
+    }
+    if (view.isDestroyed) return;
+    const positions = imagePositions(view.state.doc, src);
+    if (!positions.length) continue;
+    const tr = view.state.tr;
+    if (url) {
+      positions.forEach((pos) => {
+        const node = tr.doc.nodeAt(pos);
+        if (node) tr.setNodeMarkup(pos, undefined, { ...node.attrs, src: url });
+      });
+      moved += 1;
+    } else if (isTemporaryImageUrl(src)) {
+      positions.forEach((pos) => {
+        const node = tr.doc.nodeAt(pos);
+        if (node) tr.delete(pos, pos + node.nodeSize);
+      });
+      dropped += 1;
+    } else {
+      continue;
+    }
+    view.dispatch(tr);
+  }
+
+  if (dropped) {
+    toast(
+      `붙여 넣은 이미지 ${dropped}장은 곧 사라지는 임시 주소라 뺐습니다. 이미지를 파일로 저장한 뒤 끌어다 놓거나 붙여 넣어 주세요.`,
+      "error",
+    );
+  } else if (moved) {
+    toast(`붙여 넣은 이미지 ${moved}장을 북위키에 올렸습니다.`);
+  }
+}
 
 export default function Editor({ content, onChange, onImageUpload }) {
   // ref로 최신 onImageUpload 유지 (stale closure 방지)
@@ -78,7 +144,14 @@ export default function Editor({ content, onChange, onImageUpload }) {
         if (!onImageUploadRef.current) return false;
         const items = Array.from(event.clipboardData?.items || []);
         const imageItem = items.find((item) => item.type.startsWith("image/"));
-        if (!imageItem) return false;
+        if (!imageItem) {
+          // 웹 화면을 복사해 붙이면 이미지가 바깥 주소로 들어온다 — 붙인 뒤 우리 저장소로 옮긴다
+          const html = event.clipboardData?.getData("text/html");
+          if (html && /<img\b/i.test(html)) {
+            setTimeout(() => rehostExternalImages(view, onImageUploadRef.current), 0);
+          }
+          return false;
+        }
 
         event.preventDefault();
         const file = imageItem.getAsFile();

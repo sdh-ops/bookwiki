@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useRef, useSyncExternalStore } from "react";
 // isomorphic-dompurify 는 서버에서 jsdom 을 끌어오는데, Vercel 에선 jsdom 이 파일을 못 찾아 글 상세가 통째로 500 이 났다.
 // 본문 소독은 브라우저의 DOMPurify 로만 한다(서버는 본문 자리를 비워 두고 곧바로 채운다).
 import DOMPurify from "dompurify";
@@ -169,17 +169,45 @@ function DocumentPreview({ url }) {
 /** 글 본문 — 채용 정보 · 본문 · 투표 · 첨부 · 문서 미리보기 */
 const noSubscribe = () => () => {};
 
+// 본문 이미지가 깨지면(바깥 주소 만료·삭제) 깨진 아이콘 대신 한 줄 안내를 둔다
+function markBroken(img) {
+  if (img.dataset.broken) return;
+  img.dataset.broken = "1";
+  const note = document.createElement("span");
+  note.className = "post-img-broken";
+  note.textContent = "이미지를 불러올 수 없습니다";
+  img.replaceWith(note);
+}
+
+function useBrokenImageNotice(ref, html) {
+  useEffect(() => {
+    const root = ref.current;
+    if (!root) return undefined;
+    root.querySelectorAll("img").forEach((img) => {
+      if (img.complete && img.naturalWidth === 0 && img.getAttribute("src")) markBroken(img);
+    });
+    // img 의 error 는 버블링이 안 된다 — 캡처 단계에서 받는다
+    const onError = (e) => {
+      if (e.target instanceof HTMLImageElement) markBroken(e.target);
+    };
+    root.addEventListener("error", onError, true);
+    return () => root.removeEventListener("error", onError, true);
+  }, [ref, html]);
+}
+
 export default function PostBody({ post, postId, user }) {
   const inBrowser = useSyncExternalStore(noSubscribe, () => true, () => false);
   const html = useMemo(
     () => (inBrowser ? DOMPurify.sanitize(post.content || "", SANITIZE_OPTIONS) : ""),
     [inBrowser, post.content]
   );
+  const bodyRef = useRef(null);
+  useBrokenImageNotice(bodyRef, html);
 
   return (
     <div className="min-h-[200px] text-gray-800 leading-relaxed text-[15px] md:text-sm">
       <JobInfo post={post} />
-      <div className="post-content prose prose-sm max-w-none mb-6 overflow-x-auto break-words [overflow-wrap:anywhere]" dangerouslySetInnerHTML={{ __html: html }} />
+      <div ref={bodyRef} className="post-content prose prose-sm max-w-none mb-6 overflow-x-auto break-words [overflow-wrap:anywhere]" dangerouslySetInnerHTML={{ __html: html }} />
       {post.poll_options?.length > 0 && <PollWidget postId={postId} pollOptions={post.poll_options} user={user} />}
       <Attachments attachments={post.attachments} />
       <DocumentPreview url={post.preview_url} />

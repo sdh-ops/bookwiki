@@ -7,6 +7,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "@/components/AppLink";
 import Editor from "@/components/Editor";
 import { uploadImage, uploadAttachment, formatFileSize } from "@/lib/upload";
+import { findTemporaryImages } from "@/lib/externalImages";
 import { fetchVisibleCategories } from "@/lib/postCategories";
 
 // 비회원 익명 닉네임 생성용 단어 목록
@@ -106,6 +107,11 @@ function WritePageContent() {
         e.preventDefault();
         if (!title || !content || !author) {
             toast("제목·내용·닉네임을 모두 입력해 주세요.", "error");
+            return;
+        }
+        const temporaryImages = findTemporaryImages(content);
+        if (temporaryImages.length) {
+            toast(`본문 이미지 ${temporaryImages.length}장이 곧 사라지는 임시 주소입니다(다른 사이트에서 복사). 그 이미지를 지우고, 파일로 저장해 다시 넣어 주세요.`, "error");
             return;
         }
 
